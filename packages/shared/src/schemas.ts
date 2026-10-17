@@ -237,5 +237,9 @@ export const CvModel = z.object({
   created_at: z.string(),
   /** where a model trained outside the browser came from (training kit or Droid); see training/ */
   provenance: ModelProvenance.nullable().optional(),
+  /** Droid+Daytona generated analyzer source (Python CVModule); null for ridge heads. */
+  source_code: z.string().nullable().optional(),
+  /** Tuned quality/measurement params from Daytona experiments. */
+  module_params: z.record(z.number()).nullable().optional(),
 });
 export type CvModel = z.infer<typeof CvModel>;

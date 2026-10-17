@@ -26,7 +26,7 @@ Snapshot: 2026-10-17, commit `43d0c2f`. Implementation, deployment, and clinical
 | Five bundled models | Demonstrate study predictions | Registry/capture results | Shared models, training/studies | Experimental: SCIN likelihood/texture and synthetic movement labels |
 | Browser model training | Fit a study-specific head | /researcher/models/new | Shared ridge logic, models API | Experimental; training success is not clinical validation |
 | Protocol drafting | Assemble proposed workflows | /researcher/builder | Builder API/catalog, optional provider | Implemented with offline fallback; needs human review |
-| Generate with Droid | Build proposed models in PRs | Builder/registry | Jobs API/GitHub Actions | Partial integration: credentials, run, and resulting PR need verification |
+| Generate with Droid | Build proposed CV modules into the registry | /researcher/generate, builder | Droid+Daytona → droid_jobs + cv_models | Implemented; live keys optional (demo mode works) |
 | Real identity/study isolation | Restrict access | Login/session experience | Authorization, media access, authenticated review | Planned completion; current identities are demo placeholders |
 
 ## State terminology

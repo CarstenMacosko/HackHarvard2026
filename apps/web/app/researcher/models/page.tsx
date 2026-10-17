@@ -21,7 +21,14 @@ export default async function ModelsPage() {
       <PageHeader
         title="Model registry"
         description="Every measurement traces to a versioned model. Built-in modules run on-device and in the CV service; researcher-trained models add study-specific measurements on top of their feature vectors."
-        actions={<ButtonLink href="/researcher/models/new">Train a model</ButtonLink>}
+        actions={
+          <>
+            <ButtonLink href="/researcher/generate" variant="secondary">
+              Generate module
+            </ButtonLink>
+            <ButtonLink href="/researcher/models/new">Train a model</ButtonLink>
+          </>
+        }
       />
 
       <h2 className="mb-3 text-sm font-semibold text-slate-900">Built-in CV modules</h2>
@@ -169,11 +176,13 @@ export default async function ModelsPage() {
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title="2 · Train on a public dataset, or ask Droid" />
+          <CardHeader title="2 · Generate with Droid + Daytona" />
           <CardBody className="text-sm text-slate-600">
-            The training kit (<code className="font-mono text-xs">training/</code>) turns a short study spec into a trained, evaluated model with a model card, on public data such as SCIN.
-            Droid writes the spec (and a new module or dataset loader when needed) from a workflow-builder request and opens a pull request. Large datasets run on Princeton Adroit (
-            <code className="font-mono text-xs">adroit/</code>).
+            Describe an assessment; Droid drafts a module from existing CV components and Daytona sweeps parameters in sandboxes. The result is saved to{" "}
+            <code className="font-mono text-xs">cv_models</code> for review.{" "}
+            <Link href="/researcher/generate" className="font-medium text-brand-700 hover:underline">
+              Open the generator →
+            </Link>
           </CardBody>
         </Card>
         <Card>

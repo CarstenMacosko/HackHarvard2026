@@ -11,7 +11,7 @@ How to go from two hand-built CV modules to a system that adapts to any longitud
 | Feature vectors | 16 skin colour and texture features, 10 tapping and 8 tremor features | `MeasureResult.features` |
 | Backbone embedding | MediaPipe Image Embedder (MobileNet-V3 Small, 1,024 values) on every accepted photo, on-device and on the server | `services/cv/app/embedding.py`, `packages/cv/src/embedding.ts` |
 | Study-specific heads | Ridge regression on features (+ embedding), trained in the browser wizard or by the training kit on public data, cross-validated and registered with a validation status and provenance | `packages/shared/src/models.ts`, `training/`, `/researcher/models` |
-| Model generation | Factory Droid writes a study spec (or a new module or dataset loader), trains it with the kit and opens a pull request | `.github/workflows/droid-model.yml`, `docs/DROID.md` |
+| Model generation | Factory Droid + Daytona generate a module; result saved to `cv_models` for review | `/researcher/generate`, `docs/MODULE_GENERATION.md` |
 | Runtimes | The same module runs on-device (TypeScript port, parity-tested to OpenCV's integer math) and on the server (Python) | `packages/cv/test/parity.test.ts` |
 | Governance | Clinician review of every result, a validation tag on every measurement, an audit log, model versions on every observation | `/researcher/review`, `/researcher/audit` |
 

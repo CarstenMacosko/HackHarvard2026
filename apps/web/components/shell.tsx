@@ -34,6 +34,7 @@ const ICONS = {
   submissions: Inbox,
   models: Boxes,
   train: BrainCircuit,
+  generate: FlaskConical,
   builder: Sparkles,
   audit: FileClock,
   settings: Settings,

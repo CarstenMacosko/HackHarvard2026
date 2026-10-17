@@ -1,37 +1,20 @@
 "use client";
 
 import type { TaskConfig } from "@vf/shared";
-import { Bot, Check, Copy, ExternalLink, GitPullRequest, Loader2 } from "lucide-react";
+import { Bot, ExternalLink, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, CardBody, CardHeader, EmptyState, Table, Td, Th, THead, Tr } from "@/components/ui";
 
 interface DispatchResult {
+  job_id: string;
   request_id: string;
-  dispatched: boolean;
-  ref: string | null;
-  command: string;
+  mode: string;
+  daytona: boolean;
+  droid: boolean;
 }
 
-function CopyButton({ text }: { text: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      onClick={() => {
-        void navigator.clipboard?.writeText(text).then(() => {
-          setDone(true);
-          setTimeout(() => setDone(false), 1500);
-        });
-      }}
-    >
-      {done ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {done ? "Copied" : "Copy"}
-    </Button>
-  );
-}
-
-/** "Generate with Droid" for one measurement of a drafted task. */
+/** "Generate with Droid" for one measurement of a drafted task — starts DB-backed generation. */
 export function DroidGenerate({ condition, task, measurement, description }: { condition: string; task: TaskConfig; measurement: TaskConfig["measurements"][number]; description: string }) {
   const [state, setState] = useState<"idle" | "sending" | "done">("idle");
   const [result, setResult] = useState<DispatchResult | null>(null);
@@ -62,23 +45,19 @@ export function DroidGenerate({ condition, task, measurement, description }: { c
   }
 
   if (state === "done" && result) {
-    return result.dispatched ? (
+    return (
       <div className="mt-2 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-        Droid is building <span className="font-medium">{measurement.label}</span> (request <span className="font-mono">{result.request_id}</span>, branch {result.ref}). It opens a draft pull
-        request for review when it finishes; follow it under{" "}
+        Droid is generating <span className="font-medium">{measurement.label}</span> (job{" "}
+        <span className="font-mono">{result.job_id}</span>
+        ). Watch progress under{" "}
+        <Link href={`/researcher/generate`} className="font-medium underline">
+          Generate module
+        </Link>{" "}
+        or{" "}
         <Link href="/researcher/models#droid" className="font-medium underline">
           Model registry → Droid jobs
         </Link>
-        .
-      </div>
-    ) : (
-      <div className="mt-2 space-y-2 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-700">
-        <p>
-          GitHub isn&apos;t connected to this deployment (set <span className="font-mono">GITHUB_TOKEN</span> and <span className="font-mono">GITHUB_REPOSITORY</span>), so the request was recorded
-          but not sent. Start the same Droid run from a terminal:
-        </p>
-        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all rounded bg-white p-2 font-mono text-[11px] ring-1 ring-slate-200">{result.command}</pre>
-        <CopyButton text={result.command} />
+        . The trained module is saved to the database when ready.
       </div>
     );
   }
@@ -95,35 +74,38 @@ export function DroidGenerate({ condition, task, measurement, description }: { c
 interface Job {
   id: string;
   module: string;
-  request: { condition?: string; measurement?: { label?: string }; media_type?: string };
+  request: { condition?: string; measurement?: { label?: string }; measurements?: { label?: string }[]; media_type?: string; description?: string };
   status: "requested" | "dispatched" | "running" | "succeeded" | "failed";
-  run_url: string | null;
-  pr_url: string | null;
   error: string | null;
   created_at: string;
-  pull_request?: { number: number; url: string; state: string; draft: boolean } | null;
+  progress?: {
+    step?: string;
+    model_id?: string | null;
+    module_id?: string | null;
+    mode?: string;
+  } | null;
 }
 
 const JOB_BADGE: Record<Job["status"], [string, "green" | "blue" | "red" | "slate"]> = {
-  requested: ["not sent: run the gh command", "slate"],
+  requested: ["queued", "slate"],
   dispatched: ["queued", "blue"],
   running: ["running", "blue"],
-  succeeded: ["finished", "green"],
+  succeeded: ["ready in DB", "green"],
   failed: ["failed", "red"],
 };
 
-/** Droid model requests (droid_jobs), their GitHub Actions runs and the pull requests they opened. */
+/** Droid+Daytona jobs stored in droid_jobs (and models in cv_models). */
 export function DroidJobs() {
-  const [data, setData] = useState<{ configured: boolean; jobs: Job[]; error?: string } | null>(null);
+  const [data, setData] = useState<{ jobs: Job[]; daytona?: boolean; droid?: boolean; error?: string } | null>(null);
   const load = useCallback(() => {
     fetch("/api/droid/jobs", { cache: "no-store" })
       .then((r) => r.json())
       .then(setData)
-      .catch(() => setData({ configured: false, jobs: [], error: "Could not load Droid jobs." }));
+      .catch(() => setData({ jobs: [], error: "Could not load Droid jobs." }));
   }, []);
   useEffect(() => {
     load();
-    const t = setInterval(load, 20_000);
+    const t = setInterval(load, 8_000);
     return () => clearInterval(t);
   }, [load]);
 
@@ -131,8 +113,15 @@ export function DroidJobs() {
     <Card>
       <CardHeader
         title="Droid jobs"
-        description="Factory Droid builds a study model with the training kit in GitHub Actions, then opens a draft pull request with the spec, the trained model and its model card."
-        actions={data && <Badge tone={data.configured ? "green" : "slate"}>{data.configured ? "GitHub connected" : "GitHub not connected"}</Badge>}
+        description="Factory Droid + Daytona generate analyzers in-process. Successful modules are written to cv_models in the database for review and approval."
+        actions={
+          data && (
+            <div className="flex gap-1.5">
+              <Badge tone={data.droid ? "green" : "slate"}>{data.droid ? "Droid live" : "Droid template"}</Badge>
+              <Badge tone={data.daytona ? "blue" : "slate"}>{data.daytona ? "Daytona cloud" : "Daytona local"}</Badge>
+            </div>
+          )
+        }
       />
       {!data ? (
         <CardBody className="text-sm text-slate-500">Loading…</CardBody>
@@ -141,35 +130,32 @@ export function DroidJobs() {
           <THead>
             <Th>Request</Th>
             <Th>Status</Th>
-            <Th>Pull request</Th>
+            <Th>Model</Th>
             <Th className="text-right">Requested</Th>
           </THead>
           <tbody>
             {data.jobs.map((j) => {
-              const [label, tone] = JOB_BADGE[j.status];
-              const pr = j.pull_request;
+              const [label, tone] = JOB_BADGE[j.status] ?? ["unknown", "slate"];
+              const title = j.request.measurement?.label ?? j.request.measurements?.[0]?.label ?? j.module;
+              const step = j.progress?.step;
               return (
                 <Tr key={j.id}>
                   <Td>
-                    {j.run_url ? (
-                      <a href={j.run_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-slate-900 hover:underline">
-                        {j.request.measurement?.label ?? j.module} <ExternalLink className="h-3 w-3 text-slate-400" />
-                      </a>
-                    ) : (
-                      <span className="font-medium text-slate-900">{j.request.measurement?.label ?? j.module}</span>
-                    )}
-                    <span className="text-slate-400"> · {j.request.condition}</span>
+                    <Link href="/researcher/generate" className="inline-flex items-center gap-1 font-medium text-slate-900 hover:underline">
+                      {title} <ExternalLink className="h-3 w-3 text-slate-400" />
+                    </Link>
+                    <span className="text-slate-400"> · {j.request.condition ?? "—"}</span>
                     <div className="font-mono text-xs text-slate-400">{j.id}</div>
                   </Td>
                   <Td>
-                    <Badge tone={tone}>{label}</Badge>
+                    <Badge tone={tone}>{step && j.status === "running" ? step.replace(/_/g, " ") : label}</Badge>
                     {j.error && <div className="mt-1 max-w-xs truncate text-xs text-rose-600">{j.error}</div>}
                   </Td>
                   <Td>
-                    {pr || j.pr_url ? (
-                      <a href={pr?.url ?? j.pr_url!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-700 hover:underline">
-                        <GitPullRequest className="h-3.5 w-3.5" /> {pr ? `#${pr.number} ${pr.draft ? "(draft)" : pr.state}` : "pull request"}
-                      </a>
+                    {j.progress?.model_id ? (
+                      <Link href={`/researcher/models/${j.progress.model_id}`} className="font-mono text-xs text-brand-700 hover:underline">
+                        {j.progress.model_id}
+                      </Link>
                     ) : (
                       <span className="text-slate-400">–</span>
                     )}
@@ -182,7 +168,11 @@ export function DroidJobs() {
         </Table>
       ) : (
         <EmptyState title="No Droid jobs yet">
-          In the workflow builder, draft a protocol and click <span className="font-medium">Generate with Droid</span> next to a measurement that needs a model.
+          Open{" "}
+          <Link href="/researcher/generate" className="font-medium text-brand-700 hover:underline">
+            Generate module
+          </Link>{" "}
+          or click <span className="font-medium">Generate with Droid</span> in the workflow builder.
         </EmptyState>
       )}
       {data?.error && <CardBody className="text-xs text-rose-600">{data.error}</CardBody>}
