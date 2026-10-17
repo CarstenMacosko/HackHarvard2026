@@ -60,6 +60,9 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [attempts, setAttempts] = useState(0);
+  // several files picked at once are checked and sent one after another, with the same answers
+  const [queue, setQueue] = useState<File[]>([]);
+  const [sent, setSent] = useState<{ name: string; ok: boolean; note: string }[]>([]);
   // live capture: where the task starts in the recorded clip (seconds of set-up before it)
   const trimRef = useRef(0);
   const [live, setLive] = useState(false);
@@ -143,6 +146,26 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
     }
   }
 
+  /** Start on the next queued file (answers are kept). */
+  function next() {
+    const [f, ...rest] = queue;
+    setQueue(rest);
+    if (f) void onFile(f);
+  }
+
+  function pick(files: File[]) {
+    const [first, ...rest] = files;
+    setQueue(rest);
+    if (first) void onFile(first);
+  }
+
+  /** Back to capturing a new video in place: no reload, no lost answers. */
+  function another() {
+    trimRef.current = 0;
+    setQueue([]);
+    reset();
+  }
+
   async function submit() {
     if (!result || !file) return;
     const missing = task.report_questions.find((q) => answers[q.key] === undefined || answers[q.key] === "");
@@ -153,6 +176,8 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
       const o = await post("submit", result, file, upload);
       setOutcome(o);
       setAttempts(o.attempt);
+      setSent((xs) => [...xs, { name: file.name, ok: o.accepted, note: o.accepted ? "sent" : "needs a retake" }]);
+      if (o.accepted && queue.length) return next();
       setPhase(o.accepted ? "done" : "rejected");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
@@ -172,7 +197,9 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
       <Card className="mx-auto max-w-2xl">
         <CardBody className="flex flex-col items-center py-10 text-center">
           <CheckCircle2 className="h-12 w-12 text-emerald-600" strokeWidth={1.5} />
-          <h2 className="mt-3 text-lg font-semibold text-slate-900">Thank you, that&apos;s a usable check-in</h2>
+          <h2 className="mt-3 text-lg font-semibold text-slate-900">
+            {sent.filter((x) => x.ok).length > 1 ? `Thank you, ${sent.filter((x) => x.ok).length} ${task.media_type}s sent` : "Thank you, that\u2019s a usable check-in"}
+          </h2>
           <p className="mt-1 max-w-md text-sm text-slate-600">It has been sent to your study team for review.</p>
           {pts > 0 ? (
             <div className="mt-5 rounded-lg bg-brand-50 px-5 py-3 text-sm text-brand-800">
@@ -191,9 +218,24 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
           ) : (
             <p className="mt-4 text-sm text-slate-500">{outcome.message.replace(/^Usable capture ✅ /, "")}</p>
           )}
-          <div className="mt-6 flex gap-2">
-            <ButtonLink href="/participant">Back to home</ButtonLink>
-            <ButtonLink href="/participant/rewards" variant="secondary">
+          {sent.length > 1 && (
+            <ul className="mt-4 w-full max-w-sm space-y-1 text-left text-sm" data-testid="sent-list">
+              {sent.map((x, i) => (
+                <li key={`${x.name}-${i}`} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-1.5">
+                  <span className="truncate text-slate-700">{x.name}</span>
+                  <span className={x.ok ? "text-emerald-700" : "text-amber-700"}>{x.note}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <Button onClick={another}>
+              <RotateCcw className="h-3.5 w-3.5" /> Submit another {task.media_type}
+            </Button>
+            <ButtonLink href="/participant" variant="secondary">
+              Back to home
+            </ButtonLink>
+            <ButtonLink href="/participant/rewards" variant="ghost">
               See rewards
             </ButtonLink>
           </div>
@@ -235,7 +277,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
 
       <div className="order-1 space-y-6 xl:order-2">
         <Card>
-          <CardHeader title="1 · Add your capture" actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw className="h-3.5 w-3.5" /> Start over</Button> : undefined} />
+          <CardHeader title={queue.length || sent.length ? `1 · Add your capture (${sent.length + 1} of ${sent.length + 1 + queue.length})` : "1 · Add your capture"} actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw className="h-3.5 w-3.5" /> Start over</Button> : undefined} />
           <CardBody>
             {!file && live ? (
               <LiveCapture onCapture={(f, trim) => void onFile(f, trim)} onCancel={() => setLive(false)} />
@@ -243,8 +285,10 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
               <div className="space-y-3">
                 <Dropzone
                   accept={accept}
-                  capture="environment"
-                  onFiles={([f]) => void onFile(f)}
+                  // videos: several at once from the library (a capture hint would force a single camera recording)
+                  capture={task.media_type === "photo" ? "environment" : undefined}
+                  multiple={task.media_type === "video"}
+                  onFiles={pick}
                   title={task.media_type === "photo" ? "Take or choose a photo" : "Record or choose a video"}
                   hint={`Drag and drop it here, or tap to ${task.media_type === "photo" ? "open the camera" : "record"}.`}
                 />
@@ -316,6 +360,11 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                   <Button size="sm" onClick={reset}>
                     <RotateCcw className="h-3.5 w-3.5" /> Try again
                   </Button>
+                  {queue.length > 0 && (
+                    <Button size="sm" variant="secondary" onClick={next}>
+                      Skip to the next {task.media_type} ({queue.length} left)
+                    </Button>
+                  )}
                   {attempts > 0 && (
                     <span className="text-xs text-amber-800">
                       Attempt {attempts}

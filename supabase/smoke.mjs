@@ -28,6 +28,12 @@ for (const t of TABLES) {
 // an empty payload must reach the function and be rejected by a constraint, not "function not found"
 const rpc = await db.rpc("record_capture", { payload: {} });
 check(Boolean(rpc.error) && !/could not find|does not exist/i.test(rpc.error.message), "function record_capture", rpc.error?.message ?? "accepted an empty capture");
+const latest = await db.from("observations").select("id, module, captured_at, measurements").order("captured_at", { ascending: false }).limit(1);
+if (!latest.error && latest.data.length) {
+  const o = latest.data[0];
+  const score = o.measurements.find((m) => m.name === "severity_score");
+  console.log(`info latest capture ${o.id} (${o.module}, ${o.captured_at}): ${score ? `severity score ${score.value}/4` : "no stored score (scored when the app reads it)"}`);
+} else if (!latest.error) console.log("info no captures yet");
 const bucket = await db.storage.getBucket("media");
 check(!bucket.error && bucket.data.public === false, "bucket media is private", bucket.error?.message ?? `max ${Math.round((bucket.data.file_size_limit ?? 0) / 1048576)} MB`);
 if (anon) {

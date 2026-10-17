@@ -1,12 +1,16 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AppShell, Brand, type NavSection } from "@/components/shell";
 import { backend } from "@/lib/backend";
-import { currentParticipantId } from "@/lib/session";
+import { currentParticipantId, hasParticipantCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function ParticipantLayout({ children }: { children: React.ReactNode }) {
   const [p] = await backend().participants({ id: await currentParticipantId() });
+  // a remembered account this server doesn't know (e.g. created on another instance with no database):
+  // forget it instead of leaving the participant stuck until they clear cookies
+  if (!p && (await hasParticipantCookie())) redirect("/participant/session-reset?missing=1");
   const sections: NavSection[] = [
     {
       items: [
@@ -31,6 +35,9 @@ export default async function ParticipantLayout({ children }: { children: React.
             <Link href="/participant/join" className="hover:text-slate-900">
               Join a study
             </Link>
+            <a href="/participant/session-reset" className="hover:text-slate-900">
+              Switch account
+            </a>
             <Link href="/researcher" className="hover:text-slate-900">
               Researcher view →
             </Link>
