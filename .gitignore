@@ -1,0 +1,21 @@
+node_modules/
+.next/
+out/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+.vercel
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+# demo media and model weights stay out of git
+media/
+*.mp4
+*.mov
+*.pt
+*.safetensors
