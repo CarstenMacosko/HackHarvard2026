@@ -1,0 +1,53 @@
+{
+ "module": "eczema_photo@0.2.0",
+ "dataset": "scin",
+ "label": "gradable",
+ "n": 10406,
+ "n_usable": 6556,
+ "checks": {
+  "blur": {
+   "n": 10406,
+   "current_threshold": 80,
+   "current_keeps_usable": 0.33007931665649787,
+   "current_rejects_unusable": 0.7142857142857143,
+   "auc": 0.5454326561175249,
+   "usable_percentiles": {
+    "5": 8.2,
+    "10": 11.2,
+    "25": 19.8,
+    "50": 45.150000000000006
+   },
+   "keep95_threshold": 8.2,
+   "keep95_rejects_unusable": 0.09428571428571429,
+   "youden_threshold": 33.3,
+   "youden_j": 0.06491414625642822,
+   "youden_keeps_usable": 0.5942647956070775,
+   "youden_rejects_unusable": 0.47064935064935065
+  },
+  "exposure": {
+   "n": 10406,
+   "current_threshold": 70,
+   "current_keeps_usable": 0.974679682733374,
+   "current_rejects_unusable": 0.04883116883116883
+  },
+  "skin_coverage": {
+   "n": 10406,
+   "current_threshold": 0.25,
+   "current_keeps_usable": 0.9685784014643075,
+   "current_rejects_unusable": 0.0361038961038961,
+   "auc": 0.4966640056100093,
+   "usable_percentiles": {
+    "5": 0.316,
+    "10": 0.421,
+    "25": 0.583,
+    "50": 0.756
+   },
+   "keep95_threshold": 0.316,
+   "keep95_rejects_unusable": 0.054025974025974026,
+   "youden_threshold": 0.484,
+   "youden_j": 0.010435805804933418,
+   "youden_keeps_usable": 0.8543319097010372,
+   "youden_rejects_unusable": 0.1561038961038961
+  }
+ }
+}

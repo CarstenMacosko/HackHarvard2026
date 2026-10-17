@@ -1,0 +1,23 @@
+# Finger tapping 0-4 (MDS-UPDRS 3.4 anchors) from tap kinematics, on rule-labelled synthetic tracks.
+id: tapping_updrs_synthetic
+name: Finger-tapping score, MDS-UPDRS 3.4 style (synthetic)
+description: Maps tap kinematics to a 0-4 score that follows the MDS-UPDRS 3.4 anchors (interruptions, slowing, amplitude decrement). Trained on synthetic tracks with rule-derived labels.
+condition: parkinsons
+module: finger_tapping
+dataset: synthetic_tapping
+dataset_options: {n: 800, seed: 0}
+target:
+  name: tapping_score
+  label: Tapping score (3.4-style, synthetic)
+  unit: 0-4
+  source_label: updrs_3_4
+  kind: score
+quality: passed
+subgroup: fps
+intended_use: >
+  Demonstrates the end-to-end path for a movement-disorder study model. Replace the dataset
+  with clinician-rated videos (e.g. TULIP) before using the score for anything.
+limitations:
+  - "Labels come from rules applied to synthetic ground truth, with assumed numeric cut-offs for slight/mild/moderate slowing. They are not clinician ratings."
+  - "Synthetic tracks start after landmark detection; detection on real video is tested separately (services/cv/tests/test_video_e2e.py)."
+  - "A linear head cannot reproduce the scale's max-of-domains rule exactly; errors cluster at score boundaries."

@@ -1,0 +1,131 @@
+{
+ "study": "psoriasis_likelihood_scin",
+ "n_captures": 5190,
+ "n_groups": 2730,
+ "n_labelled": 6556,
+ "n_excluded_quality": 1366,
+ "excluded_reasons": {
+  "skin_coverage": 206,
+  "blur": 1097,
+  "exposure": 166,
+  "task_completed": 1
+ },
+ "lambda": 30000,
+ "lambda_scores": [
+  {
+   "lambda": 1000,
+   "mae": 0.06860060713602359,
+   "rmse": 0.124920206849567
+  },
+  {
+   "lambda": 3000,
+   "mae": 0.06278122966308208,
+   "rmse": 0.12161140966515085
+  },
+  {
+   "lambda": 10000,
+   "mae": 0.05944612334673228,
+   "rmse": 0.11984331557110228
+  },
+  {
+   "lambda": 30000,
+   "mae": 0.05892759160929541,
+   "rmse": 0.11938327333666267
+  },
+  {
+   "lambda": 100000,
+   "mae": 0.059280846752222636,
+   "rmse": 0.11945869437425308
+  }
+ ],
+ "ridge_metrics": {
+  "n": 5190,
+  "folds": 5,
+  "mae": 0.05892759160929541,
+  "rmse": 0.11938327333666267,
+  "r": 0.1056894662682364,
+  "baseline_mae": 0.0598482891943532,
+  "label_min": 0.0,
+  "label_max": 1.0
+ },
+ "overall": {
+  "n": 5190,
+  "mae": 0.05890428584634346,
+  "r": 0.10585217274014617,
+  "n_positive": 103,
+  "auc": 0.6155229110563573
+ },
+ "subgroups": {
+  "groups": {
+   "FST1": {
+    "n": 554,
+    "mae": 0.06873998232243715,
+    "r": 0.02168484680504385,
+    "n_positive": 16,
+    "auc": 0.4100836431226766,
+    "excluded_by_quality": 190,
+    "exclusion_rate": 0.2554
+   },
+   "FST2": {
+    "n": 1806,
+    "mae": 0.053513634198426294,
+    "r": 0.07779954805122935,
+    "n_positive": 17,
+    "auc": 0.6878308618025186,
+    "excluded_by_quality": 458,
+    "exclusion_rate": 0.2023
+   },
+   "FST3": {
+    "n": 1453,
+    "mae": 0.05949479699611588,
+    "r": 0.12077935854513264,
+    "n_positive": 37,
+    "auc": 0.6794930523744083,
+    "excluded_by_quality": 395,
+    "exclusion_rate": 0.2137
+   },
+   "FST4": {
+    "n": 781,
+    "mae": 0.055021530324304506,
+    "r": 0.11816288686874882,
+    "n_positive": 16,
+    "auc": 0.5637254901960784,
+    "excluded_by_quality": 167,
+    "exclusion_rate": 0.1762
+   },
+   "FST5": {
+    "n": 413,
+    "mae": 0.06868492815956304,
+    "r": 0.1553045951896323,
+    "n_positive": 11,
+    "auc": 0.5312075983717774,
+    "excluded_by_quality": 104,
+    "exclusion_rate": 0.2012
+   },
+   "FST6": {
+    "n": 51,
+    "mae": 0.040200632375847936,
+    "r": 0.21448965643366127,
+    "n_positive": 0,
+    "auc": null,
+    "excluded_by_quality": 17,
+    "exclusion_rate": 0.25
+   },
+   "unknown": {
+    "n": 132,
+    "mae": 0.08447581192294332,
+    "r": 0.2439602150766965,
+    "n_positive": 6,
+    "auc": 0.794973544973545,
+    "excluded_by_quality": 35,
+    "exclusion_rate": 0.2096
+   }
+  },
+  "worst": {
+   "name": "FST1",
+   "metric": "mae",
+   "value": 0.06873998232243715,
+   "n": 554
+  }
+ }
+}

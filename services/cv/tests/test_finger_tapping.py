@@ -73,3 +73,22 @@ def test_pipeline_rejects_hand_out_of_frame():
     sig[: len(sig) // 2] = np.nan
     obs = run_prepared(FingerTappingModule(), _prepared(sig), AnalyzeRequest(module="finger_tapping"))
     assert [c.name for c in obs.quality.checks if not c.passed] == ["hand_visible"]
+
+
+def test_still_hand_landmark_noise_is_not_tapping():
+    from app.modules.finger_tapping import from_track
+    from app.synthetic import tremor_track
+
+    p = from_track(tremor_track(amplitude=0.0, jitter=0.006, seed=11))
+    with pytest.raises(TaskNotCompleted, match="didn't see any taps"):
+        tap_metrics(p.distance, p.fps, p.detection_rate)
+
+
+def test_landmark_track_tapping_matches_ground_truth():
+    from app.modules.finger_tapping import from_track
+    from app.synthetic import tap_distance, tapping_track
+
+    p = from_track(tapping_track(tap_distance(rate_hz=3.0, amplitude=0.9, seed=1), seed=1))
+    m = tap_metrics(p.distance, p.fps, p.detection_rate)
+    assert m.tap_rate_hz == pytest.approx(3.0, abs=0.1)
+    assert m.amplitude == pytest.approx(0.9, abs=0.05)

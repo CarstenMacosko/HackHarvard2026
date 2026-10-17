@@ -1,0 +1,99 @@
+{
+ "id": "cvm_tapping_updrs_synthetic",
+ "name": "Finger-tapping score, MDS-UPDRS 3.4 style (synthetic)",
+ "description": "Maps tap kinematics to a 0-4 score that follows the MDS-UPDRS 3.4 anchors (interruptions, slowing, amplitude decrement). Trained on synthetic tracks with rule-derived labels.",
+ "study_id": null,
+ "module": "finger_tapping",
+ "target": {
+  "name": "tapping_score",
+  "label": "Tapping score (3.4-style, synthetic)",
+  "unit": "0-4"
+ },
+ "kind": "ridge",
+ "features": [
+  "tap_rate_hz",
+  "amplitude_norm",
+  "amplitude_decrement",
+  "rhythm_cv",
+  "n_taps",
+  "amplitude_cv",
+  "rate_first_half",
+  "rate_second_half",
+  "detection_rate",
+  "duration_s"
+ ],
+ "weights": [
+  -0.1242050373,
+  -0.1938084625,
+  0.1679045462,
+  0.268016967,
+  -0.0849711903,
+  0.0420168132,
+  -0.0901791963,
+  -0.1495563954,
+  0.0216579268,
+  0.0817130711
+ ],
+ "intercept": 2.59,
+ "feature_means": [
+  2.3617580879,
+  0.6532521802,
+  13.0347185465,
+  0.3736326629,
+  29.67875,
+  0.1023037315,
+  2.5710695488,
+  2.2229370525,
+  0.9279168607,
+  12.612125
+ ],
+ "feature_stds": [
+  1.0302278809,
+  0.3111320386,
+  16.4053712392,
+  0.2511519711,
+  13.8989405509,
+  0.0764442967,
+  1.104604594,
+  1.0116747409,
+  0.0452239579,
+  1.4683642632
+ ],
+ "lambda": 100,
+ "metrics": {
+  "n": 800,
+  "folds": 5,
+  "mae": 0.570041,
+  "rmse": 0.741864,
+  "r": 0.631394,
+  "baseline_mae": 0.774465,
+  "label_min": 0.0,
+  "label_max": 4.0
+ },
+ "status": "reusable_needs_validation",
+ "active": true,
+ "version": 1,
+ "created_by": "Training kit",
+ "created_at": "2026-10-17T07:38:58+00:00",
+ "provenance": {
+  "source": "training_kit",
+  "dataset": "synthetic_tapping",
+  "dataset_title": "Synthetic finger-tapping tracks (rule-labelled)",
+  "licence": "Generated in this repository (MIT)",
+  "url": "",
+  "citation": "",
+  "label_kind": "synthetic",
+  "n_cases": 800,
+  "n_excluded_quality": 0,
+  "auc": null,
+  "worst_subgroup": {
+   "name": "60",
+   "metric": "mae",
+   "value": 0.6171381447336722,
+   "n": 280
+  },
+  "card_path": "training/studies/tapping_updrs_synthetic/model_card.md",
+  "spec_path": "training/studies/tapping_updrs_synthetic/study.yaml",
+  "kit_version": "0.1.0"
+ }
+}

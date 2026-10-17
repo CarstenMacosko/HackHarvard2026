@@ -1,5 +1,6 @@
 import "server-only";
 import { badgesEarned, balance, computeStreak, lifetimePoints, tierFor, type Observation, type RewardEvent } from "@vf/shared";
+import { PRETRAINED } from "@vf/shared/pretrained";
 import { backend } from "./backend";
 import type { Participant, ParticipantSummary, ScheduledTask, Study, StudySummary, Submission } from "./types";
 
@@ -241,9 +242,27 @@ export async function modelRegistry() {
   return {
     studies,
     models: [...models].reverse().map((m) => ({
-      ...m,
+      // the weights are only needed to apply a model, not to list it
+      ...{ ...m, weights: [], feature_means: [], feature_stds: [] },
+      n_features: m.features.length,
       study_name: m.study_id ? (studies.find((s) => s.id === m.study_id)?.name ?? m.study_id) : "All studies",
       applied: obs.filter((o) => o.measurements.some((x) => x.name === m.target.name) && o.module === m.module).length,
     })),
+  };
+}
+
+/** One model with its bundled evaluation and model card, if it came from the training kit or Droid. */
+export async function modelDetail(id: string) {
+  const db = backend();
+  const [model] = await db.models({ id });
+  if (!model) return null;
+  const [obs, studies] = await Promise.all([db.observations(), db.studies()]);
+  const bundled = PRETRAINED.find((e) => e.model.id === id);
+  return {
+    model,
+    study_name: model.study_id ? (studies.find((s) => s.id === model.study_id)?.name ?? model.study_id) : "All studies using the module",
+    applied: obs.filter((o) => o.module === model.module && o.measurements.some((x) => x.name === model.target.name)).length,
+    evaluation: bundled?.evaluation ?? null,
+    card: bundled?.card ?? null,
   };
 }

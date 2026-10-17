@@ -48,3 +48,34 @@ def write_tapping_video(
         writer.write(np.clip(out, 0, 255).astype(np.uint8))
     writer.release()
     return path
+
+
+def write_tremor_video(
+    path: Path,
+    freq_hz: float = 5.0,
+    amplitude_px: float = 12.0,
+    seconds: float = 10.4,
+    fps: int = 30,
+    canvas: int = 480,
+    noise: float = 3.0,
+    seed: int = 0,
+    fourcc: str = "mp4v",
+) -> Path:
+    """The open-hand photo shaking diagonally at freq_hz, amplitude_px peak-to-peak."""
+    hand = _load("hand_open.jpg", SIZE)
+    base = np.full((canvas, canvas, 3), 150, np.uint8)
+    off = (canvas - SIZE) // 2
+    base[off : off + SIZE, off : off + SIZE] = hand
+    rng = np.random.default_rng(seed)
+    phase = rng.uniform(0, 2 * np.pi)
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*fourcc), fps, (canvas, canvas))
+    assert writer.isOpened(), f"cannot write {path}"
+    for i in range(int(seconds * fps)):
+        s = amplitude_px / 2 * np.sin(2 * np.pi * freq_hz * i / fps + phase)
+        m = np.float32([[1, 0, s * 0.8], [0, 1, s * 0.6]])
+        frame = cv2.warpAffine(base, m, (canvas, canvas), flags=cv2.INTER_LINEAR, borderValue=(150, 150, 150)).astype(np.float32)
+        if noise:
+            frame += rng.normal(0, noise, frame.shape)
+        writer.write(np.clip(frame, 0, 255).astype(np.uint8))
+    writer.release()
+    return path

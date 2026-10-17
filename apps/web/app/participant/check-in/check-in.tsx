@@ -7,11 +7,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Dropzone } from "@/components/dropzone";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ProgressBar, SectionLabel, cn } from "@/components/ui";
-import { analyzePhotoFile, analyzeVideoFile } from "@/lib/cv-client/analyze";
+import { analyzePhotoFile, analyzeVideoFile, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { planVideoUpload, type UploadPlan } from "@/lib/cv-client/upload";
 import { CHECK_LABEL } from "@/lib/format";
 
-const GUIDE: Record<"photo" | "video", string[]> = {
+const GUIDE: Record<string, string[]> = {
   photo: [
     "Stand near a window or under a bright light. Turn the flash off.",
     "Hold the phone about a forearm's length (30 cm) away, straight on.",
@@ -23,6 +23,12 @@ const GUIDE: Record<"photo" | "video", string[]> = {
     "Use normal video mode (not slow-motion or time-lapse) in good light.",
     "Tap your index finger and thumb together as fast and as wide as you can.",
     "Keep tapping for at least 10 seconds.",
+  ],
+  hand_tremor: [
+    "Prop the phone up so it stays completely still. A hand-held phone adds its own shake.",
+    "Rest your forearm on a table or your lap with your hand relaxed and in view, wrist included.",
+    "Use normal video mode (not slow-motion or time-lapse) in good light.",
+    "Keep your hand still and relaxed for at least 10 seconds.",
   ],
 };
 
@@ -97,7 +103,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         up = { photo: a.upload };
       } else {
         if (!f.type.startsWith("video/")) throw new Error("Please choose a video.");
-        const a = await analyzeVideoFile(f, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }));
+        const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }));
         r = a.result;
         up = { poster: a.poster };
       }
@@ -186,7 +192,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         <CardBody className="space-y-4">
           <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{task.instructions}</p>
           <ol className="space-y-2 text-sm text-slate-700">
-            {GUIDE[task.media_type].map((g, i) => (
+            {(GUIDE[task.module] ?? GUIDE[task.media_type]).map((g, i) => (
               <li key={g} className="flex gap-2.5">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{i + 1}</span>
                 {g}

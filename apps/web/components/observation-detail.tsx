@@ -6,7 +6,7 @@ import { Badge, KeyValues, REVIEW_TONE, SectionLabel, ValidationBadge } from "./
 export function ObservationDetail({ o, compact = false }: { o: Observation; compact?: boolean }) {
   const runtime = String(o.context.analysis_runtime ?? "server");
   const attempts = Number(o.context.attempts ?? 1);
-  const isVideo = o.module === "finger_tapping" && o.context.media_kind !== "poster";
+  const isVideo = (o.module === "finger_tapping" || o.module === "hand_tremor") && o.context.media_kind !== "poster";
   return (
     <div className="space-y-5 text-sm">
       <div className="flex flex-wrap items-center gap-2">

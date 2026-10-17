@@ -1,7 +1,22 @@
 "use client";
 
-import { analyzeSkinPhoto, analyzeTapping, handDistance, sampleIndices, toGray, type GrayImage, type ModuleResult } from "@vf/cv";
-import { loadHandLandmarker } from "./mediapipe";
+import {
+  analyzeSkinPhoto,
+  analyzeTapping,
+  analyzeTremor,
+  embeddingFeatures,
+  landmarksToPixels,
+  sampleIndices,
+  tappingFromTrack,
+  toGray,
+  type GrayImage,
+  type ModuleResult,
+  type PreparedHandTrack,
+} from "@vf/cv";
+import { loadHandLandmarker, loadImageEmbedder } from "./mediapipe";
+
+/** Video modules that run on-device; both work from the same hand track. */
+export type VideoModuleId = "finger_tapping" | "hand_tremor";
 
 /**
  * On-device analysis: runs the same CV modules as services/cv (ported in @vf/cv) in the
@@ -60,7 +75,8 @@ export async function analyzePhotoFile(file: Blob, criteria: Record<string, numb
   const { ctx: actx } = canvas(a.w, a.h);
   actx.imageSmoothingQuality = "high";
   actx.drawImage(bitmap, 0, 0, a.w, a.h);
-  const result = analyzeSkinPhoto(actx.getImageData(0, 0, a.w, a.h), criteria);
+  let result = analyzeSkinPhoto(actx.getImageData(0, 0, a.w, a.h), criteria);
+  if (result.quality.accepted) result = { ...result, features: { ...result.features, ...(await embed(actx.canvas)) } };
 
   const u = fit(bitmap.width, bitmap.height, UPLOAD_MAX_SIDE);
   const { c: uc, ctx: uctx } = canvas(u.w, u.h);
@@ -68,6 +84,21 @@ export async function analyzePhotoFile(file: Blob, criteria: Record<string, numb
   uctx.drawImage(bitmap, 0, 0, u.w, u.h);
   bitmap.close();
   return { result, upload: await toBlob(uc), width: u.w, height: u.h };
+}
+
+/**
+ * Image-embedding features of the analysed photo, for trained models that read them. Without
+ * them those models simply don't apply, so a loading failure is not an error for the participant.
+ */
+async function embed(source: HTMLCanvasElement): Promise<Record<string, number>> {
+  try {
+    const embedder = await loadImageEmbedder();
+    const vector = embedder.embed(source).embeddings[0]?.floatEmbedding;
+    return vector ? embeddingFeatures(vector) : {};
+  } catch (e) {
+    console.warn("image embedding unavailable", e);
+    return {};
+  }
 }
 
 function once(target: EventTarget, ok: string, timeoutMs = 15_000): Promise<void> {
@@ -103,6 +134,7 @@ async function seek(video: HTMLVideoElement, t: number) {
 
 export async function analyzeVideoFile(
   file: Blob,
+  module: VideoModuleId,
   criteria: Record<string, number>,
   onProgress: (fraction: number, stage: string) => void = () => {},
 ): Promise<VideoAnalysis> {
@@ -130,7 +162,8 @@ export async function analyzeVideoFile(
     const grayAt = new Set(sampleIndices(n));
     const full = canvas(W, H);
     const tiny = canvas(24, 24); // duplicate-frame detection → native frame rate
-    const distance: number[] = [];
+    const landmarks: number[][][] = [];
+    const missing = Array.from({ length: 21 }, () => [NaN, NaN]);
     const grays: GrayImage[] = [];
     let prev: Uint8ClampedArray | null = null;
     let duplicates = 0;
@@ -138,9 +171,10 @@ export async function analyzeVideoFile(
     const tsBase = nextTimestampMs;
     nextTimestampMs = tsBase + Math.ceil((n * 1000) / VIDEO_SAMPLE_FPS) + 1000;
     for (let i = 0; i < n; i++) {
-      await seek(video, i / VIDEO_SAMPLE_FPS);
+      // the middle of each frame interval: seeking to a frame boundary can decode the previous frame
+      await seek(video, (i + 0.5) / VIDEO_SAMPLE_FPS);
       const res = landmarker.detectForVideo(video, tsBase + Math.round((i * 1000) / VIDEO_SAMPLE_FPS));
-      distance.push(res.landmarks.length ? handDistance(res.landmarks[0], W, H) : NaN);
+      landmarks.push(res.landmarks.length ? landmarksToPixels(res.landmarks[0], W, H) : missing);
       tiny.ctx.drawImage(video, 0, 0, 24, 24);
       const px = tiny.ctx.getImageData(0, 0, 24, 24).data;
       if (prev && px.every((v, k) => v === prev![k])) duplicates++;
@@ -151,14 +185,19 @@ export async function analyzeVideoFile(
       }
       if (i % 5 === 0) onProgress(i / n, "Tracking your hand…");
     }
-    const detected = distance.filter((d) => !Number.isNaN(d)).length;
+    const detected = landmarks.filter((pts) => !Number.isNaN(pts[0][0])).length;
     const nativeFps = n > 1 ? Math.round(VIDEO_SAMPLE_FPS * (1 - duplicates / (n - 1)) * 10) / 10 : VIDEO_SAMPLE_FPS;
 
     onProgress(1, "Checking quality…");
-    const result = analyzeTapping(
-      { fps: nativeFps, sample_fps: VIDEO_SAMPLE_FPS, duration_s: n / VIDEO_SAMPLE_FPS, gray_samples: grays, distance, detection_rate: detected / n },
-      criteria,
-    );
+    const track: PreparedHandTrack = {
+      fps: nativeFps,
+      sample_fps: VIDEO_SAMPLE_FPS,
+      duration_s: n / VIDEO_SAMPLE_FPS,
+      gray_samples: grays,
+      landmarks,
+      detection_rate: detected / n,
+    };
+    const result = module === "hand_tremor" ? analyzeTremor(track, criteria) : analyzeTapping(tappingFromTrack(track), criteria);
     await seek(video, Math.min(duration / 2, duration - 0.05));
     const p = fit(W, H, 960);
     const poster = canvas(p.w, p.h);

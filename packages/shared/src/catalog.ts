@@ -27,6 +27,8 @@ export const CV_COMPONENTS: CvComponent[] = [
   { id: "erythema_index", kind: "measurement", label: "Erythema index", media: ["photo"], description: "Redness within skin (CIELAB a*).", validated_for: ["eczema"] },
   { id: "lesion_area", kind: "measurement", label: "Affected area fraction", media: ["photo"], description: "Share of visible skin with elevated redness.", validated_for: ["eczema"] },
   { id: "color_texture_features", kind: "extractor", label: "Skin colour & texture features", media: ["photo"], description: "16-value feature vector (CIELAB statistics, redness bands, texture) that researcher-trained models read.", validated_for: [] },
+  { id: "tremor_spectrum", kind: "measurement", label: "Tremor spectrum", media: ["video"], description: "Dominant 3–12 Hz frequency, peak-to-peak amplitude and tremor share of hand movement (Welch spectrum of hand landmarks).", validated_for: [] },
+  { id: "image_embedding", kind: "extractor", label: "Image embedding (MobileNet-V3)", media: ["photo"], description: "1,024-value general-purpose embedding, on-device and on the server; trained heads (e.g. SCIN condition likelihoods) read it.", validated_for: [] },
   { id: "tap_features", kind: "extractor", label: "Tapping kinematics features", media: ["video"], description: "10-value feature vector (rate, amplitude, fatigue, rhythm) that researcher-trained models read.", validated_for: [] },
 ];
 
@@ -58,6 +60,26 @@ export const FINGER_TAPPING_TASK: TaskConfig = {
   ],
 };
 
+export const TREMOR_TASK: TaskConfig = {
+  id: "pd_rest_tremor_right",
+  module: "hand_tremor",
+  label: "Rest tremor: right hand",
+  media_type: "video",
+  cadence: "weekly",
+  instructions:
+    "Weekly tremor check 🤚 Prop your phone up so it can't move, rest your right forearm on a table with your hand relaxed and in view (wrist included), and keep it still for 15 seconds. Send the video here.",
+  quality_criteria: { blur: 60, exposure_min: 60, exposure_max: 200, hand_visible: 0.8, duration_s: 8, fps: 24 },
+  report_questions: [
+    { key: "medication_state", prompt: "Are you ON or OFF your medication right now?", type: "choice", options: ["ON", "OFF", "Not sure"] },
+    { key: "tremor_today", prompt: "How much has tremor bothered you today, 0 (not at all) to 10 (very much)?", type: "scale" },
+  ],
+  measurements: [
+    { name: "tremor_amplitude", label: "Tremor amplitude", unit: "× hand size", validation_status: "reusable_needs_validation" },
+    { name: "tremor_freq_hz", label: "Tremor frequency", unit: "Hz", validation_status: "reusable_needs_validation" },
+    { name: "tremor_power_ratio", label: "Tremor share of movement", unit: "fraction", validation_status: "reusable_needs_validation" },
+  ],
+};
+
 export const ECZEMA_TASK: TaskConfig = {
   id: "ad_photo_left_elbow",
   module: "eczema_photo",
@@ -66,7 +88,7 @@ export const ECZEMA_TASK: TaskConfig = {
   cadence: "twice_weekly",
   instructions:
     "Skin check time 📸 Stand near a window (no flash), hold your phone about 30 cm (one forearm) from your left inner elbow, and take a straight-on photo with the whole patch in frame.",
-  quality_criteria: { blur: 80, exposure_min: 70, exposure_max: 210, skin_coverage: 0.25 },
+  quality_criteria: { blur: 15, exposure_min: 70, exposure_max: 210, skin_coverage: 0.25 },
   report_questions: [
     { key: "itch", prompt: "How itchy has it been in the last 24h, 0 (none) to 10 (worst)?", type: "scale" },
     { key: "treatment_used", prompt: "Did you use your treatment today?", type: "choice", options: ["Yes", "No"] },

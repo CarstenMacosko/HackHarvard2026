@@ -12,13 +12,18 @@
 - Data export.
 - Messaging agent wired to the same ingest path.
 - Supabase migrations validated in Postgres.
+- Hand-tremor module (Python + on-device), with a third demo study (PD-TREMOR).
+- Training kit (`training/`): study spec → trained, evaluated model with a model card. Five models are shipped: three from SCIN dermatology photos, two from synthetic movement data.
+- Image embeddings on every accepted photo, on-device and on the server.
+- Skin-photo quality gate calibrated against dermatologists' gradability labels.
+- **Droid**: Workflow builder → *Generate with Droid* → GitHub Actions runs Factory Droid with the kit → draft PR. Setup is in `docs/DROID.md`; the `FACTORY_API_KEY` secret is still needed.
 
 | Person | Area (files) | Next steps |
 |---|---|---|
 | **A: Platform & researcher** | `supabase/`, `apps/web/lib/{backend,queries,ingest}.ts`, `apps/web/app/researcher/**` | Create the Supabase project and apply migrations + seed; Supabase Auth for researchers (replace `RESEARCHER_NAME`); restrict `/api/media` to study members; write `reviews` rows |
 | **B: Participant & modular CV** | `apps/web/app/participant/**`, `packages/cv`, `packages/shared/src/{catalog,models}.ts` | Participant phone-OTP login; add the MediaPipe Image Embedder as a generic feature group (see `GENERALIZED_CV.md`); a third module (e.g. psoriasis) built from existing components |
 | **C: Messaging agent** | `services/agent/**` | Photon 2.0 adapter after the workshop; media → Supabase Storage → CV service; Supabase-backed store and scheduler; then the deck |
-| **D: CV algorithms** | `services/cv/**`, `adroit/` | Record consented demo videos/photos and tune thresholds; deploy to Modal; robustness table (lighting/device/skin tone); optional Adroit segmentation job |
+| **D: CV algorithms** | `services/cv/**`, `training/`, `adroit/` | Train `psoriasis_fitzpatrick17k` on Adroit (`adroit/README.md`); request TULIP access for real tapping/tremor ratings; record consented demo videos/photos; deploy to Modal; robustness table (lighting/device/skin tone) |
 
 ## What we are building
 
@@ -100,7 +105,8 @@ Adding a condition means writing a subclass, decorating it with `@register` and 
 2. **Participant portal.** Show the streak, tier progress, badges and a simulated gift-card redemption.
 3. **Researcher portal.** The new observation appears in the review queue. The clinician opens it to see the measurements ± uncertainty, the quality checks that passed, the patient report and the model version, then accepts it. The participant timeline shows tap rate over 6 weeks, with OFF-medication points marked. Clicking a point opens its source submission.
 4. **Eczema.** The same loop with a skin photo: erythema and affected area trending down with treatment, plotted alongside itch scores.
-5. **Workflow builder.** Enter *"Psoriasis: track plaque redness and scaling on elbows and knees weekly."* Droid/Claude drafts the capture instructions, quality criteria and schedule. Erythema is tagged *reusable, needs validation* and scaling is tagged *needs a new model*, along with a validation plan.
+5. **Workflow builder.** Enter *"Psoriasis: track plaque redness and scaling on elbows and knees weekly."* Claude drafts the capture instructions, quality criteria and schedule. Erythema is tagged *reusable, needs validation*; scaling is tagged *needs a new model*, along with a validation plan.
+6. **Droid.** Click *Generate with Droid* next to "Scaling". In the Model registry, the Droid job appears and then a draft pull request with the trained model and its model card, including the per-skin-type table. Merge it, and the model shows up in the registry and runs on the next photo.
 
 ## Reward system (simulated, no real money)
 

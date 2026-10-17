@@ -1,0 +1,91 @@
+{
+ "id": "cvm_tremor_updrs_synthetic",
+ "name": "Rest tremor amplitude score, MDS-UPDRS 3.17 style (synthetic)",
+ "description": "Maps tremor amplitude, frequency and spectral features to the 0-4 rest-tremor amplitude bands of MDS-UPDRS 3.17. Trained on synthetic tracks with rule-derived labels.",
+ "study_id": null,
+ "module": "hand_tremor",
+ "target": {
+  "name": "rest_tremor_score",
+  "label": "Rest tremor score (3.17-style, synthetic)",
+  "unit": "0-4"
+ },
+ "kind": "ridge",
+ "features": [
+  "tremor_freq_hz",
+  "tremor_amplitude",
+  "tremor_power_ratio",
+  "tremor_peak_prominence",
+  "finger_tremor_amplitude",
+  "low_freq_motion",
+  "detection_rate",
+  "duration_s"
+ ],
+ "weights": [
+  0.0089273547,
+  0.5033529954,
+  0.3591912794,
+  0.0769166515,
+  0.0412522379,
+  0.1182432334,
+  -0.012332394,
+  0.0242438425
+ ],
+ "intercept": 1.73625,
+ "feature_means": [
+  7.1761420246,
+  0.216035252,
+  0.4068415745,
+  2.6653569492,
+  0.1168203077,
+  0.0691192546,
+  0.9498680824,
+  12.432625
+ ],
+ "feature_stds": [
+  2.2172167136,
+  0.2976328484,
+  0.3977975915,
+  1.4003131395,
+  0.1510773424,
+  0.0384249005,
+  0.0303778828,
+  1.4138015826
+ ],
+ "lambda": 0.01,
+ "metrics": {
+  "n": 800,
+  "folds": 5,
+  "mae": 0.294389,
+  "rmse": 0.387275,
+  "r": 0.914304,
+  "baseline_mae": 0.821535,
+  "label_min": 0.0,
+  "label_max": 4.0
+ },
+ "status": "reusable_needs_validation",
+ "active": true,
+ "version": 1,
+ "created_by": "Training kit",
+ "created_at": "2026-10-17T07:39:05+00:00",
+ "provenance": {
+  "source": "training_kit",
+  "dataset": "synthetic_tremor",
+  "dataset_title": "Synthetic hand-tremor tracks (rule-labelled)",
+  "licence": "Generated in this repository (MIT)",
+  "url": "",
+  "citation": "",
+  "label_kind": "synthetic",
+  "n_cases": 800,
+  "n_excluded_quality": 0,
+  "auc": null,
+  "worst_subgroup": {
+   "name": "24",
+   "metric": "mae",
+   "value": 0.3075695784413363,
+   "n": 248
+  },
+  "card_path": "training/studies/tremor_updrs_synthetic/model_card.md",
+  "spec_path": "training/studies/tremor_updrs_synthetic/study.yaml",
+  "kit_version": "0.1.0"
+ }
+}

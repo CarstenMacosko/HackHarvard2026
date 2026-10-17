@@ -162,6 +162,27 @@ export const Submission = z.object({
 });
 export type Submission = z.infer<typeof Submission>;
 
+export const LabelKind = z.enum(["expert", "self_report", "synthetic", "researcher"]);
+export type LabelKind = z.infer<typeof LabelKind>;
+
+export const ModelProvenance = z.object({
+  source: z.enum(["training_kit", "droid"]),
+  dataset: z.string(),
+  dataset_title: z.string(),
+  licence: z.string(),
+  url: z.string(),
+  citation: z.string(),
+  label_kind: LabelKind,
+  n_cases: z.number().int(),
+  n_excluded_quality: z.number().int(),
+  auc: z.number().nullable(),
+  worst_subgroup: z.object({ name: z.string(), metric: z.string(), value: z.number(), n: z.number().int() }).nullable(),
+  card_path: z.string(),
+  spec_path: z.string(),
+  kit_version: z.string(),
+});
+export type ModelProvenance = z.infer<typeof ModelProvenance>;
+
 /**
  * A researcher-trained model: a ridge-regression head on top of a CV module's feature vector,
  * predicting a study-specific target (e.g. a clinician's 0–4 erythema grade).
@@ -195,5 +216,7 @@ export const CvModel = z.object({
   version: z.number().int(),
   created_by: z.string(),
   created_at: z.string(),
+  /** where a model trained outside the browser came from (training kit or Droid); see training/ */
+  provenance: ModelProvenance.nullable().optional(),
 });
 export type CvModel = z.infer<typeof CvModel>;
