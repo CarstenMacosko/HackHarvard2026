@@ -107,7 +107,7 @@ async function embed(source: HTMLCanvasElement): Promise<Record<string, number>>
  * The hand's landmark box (+25%) from the current video frame, drawn straight into a canvas whose
  * longest side is 256 px (services/cv quality.hand_crop), so quality is judged on the hand.
  */
-function handCrop(video: HTMLVideoElement, pts: number[][], W: number, H: number): GrayImage | null {
+export function handCrop(video: CanvasImageSource, pts: number[][], W: number, H: number): GrayImage | null {
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
   const m = HAND_CROP_MARGIN * Math.max(x1 - x0, y1 - y0);
@@ -159,6 +159,8 @@ export async function analyzeVideoFile(
   module: VideoModuleId,
   criteria: Record<string, number>,
   onProgress: (fraction: number, stage: string) => void = () => {},
+  /** seconds to skip at the start (live capture: the framing before the task began) */
+  startS = 0,
 ): Promise<VideoAnalysis> {
   onProgress(0, "Loading the hand tracker…");
   const landmarker = await loadHandLandmarker();
@@ -178,7 +180,8 @@ export async function analyzeVideoFile(
       duration = video.duration;
     }
     if (!Number.isFinite(duration) || duration <= 0) throw new Error("Could not read the video length.");
-    duration = Math.min(duration, VIDEO_MAX_SECONDS);
+    const start = Math.min(Math.max(0, startS), Math.max(0, duration - 1));
+    duration = Math.min(duration - start, VIDEO_MAX_SECONDS);
     const W = video.videoWidth, H = video.videoHeight;
     const n = Math.max(1, Math.floor(duration * VIDEO_SAMPLE_FPS));
     const grayAt = new Set(sampleIndices(n));
@@ -195,7 +198,7 @@ export async function analyzeVideoFile(
     nextTimestampMs = tsBase + Math.ceil((n * 1000) / VIDEO_SAMPLE_FPS) + 1000;
     for (let i = 0; i < n; i++) {
       // the middle of each frame interval: seeking to a frame boundary can decode the previous frame
-      await seek(video, (i + 0.5) / VIDEO_SAMPLE_FPS);
+      await seek(video, start + (i + 0.5) / VIDEO_SAMPLE_FPS);
       const res = landmarker.detectForVideo(video, tsBase + Math.round((i * 1000) / VIDEO_SAMPLE_FPS));
       landmarks.push(res.landmarks.length ? landmarksToPixels(res.landmarks[0], W, H) : missing);
       tiny.ctx.drawImage(video, 0, 0, 24, 24);
@@ -224,7 +227,7 @@ export async function analyzeVideoFile(
       detection_rate: detected / n,
     };
     const result = module === "hand_tremor" ? analyzeTremor(track, criteria) : analyzeTapping(tappingFromTrack(track), criteria);
-    await seek(video, Math.min(duration / 2, duration - 0.05));
+    await seek(video, start + Math.min(duration / 2, duration - 0.05));
     const p = fit(W, H, 960);
     const poster = canvas(p.w, p.h);
     poster.ctx.drawImage(video, 0, 0, p.w, p.h);

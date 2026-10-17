@@ -44,7 +44,10 @@ def photo_embedding(module: CVModule, prepared: Any) -> dict[str, float]:
 def analyze(req: AnalyzeRequest, media_path: str) -> AnalyzeResponse:
     module = registry.get(req.module)
     try:
-        prepared = module.prepare(media_path)
+        if module.media_type == "video" and req.trim_start_s:
+            prepared = module.prepare(media_path, start_s=req.trim_start_s)
+        else:
+            prepared = module.prepare(media_path)
     except TaskNotCompleted as e:
         return assemble(module, req, [task_failed(str(e))], [], {})
     return run_prepared(module, prepared, req)

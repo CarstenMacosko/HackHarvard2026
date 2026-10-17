@@ -49,6 +49,11 @@ Current boundaries: identities use demo placeholders; hosted persistence and ser
 **Participant portal** (`/participant`), mobile-first with a desktop sidebar:
 - invite-code **join** flow with consent;
 - **check-in** with drag-and-drop or camera capture, on-device quality feedback, a guided retake and patient-report questions;
+- **live guided recording** for finger tapping (`components/live-capture.tsx`):
+  - the webcam view shows one instruction at a time while the participant sets up ("Too dark: turn on a light or face a window", "Move a little closer", "Show your whole hand to the camera, wrist included"), with the tracked hand drawn over the video;
+  - recording is rolling: set-up footage is discarded, the clip locks when tapping starts, and it stops by itself after 10 s;
+  - `trim_start_s` marks where the task begins, so the on-device analysis, the server re-analysis and the clinician's player all skip the set-up;
+  - guidance is about the capture only (light, framing, distance, steadiness), never about how to tap. The rules live in `packages/cv/src/live.ts`;
 - **history**;
 - **rewards** with tiers, badges and simulated redemption.
 

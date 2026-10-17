@@ -5,6 +5,7 @@ import type { HandLandmarker, ImageEmbedder } from "@mediapipe/tasks-vision";
 const HOSTED_HAND_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 const HOSTED_EMBEDDER_MODEL = "https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/1/mobilenet_v3_small.tflite";
 let loadingHands: Promise<HandLandmarker> | null = null;
+let loadingLiveHands: Promise<HandLandmarker> | null = null;
 let loadingEmbedder: Promise<ImageEmbedder> | null = null;
 
 const fileset = async () => {
@@ -21,29 +22,44 @@ async function withFallback<T>(create: (path: string) => Promise<T>, local: stri
   }
 }
 
-/** MediaPipe HandLandmarker in VIDEO mode, loaded once per page. */
+async function createHandLandmarker(): Promise<HandLandmarker> {
+  const { HandLandmarker } = await import("@mediapipe/tasks-vision");
+  const fs = await fileset();
+  return withFallback(
+    (modelAssetPath) =>
+      HandLandmarker.createFromOptions(fs, {
+        baseOptions: { modelAssetPath, delegate: "CPU" },
+        runningMode: "VIDEO",
+        numHands: 1,
+        minHandDetectionConfidence: 0.5,
+        minHandPresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      }),
+    "/mediapipe/hand_landmarker.task",
+    HOSTED_HAND_MODEL,
+  );
+}
+
+/** MediaPipe HandLandmarker in VIDEO mode for analysing files, loaded once per page. */
 export function loadHandLandmarker(): Promise<HandLandmarker> {
-  loadingHands ??= (async () => {
-    const { HandLandmarker } = await import("@mediapipe/tasks-vision");
-    const fs = await fileset();
-    return withFallback(
-      (modelAssetPath) =>
-        HandLandmarker.createFromOptions(fs, {
-          baseOptions: { modelAssetPath, delegate: "CPU" },
-          runningMode: "VIDEO",
-          numHands: 1,
-          minHandDetectionConfidence: 0.5,
-          minHandPresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        }),
-      "/mediapipe/hand_landmarker.task",
-      HOSTED_HAND_MODEL,
-    );
-  })().catch((e) => {
+  loadingHands ??= createHandLandmarker().catch((e) => {
     loadingHands = null; // allow a retry
     throw e;
   });
   return loadingHands;
+}
+
+/**
+ * A second landmarker for the live camera. VIDEO mode needs ever-increasing timestamps per
+ * instance; the live view runs on the camera clock while file analysis runs on its own, so
+ * they must not share one.
+ */
+export function loadLiveHandLandmarker(): Promise<HandLandmarker> {
+  loadingLiveHands ??= createHandLandmarker().catch((e) => {
+    loadingLiveHands = null;
+    throw e;
+  });
+  return loadingLiveHands;
 }
 
 /** MediaPipe ImageEmbedder (MobileNet-V3 Small), configured like services/cv/app/embedding.py. */

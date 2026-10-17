@@ -2,10 +2,11 @@
 
 import type { ModuleResult } from "@vf/cv";
 import type { QualityCheck, RewardEvent, TaskConfig } from "@vf/shared";
-import { AlertTriangle, CheckCircle2, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle2, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dropzone } from "@/components/dropzone";
+import { LiveCapture, liveCaptureSupported } from "@/components/live-capture";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ProgressBar, SectionLabel, cn } from "@/components/ui";
 import { analyzePhotoFile, analyzeVideoFile, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { planVideoUpload, type UploadPlan } from "@/lib/cv-client/upload";
@@ -45,6 +46,9 @@ interface Outcome {
 
 type Phase = "capture" | "analyzing" | "rejected" | "ready" | "submitting" | "done";
 
+/** Modules with live camera coaching (components/live-capture.tsx). */
+const LIVE_MODULES = new Set(["finger_tapping"]);
+
 export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; dueNow: boolean; serverAnalysis: boolean }) {
   const [phase, setPhase] = useState<Phase>("capture");
   const [file, setFile] = useState<File | null>(null);
@@ -56,6 +60,15 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [attempts, setAttempts] = useState(0);
+  // live capture: where the task starts in the recorded clip (seconds of set-up before it)
+  const trimRef = useRef(0);
+  const [live, setLive] = useState(false);
+  const [canLive, setCanLive] = useState(false);
+  useEffect(() => {
+    const ok = LIVE_MODULES.has(task.module) && liveCaptureSupported();
+    setCanLive(ok);
+    setLive(ok);
+  }, [task.module]);
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
@@ -76,6 +89,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
     form.set("analysis", JSON.stringify(r));
     form.set("report", JSON.stringify(intent === "submit" ? answers : {}));
     form.set("device", navigator.userAgent.slice(0, 80));
+    if (trimRef.current > 0) form.set("trim_start_s", String(trimRef.current));
     let plan: UploadPlan;
     if (task.media_type === "photo") plan = { file: up.photo!, filename: "capture.jpg", kind: "original" };
     else plan = await planVideoUpload(f, up.poster!);
@@ -88,8 +102,9 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
     return body as Outcome;
   }
 
-  async function onFile(f: File) {
+  async function onFile(f: File, trimStartS = 0) {
     reset();
+    trimRef.current = trimStartS;
     setFile(f);
     setPreview(URL.createObjectURL(f));
     setPhase("analyzing");
@@ -104,7 +119,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         up = { photo: a.upload };
       } else {
         if (!isMediaKind(f, "video")) throw new Error("Please choose a video.");
-        const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }));
+        const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
         r = a.result;
         up = { poster: a.poster };
       }
@@ -222,14 +237,23 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         <Card>
           <CardHeader title="1 · Add your capture" actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw className="h-3.5 w-3.5" /> Start over</Button> : undefined} />
           <CardBody>
-            {!file ? (
-              <Dropzone
-                accept={accept}
-                capture="environment"
-                onFiles={([f]) => void onFile(f)}
-                title={task.media_type === "photo" ? "Take or choose a photo" : "Record or choose a video"}
-                hint={`Drag and drop it here, or tap to ${task.media_type === "photo" ? "open the camera" : "record"}.`}
-              />
+            {!file && live ? (
+              <LiveCapture onCapture={(f, trim) => void onFile(f, trim)} onCancel={() => setLive(false)} />
+            ) : !file ? (
+              <div className="space-y-3">
+                <Dropzone
+                  accept={accept}
+                  capture="environment"
+                  onFiles={([f]) => void onFile(f)}
+                  title={task.media_type === "photo" ? "Take or choose a photo" : "Record or choose a video"}
+                  hint={`Drag and drop it here, or tap to ${task.media_type === "photo" ? "open the camera" : "record"}.`}
+                />
+                {canLive && (
+                  <Button size="sm" variant="secondary" onClick={() => setLive(true)}>
+                    <Camera className="h-3.5 w-3.5" /> Record with live guidance
+                  </Button>
+                )}
+              </div>
             ) : (
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="overflow-hidden rounded-md bg-slate-900">
@@ -237,7 +261,15 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={preview!} alt="Your photo" className="aspect-[4/3] w-full object-contain" />
                   ) : (
-                    <video src={preview!} controls playsInline muted className="aspect-[4/3] w-full object-contain" />
+                    <video
+                      src={preview!}
+                      controls
+                      playsInline
+                      muted
+                      // live captures start with a few seconds of set-up: open at the task
+                      onLoadedMetadata={(e) => void (trimRef.current > 0 && (e.currentTarget.currentTime = trimRef.current))}
+                      className="aspect-[4/3] w-full object-contain"
+                    />
                   )}
                 </div>
                 <div className="space-y-3">
