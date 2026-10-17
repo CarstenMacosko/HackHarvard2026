@@ -19,7 +19,7 @@ export const DEFAULT_REWARDS: RewardConfig = {
   ],
 };
 
-const PERIOD_DAYS: Record<Cadence, number> = { daily: 1, twice_weekly: 3, weekly: 7, biweekly: 14 };
+export const PERIOD_DAYS: Record<Cadence, number> = { daily: 1, twice_weekly: 3, weekly: 7, biweekly: 14 };
 
 const DAY_MS = 86_400_000;
 

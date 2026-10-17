@@ -10,8 +10,6 @@ const Body = z.object({
   corrected: z.array(z.object({ name: z.string(), value: z.number() })).default([]),
 });
 
-// TODO(A): take the reviewer from the Supabase session and also insert into `reviews`.
-
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
@@ -30,12 +28,21 @@ export async function POST(req: Request) {
         })
       : obs.measurements;
 
+  // the observation holds the latest decision; `reviews` keeps every decision, with the values it replaced
   await db.updateObservation(id, {
     review_status: decision,
     measurements,
     reviewer: RESEARCHER_NAME,
     reviewed_at: new Date().toISOString(),
     review_note: note,
+  });
+  await db.insertReview({
+    observation_id: id,
+    reviewer: RESEARCHER_NAME,
+    decision,
+    corrected_measurements: decision === "corrected" ? corrected : null,
+    before_measurements: decision === "corrected" ? obs.measurements : null,
+    note,
   });
   await db.insertAudit({
     actor: RESEARCHER_NAME,

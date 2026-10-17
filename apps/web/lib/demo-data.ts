@@ -12,7 +12,7 @@ import {
   type TaskConfig,
 } from "@vf/shared";
 import { PRETRAINED_MODELS } from "@vf/shared/pretrained";
-import type { AuditEntry, CvModel, Participant, Redemption, ScheduledTask, Study, Submission } from "./types";
+import type { AuditEntry, CvModel, DraftRecord, DroidJob, Message, Participant, Redemption, Review, ScheduledTask, Study, Submission } from "./types";
 
 /**
  * Deterministic synthetic study data so the whole app runs without Supabase.
@@ -36,6 +36,10 @@ export interface DemoState {
   redemptions: Redemption[];
   models: CvModel[];
   audit: AuditEntry[];
+  reviews: Review[];
+  messages: Message[];
+  drafts: DraftRecord[];
+  droidJobs: DroidJob[];
 }
 
 function rng(seed: number) {
@@ -132,8 +136,8 @@ function failedChecks(condition: Study["condition"], r: () => number): QualityCh
   return base;
 }
 
-function generate(): DemoState {
-  const NOW = Date.now();
+/** Also writes supabase/seed.sql and seed_demo.sql (scripts/make-seed.ts), so both modes start from the same data. */
+export function generate(NOW = Date.now()): DemoState {
   const state: DemoState = {
     studies: structuredClone(STUDIES),
     participants: [],
@@ -144,6 +148,10 @@ function generate(): DemoState {
     redemptions: [],
     models: structuredClone(PRETRAINED_MODELS),
     audit: [],
+    reviews: [],
+    messages: [],
+    drafts: [],
+    droidJobs: [],
   };
 
   PROFILES.forEach((p, i) => {
@@ -308,6 +316,10 @@ function generate(): DemoState {
           review_status === "corrected" ? "Amplitude adjusted: partial occlusion in frames 40–80." : review_status === "rejected" ? "Wrong region photographed." : null,
       });
       if (reviewer) {
+        state.reviews.push({
+          id: `rev_${obsId}`, observation_id: obsId, reviewer, decision: review_status as Review["decision"],
+          corrected_measurements: null, before_measurements: null, note: state.observations.at(-1)!.review_note, created_at: new Date(capturedAt + 1.5 * DAY).toISOString(),
+        });
         state.audit.push({
           id: `aud_${obsId}`, actor: reviewer, action: `review.${review_status}`, entity: "observation", entity_id: obsId,
           detail: { participant_id: p.id }, created_at: new Date(capturedAt + 1.5 * DAY).toISOString(),

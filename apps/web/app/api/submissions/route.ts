@@ -4,7 +4,7 @@ import { z } from "zod";
 import { backend } from "@/lib/backend";
 import { AnalysisResult, analyzeOnServer, cvServiceUrl } from "@/lib/cv-service";
 import { ingest } from "@/lib/ingest";
-import { MEDIA_PREFIX_STORAGE, saveMedia, signedUrlForStoragePath } from "@/lib/media";
+import { MEDIA_PREFIX_STORAGE, isOwnMediaPath, saveMedia, signedUrlForStoragePath } from "@/lib/media";
 import { validateReport } from "@/lib/report";
 import { currentParticipantId } from "@/lib/session";
 
@@ -52,8 +52,8 @@ export async function POST(req: Request) {
     contentType = (file.type || "application/octet-stream").split(";")[0].trim(); // MediaRecorder adds ";codecs=…"
     if (!/^(image|video)\//.test(contentType)) return NextResponse.json({ error: "Please upload a photo or a video." }, { status: 415 });
     bytes = new Uint8Array(await file.arrayBuffer());
-    mediaUrl = await saveMedia(bytes, contentType, EXT[contentType] ?? (contentType.split("/")[1] || "bin"));
-  } else if (typeof mediaPath === "string" && /^uploads\/[\w\-./]+$/.test(mediaPath) && !mediaPath.includes("..")) {
+    mediaUrl = await saveMedia(bytes, contentType, EXT[contentType] ?? (contentType.split("/")[1] || "bin"), participant);
+  } else if (typeof mediaPath === "string" && isOwnMediaPath(mediaPath, participant)) {
     mediaUrl = MEDIA_PREFIX_STORAGE + mediaPath;
   } else {
     return NextResponse.json({ error: "No photo or video received." }, { status: 400 });

@@ -1,3 +1,4 @@
+import { isOpen } from "@vf/shared";
 import { notFound } from "next/navigation";
 import { Timeline } from "@/components/timeline";
 import { Badge, Card, CardBody, CardHeader, PageHeader, STATUS_TONE, Stat, Table, Td, Th, THead, Tr } from "@/components/ui";
@@ -9,8 +10,9 @@ export default async function ParticipantPage({ params }: { params: Promise<{ id
   const d = await getParticipantDetail(id);
   if (!d) notFound();
   const { participant: p, study, observations, tasks, submissions } = d;
-  const past = tasks.filter((t) => t.status !== "pending").sort((a, b) => a.due_at.localeCompare(b.due_at));
-  const TASK_COLOR = { completed: "bg-emerald-500", missed: "bg-rose-300", escalated: "bg-rose-600", pending: "bg-slate-200" } as const;
+  const past = tasks.filter((t) => !isOpen(t)).sort((a, b) => a.due_at.localeCompare(b.due_at));
+  const TASK_COLOR = { completed: "bg-emerald-500", missed: "bg-rose-300", escalated: "bg-rose-600", pending: "bg-slate-200",
+  prompted: "bg-slate-300" } as const;
 
   return (
     <>

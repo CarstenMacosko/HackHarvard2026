@@ -1,13 +1,26 @@
 import "server-only";
-import { balance, computeStreak, customMeasurements, rewardMessage, rewardsForAcceptedSubmission, type Observation, type RewardEvent, type TaskConfig } from "@vf/shared";
+import {
+  balance,
+  computeStreak,
+  customMeasurements,
+  isOpen,
+  nextDueAt,
+  rewardMessage,
+  rewardsForAcceptedSubmission,
+  type Observation,
+  type RewardEvent,
+  type TaskConfig,
+} from "@vf/shared";
 import { backend } from "./backend";
 import type { AnalysisResult } from "./cv-service";
-import type { Participant, ScheduledTask, Study, Submission } from "./types";
+import { ensureSchedule } from "./schedule";
+import type { CaptureRecord, Participant, ScheduledTask, Study, Submission } from "./types";
 
 /**
  * The single path every capture takes, from the web upload page or the messaging agent:
  * record the attempt → (if usable) create a pending observation, apply researcher-trained
- * models, award points once per scheduled check-in → audit.
+ * models, award points once per scheduled check-in, schedule the next one → audit.
+ * Decisions are made here; the writes happen together in one transaction (record_capture).
  */
 
 export const MAX_ATTEMPTS = 3;
@@ -43,7 +56,7 @@ const id = (prefix: string) => `${prefix}_${Date.now().toString(36)}${Math.rando
 /** The check-in this capture counts toward: the earliest open task whose window includes now. */
 export function currentScheduledTask(tasks: ScheduledTask[], taskId: string, now: number): ScheduledTask | null {
   const open = tasks
-    .filter((t) => t.task_id === taskId && t.status === "pending")
+    .filter((t) => t.task_id === taskId && isOpen(t))
     .filter((t) => {
       const due = new Date(t.due_at).getTime();
       return due - 24 * 3_600_000 <= now && now <= due + t.window_hours * 3_600_000;
@@ -58,9 +71,14 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
   if (!analysis.model_version.startsWith(`${task.module}@`)) {
     throw new Error(`analysis from ${analysis.model_version} does not match task module ${task.module}`);
   }
+  // a retried request (e.g. the agent re-posting an analysis) returns the original outcome
+  if (input.observationId) {
+    const [existing] = await db.observations({ id: input.observationId });
+    if (existing) return replay(existing, p.id);
+  }
   const nowIso = input.capturedAt ?? new Date().toISOString();
   const now = new Date(nowIso).getTime();
-  const [tasks, priorSubs] = await Promise.all([db.scheduledTasks([p.id]), db.submissions({ participantId: p.id })]);
+  const [tasks, priorSubs] = await Promise.all([ensureSchedule(p, study, new Date(now)), db.submissions({ participantId: p.id })]);
   const scheduled = currentScheduledTask(tasks, task.id, now);
 
   // attempts since the last usable capture of this task
@@ -91,6 +109,7 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
   let events: RewardEvent[] = [];
   let streak = 0;
   let message = analysis.quality.retry_instructions ?? "That one wasn't usable. Please try again.";
+  let close: CaptureRecord["scheduled_task"] = null;
 
   if (accepted) {
     const models = await db.models();
@@ -116,9 +135,8 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
       review_note: null,
     };
     submission.observation_id = observation.id;
-    await db.insertObservation(observation);
 
-    const acceptedTimes = (await db.observations({ participantId: p.id })).map((o) => o.captured_at);
+    const acceptedTimes = [...(await db.observations({ participantId: p.id })).map((o) => o.captured_at), nowIso];
     streak = computeStreak(acceptedTimes, task.cadence, new Date(now));
     if (scheduled) {
       const due = new Date(scheduled.due_at).getTime();
@@ -130,24 +148,30 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
         totalAccepted: priorSubs.filter((s) => s.accepted).length + 1,
         at: new Date(now),
       });
-      await db.insertRewardEvents(events);
-      await db.updateScheduledTask(scheduled.id, { status: "completed", completed_at: nowIso });
+      close = { id: scheduled.id, status: "completed", completed_at: nowIso };
       message = `Usable capture ✅ ${rewardMessage(events, streak)}`;
     } else {
       message = "Usable capture ✅ Thanks! This check-in was already complete, so this extra one doesn't earn points, but it still helps the study.";
     }
   } else if (submission.escalated && scheduled) {
-    await db.updateScheduledTask(scheduled.id, { status: "escalated" });
+    close = { id: scheduled.id, status: "escalated" };
     message = `${message} If it still doesn't work, your study coordinator will reach out to help.`;
   }
 
-  await db.insertSubmission(submission);
-  await db.insertAudit({
-    actor: p.id,
-    action: accepted ? "submission.accepted" : submission.escalated ? "submission.escalated" : "submission.rejected",
-    entity: "submission",
-    entity_id: submission.id,
-    detail: { task_id: task.id, attempt, runtime: input.runtime, source: input.source, observation_id: observation?.id ?? null },
+  const result = await db.recordCapture({
+    submission,
+    observation,
+    reward_events: events,
+    scheduled_task: close,
+    // the next check-in for this task, one cadence period after the one just closed
+    next_task: close && scheduled ? { participant_id: p.id, task_id: task.id, due_at: nextDueAt(scheduled.due_at, task.cadence, new Date(now)), window_hours: scheduled.window_hours } : null,
+    audit: {
+      actor: p.id,
+      action: accepted ? "submission.accepted" : submission.escalated ? "submission.escalated" : "submission.rejected",
+      entity: "submission",
+      entity_id: submission.id,
+      detail: { task_id: task.id, attempt, runtime: input.runtime, source: input.source, observation_id: observation?.id ?? null },
+    },
   });
 
   return {
@@ -157,6 +181,22 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
     streak,
     points_balance: balance(await db.rewardEvents(p.id)),
     message,
-    completed_scheduled_task: Boolean(accepted && scheduled),
+    completed_scheduled_task: Boolean(accepted && scheduled && result.scheduled_task_updated),
+  };
+}
+
+/** The outcome of a capture that was already recorded. */
+async function replay(o: Observation, participantId: string): Promise<IngestResult> {
+  const db = backend();
+  const [submission] = await db.submissions({ id: o.submission_id });
+  const events = (await db.rewardEvents(participantId)).filter((e) => e.id.startsWith(`${o.submission_id}:`));
+  return {
+    submission,
+    observation: o,
+    reward_events: events,
+    streak: 0,
+    points_balance: balance(await db.rewardEvents(participantId)),
+    message: "Usable capture ✅ (already received)",
+    completed_scheduled_task: Boolean(submission?.scheduled_task_id),
   };
 }
