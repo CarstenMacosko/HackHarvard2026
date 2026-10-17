@@ -24,9 +24,10 @@ Snapshot: 2026-10-17, commit `43d0c2f`. Implementation, deployment, and clinical
 | Tapping/tremor measurements | Extract movement features | Browser MediaPipe/CV | Python modules, optional server analysis | Implemented algorithms; clinical scores experimental |
 | Skin-photo analysis | Extract color/texture features | Browser photo CV | Python module/image embeddings | Experimental clinical interpretation |
 | Five bundled models | Demonstrate study predictions | Registry/capture results | Shared models, training/studies | Experimental: SCIN likelihood/texture and synthetic movement labels |
-| Browser model training | Fit a study-specific head | /researcher/models/new | Shared ridge logic, models API | Experimental; training success is not clinical validation |
+| Offline model training kit | Fit a study-specific head after labels are obtained | CLI only | training/vfcv | Available for future research; researcher browser training removed |
 | Protocol drafting | Assemble proposed workflows | /researcher/builder | Builder API/catalog, optional provider | Implemented with offline fallback; needs human review |
-| Generate with Droid | Build proposed CV modules into the registry | /researcher/generate, builder | Droid+Daytona → droid_jobs + cv_models | Implemented; live keys optional (demo mode works) |
+| Generate with Droid | Draft an index-straightening CV candidate | /researcher/generate, builder | Droid draft, Daytona/local landmark checks, droid_jobs | Candidate review only; no trained model or deployment |
+| Writing posture | Measure index-finger angle during a pen hold and repeated phrase | CV service and visit CLI | writing_posture module and shared hand landmarks | Experimental descriptive feature; browser capture integration pending |
 | Real identity/study isolation | Restrict access | Login/session experience | Authorization, media access, authenticated review | Planned completion; current identities are demo placeholders |
 
 ## State terminology

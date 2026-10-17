@@ -15,6 +15,8 @@ venv/
 *.egg-info/
 # demo media and model weights stay out of git
 media/
+!apps/web/app/api/media/
+!apps/web/app/api/media/**
 *.mp4
 *.mov
 *.pt

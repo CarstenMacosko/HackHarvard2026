@@ -12,7 +12,7 @@
 | POST /api/cv-callback | Ingest analyzed messaging attempts; return ledger | Secret checked when configured; use a non-default secret in hosted setup |
 | POST /api/reviews | Review state, corrections, audit | Demo reviewer; separate reviews-table writes remain TODO |
 | /api/export | Reviewed-data export | Verify review-state filter |
-| /api/models, /api/models/[id] | Register/manage models | Registration does not confer clinical validity |
+| /api/models, /api/models/[id] | Read/manage existing models | Browser model registration was removed; management does not confer clinical validity |
 | POST /api/builder/draft | Draft protocol | Catalog and optional model provider |
 | GET/POST /api/droid/jobs | List/request generation jobs | GitHub/Actions/Factory configuration required |
 | /api/rewards/redeem | Simulated redemption | No real payment/fulfillment |

@@ -85,7 +85,7 @@ Ids are text so records keep readable, stable ids across the demo seed, the app 
 | `studies` | A study and its condition. Builder-approved studies start as `draft`; the New study form creates `active` ones. | `id`, `condition`, `status` (draft/active/closed) | seed, web (New study form, builder approve) |
 | `protocols` | Versioned protocol: tasks, capture instructions, quality criteria, measurements, rewards, consent form and reminder schedule (`config` = zod `Protocol`). The latest version is used. | unique (`study_id`, `version`) | seed, web (New study form, builder approve) |
 | `workflow_drafts` | Condition-builder drafts (`draft` = zod `WorkflowDraft`), kept until a clinician approves one into a study. | `status` (draft/approved/discarded), `study_id` | web |
-| `cv_models` | Researcher-trained ridge heads and Droid-generated analyzers. | `module`, `study_id` (null = all studies), `active`, `status`, `provenance`, `source_code`, `module_params` | web |
+| `cv_models` | Previously registered trained ridge heads; Droid candidate generation does not insert rows. | `module`, `study_id` (null = all studies), `active`, `status`, `provenance`, `source_code`, `module_params` | web |
 | `droid_jobs` | In-process Droid+Daytona generation jobs. | `id`, `status`, `progress` (steps, logs, experiments), `kind` (`module_generate`) | web |
 | `researchers`, `study_members` | Researcher accounts and study roles, for Supabase Auth (not used yet: sign-in is planned). | | |
 
