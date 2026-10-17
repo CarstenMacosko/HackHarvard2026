@@ -38,7 +38,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false # Droid never holds push credentials; the last step pushes
 
@@ -57,7 +57,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -65,14 +65,14 @@ jobs:
             training/requirements.txt
             services/cv/requirements*.txt
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
 
       - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgles2
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgles2 ffmpeg
           pip install -r training/requirements.txt
           npm ci
 

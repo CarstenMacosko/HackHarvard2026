@@ -47,7 +47,7 @@ export const FINGER_TAPPING_TASK: TaskConfig = {
   cadence: "weekly",
   instructions:
     "Time for your weekly finger-tapping check 👋 Prop your phone up so your whole right hand is in view, then tap your index finger and thumb together as fast and as wide as you can for 10 seconds. Send the video here.",
-  quality_criteria: { blur: 60, exposure_min: 60, exposure_max: 200, hand_visible: 0.8, duration_s: 8, fps: 20 },
+  quality_criteria: { blur: 20, exposure_min: 60, exposure_max: 220, hand_visible: 0.8, duration_s: 8, fps: 20 },
   report_questions: [
     { key: "medication_state", prompt: "Are you ON or OFF your medication right now?", type: "choice", options: ["ON", "OFF", "Not sure"] },
     { key: "hand", prompt: "Which hand did you tap with?", type: "choice", options: ["Right", "Left"] },
@@ -68,7 +68,7 @@ export const TREMOR_TASK: TaskConfig = {
   cadence: "weekly",
   instructions:
     "Weekly tremor check 🤚 Prop your phone up so it can't move, rest your right forearm on a table with your hand relaxed and in view (wrist included), and keep it still for 15 seconds. Send the video here.",
-  quality_criteria: { blur: 60, exposure_min: 60, exposure_max: 200, hand_visible: 0.8, duration_s: 8, fps: 24 },
+  quality_criteria: { blur: 20, exposure_min: 60, exposure_max: 220, hand_visible: 0.8, duration_s: 8, fps: 24 },
   report_questions: [
     { key: "medication_state", prompt: "Are you ON or OFF your medication right now?", type: "choice", options: ["ON", "OFF", "Not sure"] },
     { key: "tremor_today", prompt: "How much has tremor bothered you today, 0 (not at all) to 10 (very much)?", type: "scale" },

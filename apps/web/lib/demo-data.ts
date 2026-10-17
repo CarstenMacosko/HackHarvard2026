@@ -151,9 +151,9 @@ function failedChecks(condition: Study["condition"], r: () => number): QualityCh
   const base: QualityCheck[] = dark
     ? [{ name: "exposure", passed: false, value: 38 + Math.round(r() * 15), threshold: condition === "parkinsons" ? 60 : 70, message: "It's too dark. Turn on a light or face a window (no flash)." }]
     : condition === "parkinsons"
-      ? [{ name: "blur", passed: false, value: 12 + Math.round(r() * 30), threshold: 60, message: BLURRY }]
+      ? [] // blur is advisory for hand videos; their retakes come from tracking (below)
       : [{ name: "blur", passed: false, value: 3 + Math.round(r() * 10), threshold: 15, message: BLURRY }];
-  if (condition === "parkinsons" && r() < 0.4) {
+  if (condition === "parkinsons" && (base.length === 0 || r() < 0.4)) {
     base.push({ name: "hand_visible", passed: false, value: 0.4 + Math.round(r() * 30) / 100, threshold: 0.8, message: "I lost sight of your hand. Keep your whole hand, including your wrist, in the frame the entire time." });
   }
   return base;
@@ -252,8 +252,8 @@ function generate(): DemoState {
         });
         report = { medication_state: off ? "OFF" : "ON", tremor_today: Math.max(0, Math.min(10, Math.round(amp * 30 + (r() - 0.5) * 3))) };
         checks = [
-          { name: "blur", passed: true, value: 90 + Math.round(r() * 80), threshold: 60, message: "" },
-          { name: "exposure", passed: true, value: 110 + Math.round(r() * 40), threshold: 200, message: "" },
+          { name: "blur", passed: true, value: 90 + Math.round(r() * 200), threshold: 20, message: "", advisory: true },
+          { name: "exposure", passed: true, value: 110 + Math.round(r() * 40), threshold: 220, message: "" },
           { name: "duration_s", passed: true, value: 12 + Math.round(r() * 4), threshold: 8, message: "" },
           { name: "fps", passed: true, value: 30, threshold: 24, message: "" },
           { name: "hand_visible", passed: true, value: Math.round((0.9 + r() * 0.1) * 1000) / 1000, threshold: 0.8, message: "" },
@@ -270,8 +270,8 @@ function generate(): DemoState {
         });
         report = { medication_state: off ? "OFF" : "ON", hand: "Right" };
         checks = [
-          { name: "blur", passed: true, value: 90 + Math.round(r() * 80), threshold: 60, message: "" },
-          { name: "exposure", passed: true, value: 110 + Math.round(r() * 40), threshold: 200, message: "" },
+          { name: "blur", passed: true, value: 90 + Math.round(r() * 200), threshold: 20, message: "", advisory: true },
+          { name: "exposure", passed: true, value: 110 + Math.round(r() * 40), threshold: 220, message: "" },
           { name: "duration_s", passed: true, value: 10 + Math.round(r() * 3), threshold: 8, message: "" },
           { name: "fps", passed: true, value: 30, threshold: 20, message: "" },
           { name: "hand_visible", passed: true, value: Math.round((0.9 + r() * 0.1) * 1000) / 1000, threshold: 0.8, message: "" },

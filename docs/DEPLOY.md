@@ -54,7 +54,11 @@ Large videos (>4 MB) can't pass through a Vercel function. Without Supabase Stor
 
 Without Supabase, the app keeps its data in server memory. On Vercel, each serverless instance has its own copy and resets when it goes idle. So a review you submit, a redemption or a new sign-up may vanish or not show up on the next page load. Viewing pages is unaffected.
 
-To make changes stick, create a Supabase project, apply `supabase/migrations` + `supabase/seed.sql`, and add these Vercel env vars:
+To make changes stick, and to share data between phones and the projector in a live demo, connect Supabase (about 5 minutes):
+
+1. [supabase.com](https://supabase.com) → **New project** (any region near you; save the database password).
+2. **SQL Editor → New query**: paste the whole of [`supabase/setup.sql`](../supabase/setup.sql) (every migration plus the demo seed, including the `media` storage bucket) and click **Run**. Do this once, on a fresh project.
+3. **Project Settings → API**: copy the Project URL, the `anon` public key and the `service_role` secret key into Vercel → Settings → Environment Variables:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL
@@ -62,7 +66,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 ```
 
-Then redeploy. The "Demo data" banner in the researcher header disappears once Supabase is connected.
+4. Redeploy. The "Demo data" banner in the researcher header disappears once Supabase is connected. For local runs, put the same three values in `.env.local`.
+
+Never commit the `service_role` key or paste it anywhere public: it bypasses row-level security.
 
 ## The other services (later)
 

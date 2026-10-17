@@ -18,6 +18,7 @@ export const QualityCheck = z.object({
   value: z.number().nullable(),
   threshold: z.number().nullable(),
   message: z.string(), // patient-facing fix when it fails
+  advisory: z.boolean().optional(), // recorded and shown to clinicians, but never rejects the capture
 });
 export type QualityCheck = z.infer<typeof QualityCheck>;
 

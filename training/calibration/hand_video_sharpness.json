@@ -1,0 +1,117 @@
+[
+ {
+  "clip": "synthetic, defocus \u03c3=0",
+  "old_whole_frame": 110.0,
+  "hand_sharpness": 628.1,
+  "hand_brightness": 129.1,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, defocus \u03c3=1",
+  "old_whole_frame": 12.2,
+  "hand_sharpness": 156.6,
+  "hand_brightness": 128.9,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, defocus \u03c3=2",
+  "old_whole_frame": 2.0,
+  "hand_sharpness": 22.4,
+  "hand_brightness": 129.0,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, defocus \u03c3=3",
+  "old_whole_frame": 1.0,
+  "hand_sharpness": 7.8,
+  "hand_brightness": 129.0,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, defocus \u03c3=4",
+  "old_whole_frame": 0.7,
+  "hand_sharpness": 4.7,
+  "hand_brightness": 128.9,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, defocus \u03c3=6",
+  "old_whole_frame": 0.5,
+  "hand_sharpness": 3.0,
+  "hand_brightness": 128.4,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, defocus \u03c3=8",
+  "old_whole_frame": 0.5,
+  "hand_sharpness": 2.5,
+  "hand_brightness": 128.1,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, defocus \u03c3=12",
+  "old_whole_frame": 0.4,
+  "hand_sharpness": 2.2,
+  "hand_brightness": 126.9,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, camera shake 9 px",
+  "old_whole_frame": 26.4,
+  "hand_sharpness": 150.5,
+  "hand_brightness": 129.1,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, camera shake 21 px",
+  "old_whole_frame": 13.7,
+  "hand_sharpness": 64.8,
+  "hand_brightness": 129.3,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "synthetic, camera shake 41 px",
+  "old_whole_frame": 8.8,
+  "hand_sharpness": 33.9,
+  "hand_brightness": 128.9,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.5,
+  "rate_error_hz": 0.0
+ },
+ {
+  "clip": "team clip IMG_6474 (iPhone HEVC)",
+  "old_whole_frame": 52.5,
+  "hand_sharpness": 225.7,
+  "hand_brightness": 189.1,
+  "detection_rate": 0.938,
+  "tap_rate_hz": 1.935
+ },
+ {
+  "clip": "team clip IMG_6475 (iPhone HEVC)",
+  "old_whole_frame": 54.3,
+  "hand_sharpness": 110.0,
+  "hand_brightness": 172.6,
+  "detection_rate": 1.0,
+  "tap_rate_hz": 2.591
+ }
+]

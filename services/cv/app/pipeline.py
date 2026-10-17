@@ -17,7 +17,7 @@ def run_prepared(module: CVModule, prepared: Any, req: AnalyzeRequest, embed: bo
     criteria = {**module.default_criteria, **req.quality_criteria}
     checks = module.quality_checks(prepared, criteria)
     result = MeasureResult(measurements=[])
-    if all(c.passed for c in checks):
+    if all(c.passed or c.advisory for c in checks):
         try:
             result = module.measure(prepared, criteria)
         except TaskNotCompleted as e:
@@ -44,7 +44,10 @@ def photo_embedding(module: CVModule, prepared: Any) -> dict[str, float]:
 def analyze(req: AnalyzeRequest, media_path: str) -> AnalyzeResponse:
     module = registry.get(req.module)
     try:
-        prepared = module.prepare(media_path)
+        if module.media_type == "video" and req.trim_start_s:
+            prepared = module.prepare(media_path, start_s=req.trim_start_s)
+        else:
+            prepared = module.prepare(media_path)
     except TaskNotCompleted as e:
         return assemble(module, req, [task_failed(str(e))], [], {})
     return run_prepared(module, prepared, req)

@@ -79,6 +79,7 @@ class HandTrack:
     fps: float
     landmarks: np.ndarray  # (frames, 21, 2) pixels, NaN where no hand was detected
     gray_samples: list[np.ndarray] = field(default_factory=list)
+    sample_landmarks: list[np.ndarray | None] = field(default_factory=list)  # landmarks of each gray sample
     hand_label: str | None = None
 
     @property
@@ -99,16 +100,26 @@ def sample_indices(n_frames: int, k: int = GRAY_SAMPLES) -> set[int]:
     return set(range(0, n_frames, step))
 
 
-def track_video(path: str, tracker_factory=HandTracker) -> HandTrack:
-    """Stream frames once: landmarks for every frame, grayscale copies of ~10 for quality."""
+def track_video(path: str, tracker_factory=HandTracker, start_s: float = 0.0) -> HandTrack:
+    """Stream frames once: landmarks for every frame, grayscale copies of ~10 for quality.
+    Frames before `start_s` are skipped (decoded, not analysed): seeking is unreliable across codecs."""
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
         raise TaskNotCompleted("I couldn't open that video. Please try recording it again.")
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    skip = 0
+    if start_s > 0:
+        # by timestamp where the container has them (MediaRecorder WebM often reports a bogus fps)
+        while cap.grab():
+            skip += 1
+            pos = cap.get(cv2.CAP_PROP_POS_MSEC)
+            if (pos >= start_s * 1000) if pos > 0 else (skip >= round(start_s * fps)):
+                break
     max_frames = int(MAX_SECONDS * fps)
-    expected = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    expected = max(0, int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0) - skip)
     keep = sample_indices(min(expected, max_frames) if expected > 0 else max_frames)
     grays: list[np.ndarray] = []
+    sample_pts: list[np.ndarray | None] = []
     frames: list[np.ndarray] = []
     labels: list[str] = []
     missing = np.full((N_LANDMARKS, 2), np.nan)
@@ -118,9 +129,10 @@ def track_video(path: str, tracker_factory=HandTracker) -> HandTrack:
             if not ok:
                 break
             i = len(frames)
+            pts, label = tracker.landmarks(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), int(i * 1000 / fps))
             if i in keep:
                 grays.append(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
-            pts, label = tracker.landmarks(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), int(i * 1000 / fps))
+                sample_pts.append(pts)
             frames.append(missing if pts is None else pts)
             if label:
                 labels.append(label)
@@ -131,6 +143,7 @@ def track_video(path: str, tracker_factory=HandTracker) -> HandTrack:
         fps=float(fps),
         landmarks=np.stack(frames),
         gray_samples=grays,
+        sample_landmarks=sample_pts,
         hand_label=max(set(labels), key=labels.count) if labels else None,
     )
 
@@ -148,8 +161,12 @@ def load_track(path: str | Path) -> HandTrack:
     return HandTrack(fps=fps, landmarks=lm[: int(MAX_SECONDS * fps)])
 
 
-def load_hand_media(path: str, tracker_factory=HandTracker) -> HandTrack:
-    return load_track(path) if str(path).endswith(".npz") else track_video(path, tracker_factory)
+def load_hand_media(path: str, tracker_factory=HandTracker, start_s: float = 0.0) -> HandTrack:
+    if str(path).endswith(".npz"):
+        track = load_track(path)
+        skip = int(round(start_s * track.fps))
+        return HandTrack(fps=track.fps, landmarks=track.landmarks[skip:]) if skip else track
+    return track_video(path, tracker_factory, start_s)
 
 
 def fill_gaps(signal: np.ndarray) -> np.ndarray:

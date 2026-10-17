@@ -2,6 +2,8 @@ import type { Observation } from "@vf/shared";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
 import { Badge, KeyValues, REVIEW_TONE, SectionLabel, ValidationBadge } from "./ui";
 
+const trimmed = (url: string, start: unknown) => (typeof start === "number" && start > 0 ? `${url}#t=${start}` : url);
+
 /** Everything behind one graphed value: source media, quality checks, measurements, report, provenance. */
 export function ObservationDetail({ o, compact = false }: { o: Observation; compact?: boolean }) {
   const runtime = String(o.context.analysis_runtime ?? "server");
@@ -24,7 +26,8 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
       >
         {o.media_url ? (
           isVideo ? (
-            <video src={o.media_url} controls playsInline className="h-full w-full object-contain" />
+            // live captures keep a few seconds of set-up before the task: start playback where the task does
+            <video src={trimmed(o.media_url, o.context.trim_start_s)} controls playsInline className="h-full w-full object-contain" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={o.media_url} alt={`${o.task_label}, ${dateTime(o.captured_at)}`} className="h-full w-full object-contain" />
@@ -62,8 +65,9 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
         </SectionLabel>
         <div className="flex flex-wrap gap-1.5">
           {o.quality.checks.map((c) => (
-            <Badge key={c.name} tone={c.passed ? "green" : "red"}>
-              {c.passed ? "✓" : "✗"} {CHECK_LABEL[c.name] ?? c.name}
+            <Badge key={c.name} tone={c.passed ? "green" : c.advisory ? "amber" : "red"}>
+              {c.passed ? "✓" : c.advisory ? "!" : "✗"} {CHECK_LABEL[c.name] ?? c.name}
+              {!c.passed && c.advisory && <span className="font-normal">(low, accepted)</span>}
               {c.value !== null && <span className="tabular font-normal opacity-75">{Number(c.value.toFixed(2))}</span>}
             </Badge>
           ))}

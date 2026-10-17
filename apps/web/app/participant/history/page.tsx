@@ -38,7 +38,7 @@ export default async function HistoryPage() {
                     <Td className="whitespace-nowrap text-slate-700">{dateTime(s.created_at)}</Td>
                     <Td>{s.accepted ? <Badge tone="green">usable</Badge> : <Badge tone="amber">retake</Badge>}</Td>
                     <Td className="text-slate-600">
-                      {s.accepted ? `Attempt ${s.attempt}` : s.quality.checks.filter((c) => !c.passed).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ")}
+                      {s.accepted ? `Attempt ${s.attempt}` : s.quality.checks.filter((c) => !c.passed && !c.advisory).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ")}
                     </Td>
                     <Td>
                       {s.accepted ? (

@@ -56,8 +56,8 @@ function mockObservation(a: AnalyzeArgs, body: { study_id: string; participant_i
     media_url: a.mediaUrl,
     quality: {
       accepted,
-      checks: [{ name: "blur", passed: accepted, value: accepted ? 140 : 22, threshold: 60, message: "The picture is blurry." }],
-      retry_instructions: accepted ? null : "The picture is blurry. Rest your phone against something steady and tap the screen to focus first. Then send it again 🙏",
+      checks: [{ name: "exposure", passed: accepted, value: accepted ? 140 : 41, threshold: 60, message: "It's too dark. Turn on a light or face a window (no flash)." }],
+      retry_instructions: accepted ? null : "It's too dark. Turn on a light or face a window (no flash). Then send it again 🙏",
     },
     measurements: accepted
       ? a.task.measurements.map((m) => ({ ...m, value: Math.round(Math.random() * 1000) / 100, uncertainty: 0.2 }))

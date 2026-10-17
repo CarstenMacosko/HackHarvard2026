@@ -57,15 +57,18 @@ def test_pipeline_accepts_good_capture():
     assert obs.features["n_taps"] >= 4
 
 
-def test_pipeline_rejects_blurry_dark_capture_with_instructions():
-    obs = run_prepared(
-        FingerTappingModule(), _prepared(synthetic_taps(), gray_value=30, sharp=False), AnalyzeRequest(module="finger_tapping")
-    )
-    assert not obs.quality.accepted
-    failed = {c.name for c in obs.quality.checks if not c.passed}
-    assert {"blur", "exposure"} <= failed
-    assert "blurry" in obs.quality.retry_instructions and "dark" in obs.quality.retry_instructions
-    assert obs.measurements == []
+def test_dark_capture_is_rejected_but_blur_alone_is_only_flagged():
+    dark = run_prepared(FingerTappingModule(), _prepared(synthetic_taps(), gray_value=30, sharp=False), AnalyzeRequest(module="finger_tapping"))
+    assert not dark.quality.accepted
+    assert "dark" in dark.quality.retry_instructions
+    assert "blurry" not in dark.quality.retry_instructions  # sharpness never asks for a retake
+    assert dark.measurements == []
+
+    soft = run_prepared(FingerTappingModule(), _prepared(synthetic_taps(), gray_value=120, sharp=False), AnalyzeRequest(module="finger_tapping"))
+    blur = next(c for c in soft.quality.checks if c.name == "blur")
+    assert not blur.passed and blur.advisory
+    assert soft.quality.accepted and soft.quality.retry_instructions is None
+    assert soft.measurements  # measured as usual, with the flag recorded for the clinician
 
 
 def test_pipeline_rejects_hand_out_of_frame():
