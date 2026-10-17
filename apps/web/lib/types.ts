@@ -111,6 +111,8 @@ export interface ParticipantSummary extends Participant {
   pending_reviews: number;
   points: number;
   escalations: number;
+  /** severity score (0–4) of the latest usable capture */
+  latest_score: number | null;
 }
 
 export interface StudySummary extends Study {

@@ -49,7 +49,7 @@ export default async function ResearcherLayout({ children }: { children: React.R
         <div className="space-y-2 px-1 text-xs">
           {demo && (
             <div className="rounded-md bg-amber-50 px-2 py-1.5 text-amber-800 ring-1 ring-inset ring-amber-600/20">
-              Demo data: Supabase is not configured.{" "}
+              No database connected: uploads are not saved.{" "}
               <Link href="/researcher/settings" className="underline">
                 Details
               </Link>

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Database tests: applies supabase/setup.sql (+ seed_demo.sql) to an empty database and runs
+# Database tests: applies supabase/setup.sql to an empty database and runs
 # supabase/test/tests.sql.
 #   DATABASE_URL=postgres://... supabase/test/run.sh   # an EMPTY database (it is modified)
 #   supabase/test/run.sh                               # starts a throwaway local Postgres
@@ -26,12 +26,4 @@ fi
 psql_() { psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -qtA "$@"; }
 psql_ -f "$here/stubs.sql" >/dev/null
 psql_ -f "$root/setup.sql" >/dev/null
-if [ -f "$root/seed_demo.sql" ]; then
-  psql_ -f "$root/seed_demo.sql" >/dev/null
-  before="$(psql_ -c "select (select count(*) from observations) || '/' || (select count(*) from reviews) || '/' || (select count(*) from audit_log)")"
-  psql_ -f "$root/seed_demo.sql" >/dev/null # safe to re-run: nothing new
-  after="$(psql_ -c "select (select count(*) from observations) || '/' || (select count(*) from reviews) || '/' || (select count(*) from audit_log)")"
-  [ "$before" = "$after" ] || { echo "FAILED: re-running seed_demo.sql added rows ($before -> $after)"; exit 1; }
-  echo "ok - demo history loaded (observations/reviews/audit: $after) and safe to re-run"
-fi
 psql_ -f "$here/tests.sql" 2>&1 | sed -n 's/.*NOTICE:  //p; /ERROR/p; /passed/p'

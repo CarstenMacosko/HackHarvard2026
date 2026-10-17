@@ -1,8 +1,7 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { CvModel as CvModelSchema, Protocol, isOpen, type Observation, type RewardEvent, type SchedulePlan } from "@vf/shared";
-import { PRETRAINED_MODELS } from "@vf/shared/pretrained";
-import { demoState } from "./demo-data";
+import { CvModel as CvModelSchema, Protocol, isOpen, withSeverityScore, type Observation, type RewardEvent, type SchedulePlan } from "@vf/shared";
+import { BUILTIN_MODELS, demoState } from "./demo-data";
 import type {
   AuditEntry,
   CaptureRecord,
@@ -22,7 +21,7 @@ import type {
 /**
  * Storage backend. With NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY set it talks to
  * Supabase (schema: supabase/migrations, documented in docs/DATABASE.md); otherwise it uses the
- * in-memory synthetic dataset in demo-data.ts (mutations last until the server restarts).
+ * in-memory starting state in demo-data.ts (studies and empty accounts; mutations last until the server restarts).
  * Both implementations keep the same semantics. Server-only: the service role key bypasses RLS.
  */
 export interface Backend {
@@ -101,7 +100,8 @@ const demoBackend: Backend = {
           (!f.status || o.review_status === f.status) &&
           (!f.id || o.id === f.id),
       )
-      .sort((a, b) => a.captured_at.localeCompare(b.captured_at)),
+      .sort((a, b) => a.captured_at.localeCompare(b.captured_at))
+      .map(withSeverityScore),
   submissions: async (f = {}) =>
     demoState()
       .submissions.filter((s) => (!f.participantId || s.participant_id === f.participantId) && (!f.studyId || s.study_id === f.studyId) && (!f.id || s.id === f.id))
@@ -264,14 +264,15 @@ function supabaseBackend(db: SupabaseClient): Backend {
       });
     },
     async observations(f = {}) {
-      return all<Observation>(() => {
+      // captures recorded before scoring existed are scored on read
+      return (await all<Observation>(() => {
         let q = db.from("observations").select("*").order("captured_at").order("id");
         if (f.participantId) q = q.eq("participant_id", f.participantId);
         if (f.studyId) q = q.eq("study_id", f.studyId);
         if (f.status) q = q.eq("review_status", f.status);
         if (f.id) q = q.eq("id", f.id);
         return q;
-      });
+      })).map(withSeverityScore);
     },
     async submissions(f = {}) {
       return all<Submission>(() => {
@@ -313,7 +314,7 @@ function supabaseBackend(db: SupabaseClient): Backend {
         })
       ).map((m) => CvModelSchema.parse(m));
       // bundled models (training kit / Droid) are listed unless a row overrides them, e.g. after deactivation
-      const builtins = PRETRAINED_MODELS.filter((m) => (!f.id || m.id === f.id) && !rows.some((r) => r.id === m.id));
+      const builtins = BUILTIN_MODELS.filter((m) => (!f.id || m.id === f.id) && !rows.some((r) => r.id === m.id));
       return [...builtins, ...rows];
     },
     async audit(f = {}) {
@@ -399,7 +400,7 @@ function supabaseBackend(db: SupabaseClient): Backend {
       must(await db.from("cv_models").insert(m));
     },
     async updateModel(id, patch) {
-      const builtin = PRETRAINED_MODELS.find((m) => m.id === id);
+      const builtin = BUILTIN_MODELS.find((m) => m.id === id);
       const existing = builtin ? must<unknown[]>(await db.from("cv_models").select("id").eq("id", id)) : [1];
       if (builtin && !existing.length) must(await db.from("cv_models").insert({ ...builtin, ...patch }));
       else must(await db.from("cv_models").update(patch).eq("id", id));

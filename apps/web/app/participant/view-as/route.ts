@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { backend } from "@/lib/backend";
 import { PARTICIPANT_COOKIE } from "@/lib/session";
 
-/** Demo helper: view the participant portal as an existing synthetic participant. */
+/** Testing helper: use the participant portal as an existing participant account. */
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const id = url.searchParams.get("id") ?? "";

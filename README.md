@@ -137,8 +137,8 @@ The table design, storage layout and full DDL are in [`docs/DATABASE.md`](docs/D
 # fresh project: paste supabase/setup.sql into the SQL editor, or with the CLI:
 supabase link --project-ref <ref>
 supabase db push                                             # supabase/migrations 0001–0004
-psql "$DATABASE_URL" -f supabase/seed.sql                    # studies, protocols, participants, open check-ins
-psql "$DATABASE_URL" -f supabase/seed_demo.sql               # optional: six weeks of synthetic history
+psql "$DATABASE_URL" -f supabase/seed.sql                    # studies, protocols, empty test accounts, open check-ins
+psql "$DATABASE_URL" -f supabase/cleanup_synthetic.sql       # only for projects that still hold the old synthetic history
 supabase/test/run.sh                                         # database tests on a throwaway local Postgres
 ```
 
