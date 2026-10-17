@@ -129,13 +129,18 @@ python -m pytest -q
 
 ### Supabase
 
+The table design, storage layout and full DDL are in [`docs/DATABASE.md`](docs/DATABASE.md). The web app and the messaging agent both persist there; the CV service stays stateless.
+
 ```bash
+# fresh project: paste supabase/setup.sql into the SQL editor, or with the CLI:
 supabase link --project-ref <ref>
-supabase db push                  # applies supabase/migrations (0001 schema, 0002 submissions + cv_models)
-psql "$DATABASE_URL" -f supabase/seed.sql
+supabase db push                                             # supabase/migrations 0001–0004
+psql "$DATABASE_URL" -f supabase/seed.sql                    # studies, protocols, participants, open check-ins
+psql "$DATABASE_URL" -f supabase/seed_demo.sql               # optional: six weeks of synthetic history
+supabase/test/run.sh                                         # database tests on a throwaway local Postgres
 ```
 
-Then set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. Media goes to the private `media` bucket, and large videos upload directly to storage through signed URLs.
+Then set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` for the web app, and the URL plus the service role key for the agent. Media goes to the private `media` bucket under `studies/<study>/<participant>/`; large videos upload directly to storage through signed URLs.
 
 ## Deploy
 

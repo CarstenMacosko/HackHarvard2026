@@ -92,37 +92,34 @@ export function DroidGenerate({ condition, task, measurement, description }: { c
   );
 }
 
-interface Run {
-  id: number;
-  title: string;
-  status: string;
-  conclusion: string | null;
-  created_at: string;
-  url: string;
-  request_id: string | null;
-  pull_request: { number: number; url: string; state: string; draft: boolean; title: string } | null;
-}
-interface RequestRow {
+interface Job {
   id: string;
-  entity_id: string | null;
+  module: string;
+  request: { condition?: string; measurement?: { label?: string }; media_type?: string };
+  status: "requested" | "dispatched" | "running" | "succeeded" | "failed";
+  run_url: string | null;
+  pr_url: string | null;
+  error: string | null;
   created_at: string;
-  detail: { condition?: string; measurement?: string; media_type?: string; dispatched?: boolean } | null;
+  pull_request?: { number: number; url: string; state: string; draft: boolean } | null;
 }
 
-function runBadge(r: Run) {
-  if (r.status !== "completed") return <Badge tone="blue">{r.status.replace("_", " ")}</Badge>;
-  if (r.conclusion === "success") return <Badge tone="green">finished</Badge>;
-  return <Badge tone="red">{r.conclusion ?? "failed"}</Badge>;
-}
+const JOB_BADGE: Record<Job["status"], [string, "green" | "blue" | "red" | "slate"]> = {
+  requested: ["not sent: run the gh command", "slate"],
+  dispatched: ["queued", "blue"],
+  running: ["running", "blue"],
+  succeeded: ["finished", "green"],
+  failed: ["failed", "red"],
+};
 
-/** Droid runs and the pull requests they opened (model registry). */
+/** Droid model requests (droid_jobs), their GitHub Actions runs and the pull requests they opened. */
 export function DroidJobs() {
-  const [data, setData] = useState<{ configured: boolean; runs: Run[]; requests: RequestRow[]; error?: string } | null>(null);
+  const [data, setData] = useState<{ configured: boolean; jobs: Job[]; error?: string } | null>(null);
   const load = useCallback(() => {
     fetch("/api/droid/jobs", { cache: "no-store" })
       .then((r) => r.json())
       .then(setData)
-      .catch(() => setData({ configured: false, runs: [], requests: [], error: "Could not load Droid jobs." }));
+      .catch(() => setData({ configured: false, jobs: [], error: "Could not load Droid jobs." }));
   }, []);
   useEffect(() => {
     load();
@@ -139,57 +136,48 @@ export function DroidJobs() {
       />
       {!data ? (
         <CardBody className="text-sm text-slate-500">Loading…</CardBody>
-      ) : data.configured && data.runs.length ? (
+      ) : data.jobs.length ? (
         <Table>
           <THead>
             <Th>Request</Th>
             <Th>Status</Th>
             <Th>Pull request</Th>
-            <Th className="text-right">Started</Th>
-          </THead>
-          <tbody>
-            {data.runs.map((r) => (
-              <Tr key={r.id}>
-                <Td>
-                  <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-slate-900 hover:underline">
-                    {r.title.replace(/^Droid model: /, "").replace(/\s*\[[^\]]+\]$/, "")} <ExternalLink className="h-3 w-3 text-slate-400" />
-                  </a>
-                  {r.request_id && <div className="font-mono text-xs text-slate-400">{r.request_id}</div>}
-                </Td>
-                <Td>{runBadge(r)}</Td>
-                <Td>
-                  {r.pull_request ? (
-                    <a href={r.pull_request.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-700 hover:underline">
-                      <GitPullRequest className="h-3.5 w-3.5" /> #{r.pull_request.number} {r.pull_request.draft ? "(draft)" : r.pull_request.state}
-                    </a>
-                  ) : (
-                    <span className="text-slate-400">–</span>
-                  )}
-                </Td>
-                <Td className="tabular text-right text-xs text-slate-500">{new Date(r.created_at).toLocaleString()}</Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
-      ) : data.requests.length ? (
-        <Table>
-          <THead>
-            <Th>Request</Th>
-            <Th>Measurement</Th>
-            <Th>Sent to GitHub</Th>
             <Th className="text-right">Requested</Th>
           </THead>
           <tbody>
-            {data.requests.map((r) => (
-              <Tr key={r.id}>
-                <Td className="font-mono text-xs">{r.entity_id}</Td>
-                <Td>
-                  {r.detail?.measurement} <span className="text-slate-400">· {r.detail?.condition}</span>
-                </Td>
-                <Td>{r.detail?.dispatched ? <Badge tone="green">yes</Badge> : <Badge>no: run the gh command</Badge>}</Td>
-                <Td className="tabular text-right text-xs text-slate-500">{new Date(r.created_at).toLocaleString()}</Td>
-              </Tr>
-            ))}
+            {data.jobs.map((j) => {
+              const [label, tone] = JOB_BADGE[j.status];
+              const pr = j.pull_request;
+              return (
+                <Tr key={j.id}>
+                  <Td>
+                    {j.run_url ? (
+                      <a href={j.run_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-slate-900 hover:underline">
+                        {j.request.measurement?.label ?? j.module} <ExternalLink className="h-3 w-3 text-slate-400" />
+                      </a>
+                    ) : (
+                      <span className="font-medium text-slate-900">{j.request.measurement?.label ?? j.module}</span>
+                    )}
+                    <span className="text-slate-400"> · {j.request.condition}</span>
+                    <div className="font-mono text-xs text-slate-400">{j.id}</div>
+                  </Td>
+                  <Td>
+                    <Badge tone={tone}>{label}</Badge>
+                    {j.error && <div className="mt-1 max-w-xs truncate text-xs text-rose-600">{j.error}</div>}
+                  </Td>
+                  <Td>
+                    {pr || j.pr_url ? (
+                      <a href={pr?.url ?? j.pr_url!} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-700 hover:underline">
+                        <GitPullRequest className="h-3.5 w-3.5" /> {pr ? `#${pr.number} ${pr.draft ? "(draft)" : pr.state}` : "pull request"}
+                      </a>
+                    ) : (
+                      <span className="text-slate-400">–</span>
+                    )}
+                  </Td>
+                  <Td className="tabular text-right text-xs text-slate-500">{new Date(j.created_at).toLocaleString()}</Td>
+                </Tr>
+              );
+            })}
           </tbody>
         </Table>
       ) : (

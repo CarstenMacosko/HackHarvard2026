@@ -5,7 +5,7 @@ import { AdherenceChart } from "@/components/charts";
 import { FunnelBars } from "@/components/funnel";
 import { ParticipantTable } from "@/components/participant-table";
 import { Badge, ButtonLink, Card, CardBody, CardHeader, EmptyState, KeyValues, PageHeader, SectionLabel, Stat, Tabs, ValidationBadge } from "@/components/ui";
-import { CHECK_LABEL, CONDITION_LABEL, pct } from "@/lib/format";
+import { CHECK_LABEL, conditionLabel, pct } from "@/lib/format";
 import { studyDetail } from "@/lib/queries";
 import { InviteButton } from "./invite-button";
 
@@ -25,7 +25,7 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
       <PageHeader
         breadcrumbs={[{ label: "Studies", href: "/researcher/studies" }, { label: study.name.split(":")[0] }]}
         title={study.name}
-        description={`${CONDITION_LABEL[study.condition]} · protocol v${study.protocol.version}, approved by ${study.protocol.approved_by ?? "—"}`}
+        description={`${conditionLabel(study.condition)} · protocol v${study.protocol.version}, approved by ${study.protocol.approved_by ?? "—"}`}
         actions={
           <>
             <ButtonLink href={`/researcher/review?study=${id}`} variant="secondary">

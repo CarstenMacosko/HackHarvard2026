@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.47.10",
     "@vf/shared": "*",
     "tsx": "^4.19.2"
   },
