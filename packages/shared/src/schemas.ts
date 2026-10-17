@@ -55,6 +55,8 @@ export const Observation = z.object({
   media_url: z.string().nullable(),
   quality: QualityReport,
   measurements: z.array(Measurement),
+  /** numeric feature vector from the CV module; researcher-trained models read it (see models.ts) */
+  features: z.record(z.number()).default({}),
   model_version: z.string(),
   patient_report: z.record(ReportValue),
   context: z.record(ReportValue),
@@ -135,3 +137,63 @@ export const WorkflowDraft = z.object({
   source: z.enum(["claude", "template"]),
 });
 export type WorkflowDraft = z.infer<typeof WorkflowDraft>;
+
+/** Where a measurement was computed: the participant's browser or the CV service. */
+export const AnalysisRuntime = z.enum(["on-device", "server"]);
+export type AnalysisRuntime = z.infer<typeof AnalysisRuntime>;
+
+/** One capture attempt, usable or not. Accepted attempts link to the observation they produced. */
+export const Submission = z.object({
+  id: z.string(),
+  participant_id: z.string(),
+  study_id: z.string(),
+  task_id: z.string(),
+  scheduled_task_id: z.string().nullable(),
+  attempt: z.number().int().min(1),
+  source: z.enum(["web", "sms"]),
+  media_type: z.enum(["photo", "video"]),
+  media_url: z.string().nullable(),
+  analysis_runtime: AnalysisRuntime,
+  quality: QualityReport,
+  accepted: z.boolean(),
+  observation_id: z.string().nullable(),
+  escalated: z.boolean(),
+  created_at: z.string(),
+});
+export type Submission = z.infer<typeof Submission>;
+
+/**
+ * A researcher-trained model: a ridge-regression head on top of a CV module's feature vector,
+ * predicting a study-specific target (e.g. a clinician's 0–4 erythema grade).
+ */
+export const CvModel = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  study_id: z.string().nullable(), // null = available to every study using the module
+  module: z.string(), // base CV module whose features it reads
+  target: z.object({ name: z.string(), label: z.string(), unit: z.string() }),
+  kind: z.literal("ridge"),
+  features: z.array(z.string()),
+  weights: z.array(z.number()),
+  intercept: z.number(),
+  feature_means: z.array(z.number()),
+  feature_stds: z.array(z.number()),
+  lambda: z.number(),
+  metrics: z.object({
+    n: z.number().int(),
+    folds: z.number().int(),
+    mae: z.number(),
+    rmse: z.number(),
+    r: z.number(),
+    baseline_mae: z.number(), // predicting the training mean
+    label_min: z.number(), // predictions are clamped to the range the model was trained on
+    label_max: z.number(),
+  }),
+  status: ValidationStatus,
+  active: z.boolean(),
+  version: z.number().int(),
+  created_by: z.string(),
+  created_at: z.string(),
+});
+export type CvModel = z.infer<typeof CvModel>;

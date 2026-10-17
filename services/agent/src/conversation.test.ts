@@ -6,7 +6,7 @@ const obs = (accepted: boolean): Observation => ({
   id: "o1", study_id: "s", participant_id: "p", submission_id: "sub1", module: "finger_tapping",
   task_label: "Right hand", captured_at: "2026-10-17T00:00:00Z", media_url: null,
   quality: { accepted, checks: [], retry_instructions: accepted ? null : "The picture is blurry. Then send it again 🙏" },
-  measurements: [], model_version: "finger_tapping@0.1.0", patient_report: {}, context: {},
+  measurements: [], features: {}, model_version: "finger_tapping@0.2.0", patient_report: {}, context: {},
   review_status: "pending", reviewer: null, reviewed_at: null, review_note: null,
 });
 

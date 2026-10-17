@@ -2,6 +2,24 @@
 
 **Team:** 4 people · **Time:** 33 hours · **Tracks:** Photon 2.0 messaging agent + Regeneron "Reinvent Clinical Trials"
 
+## Status: what's built, and what each person picks up next
+
+**Built and tested:**
+- Both CV modules, in Python (reference) and TypeScript (on-device, parity-tested).
+- Participant check-in with drag-and-drop and camera capture, instant quality feedback and guided retakes.
+- Ingest pipeline: attempts, observations, rewards and audit.
+- Researcher workspace: overview, studies, participants, review queue, submissions, model registry, training wizard, builder, audit log, system status.
+- Data export.
+- Messaging agent wired to the same ingest path.
+- Supabase migrations validated in Postgres.
+
+| Person | Area (files) | Next steps |
+|---|---|---|
+| **A: Platform & researcher** | `supabase/`, `apps/web/lib/{backend,queries,ingest}.ts`, `apps/web/app/researcher/**` | Create the Supabase project and apply migrations + seed; Supabase Auth for researchers (replace `RESEARCHER_NAME`); restrict `/api/media` to study members; write `reviews` rows |
+| **B: Participant & modular CV** | `apps/web/app/participant/**`, `packages/cv`, `packages/shared/src/{catalog,models}.ts` | Participant phone-OTP login; add the MediaPipe Image Embedder as a generic feature group (see `GENERALIZED_CV.md`); a third module (e.g. psoriasis) built from existing components |
+| **C: Messaging agent** | `services/agent/**` | Photon 2.0 adapter after the workshop; media → Supabase Storage → CV service; Supabase-backed store and scheduler; then the deck |
+| **D: CV algorithms** | `services/cv/**`, `adroit/` | Record consented demo videos/photos and tune thresholds; deploy to Modal; robustness table (lighting/device/skin tone); optional Adroit segmentation job |
+
 ## What we are building
 
 Patients in post-treatment follow-up complete short visual check-ins from home, by text.

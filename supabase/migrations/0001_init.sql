@@ -1,7 +1,7 @@
 -- Visual Follow-Up Platform: initial schema.
 -- Observation columns mirror packages/shared/src/schemas.ts (PRD §4 common format).
 
-create extension if not exists "pgcrypto";
+-- gen_random_uuid() is built into Postgres 13+ (Supabase runs 15), so no extension is needed.
 
 -- ---------- people ----------
 create table researchers (
@@ -135,7 +135,7 @@ create table reward_events (
 create index on reward_events (participant_id);
 
 create table redemptions (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   participant_id text not null references participants (id) on delete cascade,
   tier text not null,
   points int not null,
