@@ -2,6 +2,12 @@
 
 **Team:** 4 people · **Time:** 33 hours · **Tracks:** Photon 2.0 messaging agent + Regeneron "Reinvent Clinical Trials"
 
+## Current execution guide
+
+For a feature map grounded in the implementation and proposed priorities, use the [documentation hub](README.md), [feature inventory](product/FEATURES.md), and [delivery roadmap](delivery/ROADMAP.md). The roadmap recommends proving one complete capture-to-review flow before expanding scope. Its criteria distinguish code in the repository from verified hosted integrations and clinically validated measurements.
+
+The original role split and timeline below remain planning context. Recommendations in the new guide do not imply that the team has assigned or completed those tasks.
+
 ## Status: what's built, and what each person picks up next
 
 **Built and tested:**
