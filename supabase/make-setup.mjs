@@ -1,16 +1,33 @@
-// Builds supabase/setup.sql: every migration in order, then the demo seed, as one script to paste
-// into a fresh project's SQL editor (Dashboard → SQL Editor → New query → Run).
+// Builds supabase/setup.sql: every migration in order, then the core seed, as one script to paste
+// into a fresh project's SQL editor (Dashboard → SQL Editor → New query → Run). Also refreshes the
+// SQL appendix of docs/DATABASE.md, so the documented DDL is always what the migrations create.
 // Run after changing a migration or the seed:  node supabase/make-setup.mjs
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-export function buildSetup() {
-  const parts = readdirSync(join(here, "migrations"))
+const DOC = join(here, "../docs/DATABASE.md");
+const BEGIN = "<!-- BEGIN GENERATED SQL: node supabase/make-setup.mjs -->";
+const END = "<!-- END GENERATED SQL -->";
+
+const migrations = () =>
+  readdirSync(join(here, "migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort()
     .map((f) => [`migrations/${f}`, readFileSync(join(here, "migrations", f), "utf8")]);
+
+/** docs/DATABASE.md with its SQL appendix regenerated from the migrations. */
+export function buildDoc() {
+  const doc = readFileSync(DOC, "utf8");
+  const start = doc.indexOf(BEGIN), end = doc.indexOf(END);
+  if (start < 0 || end < start) throw new Error("docs/DATABASE.md is missing its generated-SQL markers");
+  const sql = migrations().map(([name, text]) => `### \`supabase/${name}\`\n\n\`\`\`sql\n${text.trimEnd()}\n\`\`\`\n`).join("\n");
+  return `${doc.slice(0, start + BEGIN.length)}\n\n${sql}\n${doc.slice(end)}`;
+}
+
+export function buildSetup() {
+  const parts = migrations();
   parts.push(["seed.sql", readFileSync(join(here, "seed.sql"), "utf8")]);
   return [
     "-- Visual Follow-Up: complete database setup for a FRESH Supabase project (schema, RLS, storage bucket, demo seed).",
@@ -22,5 +39,6 @@ export function buildSetup() {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   writeFileSync(join(here, "setup.sql"), buildSetup());
-  console.log("wrote supabase/setup.sql");
+  writeFileSync(DOC, buildDoc());
+  console.log("wrote supabase/setup.sql and the SQL appendix of docs/DATABASE.md");
 }

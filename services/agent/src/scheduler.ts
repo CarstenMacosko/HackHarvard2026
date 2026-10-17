@@ -1,27 +1,23 @@
-import type { Cadence } from "@vf/shared";
-import { allParticipants, type ParticipantRecord } from "./store";
+import type { DueCheckIn, Store } from "./store";
 
-const PERIOD_MS: Record<Cadence, number> = {
-  daily: 86_400_000,
-  twice_weekly: 3 * 86_400_000,
-  weekly: 7 * 86_400_000,
-  biweekly: 14 * 86_400_000,
-};
+/**
+ * Every minute: bring check-ins up to date (missed ones closed, next ones created) and prompt
+ * participants whose check-in is due, at or after their preferred reminder time. A participant
+ * already in a conversation is left alone until it finishes.
+ */
+export async function tick(store: Store, prompt: (due: DueCheckIn) => Promise<void>, now = new Date()): Promise<number> {
+  let prompted = 0;
+  const seen = new Set<string>();
+  for (const due of await store.dueCheckIns(now)) {
+    if (seen.has(due.participant.id) || due.participant.conv.kind !== "idle") continue;
+    seen.add(due.participant.id);
+    await prompt(due);
+    await store.markPrompted(due.checkInId, now);
+    prompted++;
+  }
+  return prompted;
+}
 
-/** Every minute, prompt idle participants whose task period has elapsed.
- * TODO(C): respect each participant's preferred time and quiet hours from scheduled_tasks. */
-export function startScheduler(prompt: (p: ParticipantRecord, taskId: string) => Promise<void>): NodeJS.Timeout {
-  return setInterval(async () => {
-    const now = Date.now();
-    for (const p of allParticipants()) {
-      if (p.conv.kind !== "idle") continue;
-      for (const t of p.tasks) {
-        const last = p.lastPromptedAt[t.id];
-        if (!last || now - new Date(last).getTime() >= PERIOD_MS[t.cadence]) {
-          await prompt(p, t.id);
-          break;
-        }
-      }
-    }
-  }, 60_000);
+export function startScheduler(store: Store, prompt: (due: DueCheckIn) => Promise<void>): NodeJS.Timeout {
+  return setInterval(() => void tick(store, prompt).catch((e) => console.error("scheduler:", e)), 60_000);
 }

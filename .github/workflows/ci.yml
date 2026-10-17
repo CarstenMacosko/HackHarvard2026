@@ -23,6 +23,14 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
 
+  database:
+    name: Database (migrations, seeds, record_capture, RLS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # the runner's preinstalled Postgres, started as a throwaway cluster by the script
+      - run: supabase/test/run.sh
+
   python:
     name: CV service and training kit
     runs-on: ubuntu-latest

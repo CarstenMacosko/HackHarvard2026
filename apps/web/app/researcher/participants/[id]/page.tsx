@@ -1,5 +1,6 @@
 import { isOpen } from "@vf/shared";
 import { notFound } from "next/navigation";
+import { backend } from "@/lib/backend";
 import { Timeline } from "@/components/timeline";
 import { Badge, Card, CardBody, CardHeader, PageHeader, STATUS_TONE, Stat, Table, Td, Th, THead, Tr } from "@/components/ui";
 import { CHECK_LABEL, dateTime, pct, relTime, shortDate } from "@/lib/format";
@@ -7,7 +8,7 @@ import { getParticipantDetail } from "@/lib/queries";
 
 export default async function ParticipantPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const d = await getParticipantDetail(id);
+  const [d, messages] = await Promise.all([getParticipantDetail(id), backend().messages(id, 30)]);
   if (!d) notFound();
   const { participant: p, study, observations, tasks, submissions } = d;
   const past = tasks.filter((t) => !isOpen(t)).sort((a, b) => a.due_at.localeCompare(b.due_at));
@@ -88,6 +89,22 @@ export default async function ParticipantPage({ params }: { params: Promise<{ id
           </CardBody>
         </Card>
       </div>
+      {messages.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader title="Messages" description="The latest texts between the participant and the study's messaging agent" />
+          <CardBody className="space-y-2">
+            {messages.map((m) => (
+              <div key={m.id} className={`flex ${m.direction === "outbound" ? "justify-start" : "justify-end"}`}>
+                <div className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${m.direction === "outbound" ? "bg-slate-100 text-slate-800" : "bg-brand-600 text-white"}`}>
+                  {m.body ?? (m.media_path ? "📎 attachment" : "")}
+                  {m.body && m.media_path && <div className="mt-1 text-xs opacity-75">📎 attachment</div>}
+                  <div className={`mt-0.5 text-[11px] ${m.direction === "outbound" ? "text-slate-400" : "text-brand-100"}`}>{dateTime(m.created_at)}</div>
+                </div>
+              </div>
+            ))}
+          </CardBody>
+        </Card>
+      )}
     </>
   );
 }
