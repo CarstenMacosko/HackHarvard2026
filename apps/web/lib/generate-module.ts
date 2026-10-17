@@ -1,8 +1,9 @@
 import "server-only";
-import { mkdir, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { CvModel } from "@vf/shared";
 import { backend } from "./backend";
+import { cvModuleDirectory } from "./cv-module-path";
 import { buildParamGrid, runExperimentsDaytona, runExperimentsLocal } from "./daytona-runner";
 import { draftModuleWithDroid, pickComponents, templateModuleSource } from "./droid-generate";
 import { emptyProgress, type GenerationLog, type GenerationProgress } from "./generation-types";
@@ -121,16 +122,22 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
       }
       await patch(jobId, progress);
 
-      const experiments = await (daytonaConfigured() ? runExperimentsDaytona : runExperimentsLocal)(grid, async (exp) => {
-        const current = (await db.droidJobs(50)).find((j) => j.id === jobId)?.progress ?? progress;
-        const list = [...(current.experiments ?? [])];
-        const at = list.findIndex((e) => e.id === exp.id);
-        if (at >= 0) list[at] = exp;
-        else list.push(exp);
-        list.sort((a, b) => a.id - b.id);
-        progress = { ...current, experiments: list, step: "daytona_experiments" };
-        await patch(jobId, progress);
-      }, PARALLEL);
+      let updateQueue = Promise.resolve();
+      const onExperimentUpdate = (exp: GenerationProgress["experiments"][number]) => {
+        updateQueue = updateQueue.then(async () => {
+          const list = [...progress.experiments];
+          const at = list.findIndex((e) => e.id === exp.id);
+          if (at >= 0) list[at] = exp;
+          else list.push(exp);
+          list.sort((a, b) => a.id - b.id);
+          progress = { ...progress, experiments: list, step: "daytona_experiments" };
+          await patch(jobId, progress);
+        });
+        return updateQueue;
+      };
+      const experiments = daytonaConfigured()
+        ? await runExperimentsDaytona(grid, onExperimentUpdate, { moduleId, sourceCode: draft.source_code }, PARALLEL)
+        : await runExperimentsLocal(grid, onExperimentUpdate, PARALLEL);
 
       const passed = experiments.filter((e) => e.status === "passed" && e.metrics);
       const best = [...passed].sort((a, b) => (b.metrics!.score - a.metrics!.score))[0];
@@ -320,22 +327,7 @@ export async function approveGeneratedModule(jobId: string): Promise<{ module_id
 
 async function writeGeneratedModuleFiles(moduleId: string, source: string, params: Record<string, number>) {
   // Sibling of finger_tapping.py so relative imports (.hands, .hand_tremor) resolve.
-  const candidates = [
-    path.join(process.cwd(), "services/cv/app/modules"),
-    path.join(process.cwd(), "../../services/cv/app/modules"),
-    path.join(process.cwd(), "../services/cv/app/modules"),
-  ];
-  let dir: string | null = null;
-  for (const c of candidates) {
-    try {
-      await mkdir(c, { recursive: true });
-      dir = c;
-      break;
-    } catch {
-      /* try next */
-    }
-  }
-  if (!dir) throw new Error("Could not locate services/cv/app/modules");
+  const dir = cvModuleDirectory();
   // Only allow sandboxed gen_* filenames into the CV package.
   if (!/^gen_[a-z0-9_]+$/.test(moduleId)) throw new Error("Refusing to write non-gen module id");
   await writeFile(path.join(dir, `${moduleId}.py`), source, "utf8");

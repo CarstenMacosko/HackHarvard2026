@@ -246,7 +246,7 @@ export function ModuleGenerator() {
             <Card>
               <CardHeader
                 title="Daytona experiment grid"
-                description={`${progress.experiments.length || 20} sandboxes · parallel ${progress.daytona_parallel || 5}${progress.iteration ? ` · iteration ${progress.iteration}` : ""}`}
+                description={`${progress.experiments.length || 20} experiments · up to ${progress.daytona_parallel || 4} sandboxes${progress.iteration ? ` · iteration ${progress.iteration}` : ""}`}
                 actions={
                   <div className="flex gap-2 text-xs">
                     <span className="text-emerald-700">{passed} passed</span>
