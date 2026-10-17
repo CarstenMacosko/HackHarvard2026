@@ -107,12 +107,30 @@ export const RewardConfig = z.object({
 });
 export type RewardConfig = z.infer<typeof RewardConfig>;
 
+export const ConsentForm = z.object({
+  title: z.string(),
+  body: z.string(),
+});
+export type ConsentForm = z.infer<typeof ConsentForm>;
+
+/** Recurring outbound texts (medication, upload reminders) distinct from capture-task cadence. */
+export const ReminderConfig = z.object({
+  id: z.string(),
+  kind: z.enum(["capture", "adherence", "custom"]),
+  every_hours: z.number().positive(),
+  message: z.string(),
+  task_id: z.string().nullable().default(null),
+});
+export type ReminderConfig = z.infer<typeof ReminderConfig>;
+
 export const Protocol = z.object({
   study_id: z.string(),
   version: z.number(),
   approved_by: z.string().nullable(),
   tasks: z.array(TaskConfig),
   rewards: RewardConfig,
+  consent: ConsentForm.optional(),
+  reminders: z.array(ReminderConfig).default([]),
 });
 export type Protocol = z.infer<typeof Protocol>;
 

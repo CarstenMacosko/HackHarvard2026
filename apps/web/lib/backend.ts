@@ -51,8 +51,10 @@ export interface Backend {
   insertRewardEvents(e: RewardEvent[]): Promise<void>;
   insertRedemption(r: Redemption): Promise<void>;
   insertParticipant(p: Participant): Promise<void>;
+  /** One check-in (insert-if-absent on participant, task and due time). */
+  insertScheduledTask(t: ScheduledTask): Promise<void>;
   updateParticipant(id: string, patch: Partial<Participant>): Promise<void>;
-  /** A study and its first protocol version (created from an approved builder draft). */
+  /** A study and its first protocol version (New study form, or an approved builder draft). */
   insertStudy(s: Study): Promise<void>;
   insertDraft(d: DraftRecord): Promise<void>;
   updateDraft(id: string, patch: Partial<DraftRecord>): Promise<void>;
@@ -164,6 +166,10 @@ const demoBackend: Backend = {
     const s = demoState();
     if (s.participants.some((x) => x.id === p.id || sameCode(x.invite_code, p.invite_code))) throw new ConflictError("That participant or invite code already exists.");
     s.participants.push(p);
+  },
+  insertScheduledTask: async (t) => {
+    const s = demoState();
+    if (!s.scheduledTasks.some((x) => x.participant_id === t.participant_id && x.task_id === t.task_id && x.due_at === t.due_at)) s.scheduledTasks.push(t);
   },
   updateParticipant: async (id, patch) => {
     const s = demoState();
@@ -361,6 +367,9 @@ function supabaseBackend(db: SupabaseClient): Backend {
     },
     async insertParticipant(p) {
       must(await db.from("participants").insert(p));
+    },
+    async insertScheduledTask(t) {
+      must(await db.from("scheduled_tasks").upsert(t, { onConflict: "participant_id,task_id,due_at", ignoreDuplicates: true }));
     },
     async updateParticipant(id, patch) {
       must(await db.from("participants").update(patch).eq("id", id));

@@ -1,7 +1,7 @@
 import type { CheckIn, CvModel, Observation, Protocol, RewardEvent, Submission, WorkflowDraft } from "@vf/shared";
 
-/** Built-in conditions; studies created in the workflow builder can name any other. */
-export type Condition = "parkinsons" | "eczema" | (string & {});
+/** Built-in conditions, plus "other" from the New study form; builder-approved studies can name any condition. */
+export type Condition = "parkinsons" | "eczema" | "other" | (string & {});
 export type ParticipantStatus = "invited" | "active" | "paused" | "withdrawn" | "completed";
 
 export interface Study {

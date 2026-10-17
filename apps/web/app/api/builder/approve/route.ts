@@ -1,4 +1,4 @@
-import { DEFAULT_REWARDS, type Protocol } from "@vf/shared";
+import { DEFAULT_CONSENT, DEFAULT_REWARDS, PERIOD_DAYS, captureReminderFor, type Protocol } from "@vf/shared";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { backend } from "@/lib/backend";
@@ -22,7 +22,16 @@ export async function POST(req: Request) {
   if (d.status === "approved" && d.study_id) return NextResponse.json({ study_id: d.study_id, already: true });
 
   const studyId = `study_${slug(d.condition)}_${Date.now().toString(36).slice(-4)}`;
-  const protocol: Protocol = { study_id: studyId, version: 1, approved_by: RESEARCHER_NAME, tasks: d.draft.tasks, rewards: DEFAULT_REWARDS };
+  // same defaults as the New study form: the standard consent text and an upload reminder per task
+  const protocol: Protocol = {
+    study_id: studyId,
+    version: 1,
+    approved_by: RESEARCHER_NAME,
+    tasks: d.draft.tasks,
+    rewards: DEFAULT_REWARDS,
+    consent: { ...DEFAULT_CONSENT, title: `${d.condition} remote check-ins` },
+    reminders: d.draft.tasks.map((t) => captureReminderFor(t, PERIOD_DAYS[t.cadence] * 24)),
+  };
   await db.insertStudy({ id: studyId, name: `${d.condition}: draft protocol`, condition: d.condition, status: "draft", protocol });
   const at = new Date().toISOString();
   await db.updateDraft(d.id, { status: "approved", study_id: studyId, approved_by: RESEARCHER_NAME, approved_at: at });
