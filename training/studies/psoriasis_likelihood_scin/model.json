@@ -1,7 +1,7 @@
 {
  "id": "cvm_psoriasis_likelihood_scin",
  "name": "Psoriasis likelihood (SCIN)",
- "description": "Dermatologist-weighted probability that a skin photo shows psoriasis, from the skin module's colour and texture features.",
+ "description": "Dermatologist-weighted probability that a skin photo shows psoriasis, from a MobileNet image embedding plus the skin module's colour and texture features.",
  "study_id": null,
  "module": "eczema_photo",
  "target": {

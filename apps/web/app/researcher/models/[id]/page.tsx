@@ -137,7 +137,7 @@ export default async function ModelPage({ params }: { params: Promise<{ id: stri
               </CardBody>
             </Card>
           )}
-          {top.length > 0 && (
+          {top.length > 0 && embeddingCount === 0 && (
             <Card>
               <CardHeader title="Largest module-feature weights" description="Standardised, so they compare across features." />
               <CardBody>
