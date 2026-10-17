@@ -66,7 +66,7 @@ Then set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABA
 
 | Piece | Command / host |
 |---|---|
-| Web | Import the repo in **Vercel** with root directory `apps/web`, and add the env vars |
+| Web | **Vercel**, root directory `apps/web`. Step-by-step: [`docs/DEPLOY.md`](docs/DEPLOY.md) |
 | CV | `cd services/cv && modal deploy modal_app.py` (or deploy the Dockerfile on Railway) |
 | Agent | **Railway** service from `services/agent` with start command `npm start`, `AGENT_CHANNEL=photon` |
 
