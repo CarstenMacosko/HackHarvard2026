@@ -79,4 +79,9 @@ describe("applying stored models", () => {
     const [m] = customMeasurements({ module: "eczema_photo", study_id: "study_ad", features }, [model]);
     expect(m).toMatchObject({ name: "clinician_grade", validation_status: "reusable_needs_validation" });
   });
+
+  it("never applies a legacy Droid zero-fold placeholder", () => {
+    const legacy = { ...model, provenance: { source: "droid" as const }, metrics: { ...model.metrics, folds: 0 } } as CvModel;
+    expect(customMeasurements({ module: "eczema_photo", study_id: "study_ad", features: { a: 10, b: 10, c: 0.5 } }, [legacy])).toEqual([]);
+  });
 });
