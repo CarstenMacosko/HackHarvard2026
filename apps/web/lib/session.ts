@@ -10,3 +10,8 @@ export const RESEARCHER_NAME = "Demo clinician";
 export async function currentParticipantId(): Promise<string> {
   return (await cookies()).get(PARTICIPANT_COOKIE)?.value ?? DEMO_PARTICIPANT;
 }
+
+/** True when the browser remembers a participant (as opposed to the default test account). */
+export async function hasParticipantCookie(): Promise<boolean> {
+  return Boolean((await cookies()).get(PARTICIPANT_COOKIE)?.value);
+}
