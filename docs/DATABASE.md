@@ -12,20 +12,44 @@ Browsers never talk to the database. Row-level security is on for every table, n
 
 Without Supabase configured, the web app and agent fall back to in-memory demo data with the same behaviour (`apps/web/lib/demo-data.ts`).
 
-## Set up a project
+## How the app chooses demo vs Supabase
 
-1. Create a Supabase project.
-2. **SQL editor → New query**: paste [`supabase/setup.sql`](../supabase/setup.sql) (all migrations + the core seed) and run it. This also creates the private `media` bucket.
-3. Optional: run [`supabase/seed_demo.sql`](../supabase/seed_demo.sql) the same way for six weeks of synthetic history (dashboards, charts and the review queue look populated). Safe to run twice.
-4. Set the environment variables (Project Settings → API). **Never commit the service role key**; it bypasses row-level security.
+`apps/web/lib/backend.ts` is the single persistence layer. On boot:
 
-| Variable | Web app (Vercel) | Agent |
+1. If `NEXT_PUBLIC_SUPABASE_URL` **and** `SUPABASE_SERVICE_ROLE_KEY` are set → **Supabase mode** (Postgres + Storage).
+2. Otherwise → **demo mode**: the same API surface backed by `apps/web/lib/demo-data.ts` (in memory; lost on restart).
+
+The messaging agent mirrors this (`services/agent` → `supabaseStore.ts`). Browsers never hold the service role key; they only upload large videos through signed URLs the server mints.
+
+Without Supabase you can still run the full demo (studies, captures, module generation). Generated models and Droid jobs land in the in-memory registry until you point the app at a real project.
+
+## Set up a project (Supabase dashboard)
+
+1. Create a project at [supabase.com](https://supabase.com) (free tier is fine).
+2. Open **SQL → New query**. Paste the entire contents of [`supabase/setup.sql`](../supabase/setup.sql) and **Run**. That applies every migration (through `0006_model_source.sql`) plus the core seed and creates the private `media` bucket.
+3. Optional: paste and run [`supabase/seed_demo.sql`](../supabase/seed_demo.sql) for six weeks of synthetic history (dashboards, charts, review queue). Safe to run twice.
+4. **Project Settings → API** — copy into the **repo-root** `.env.local` (same file as Factory/Daytona keys). Restart `npm run dev` after saving.
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...          # browser signed uploads only
+SUPABASE_SERVICE_ROLE_KEY=eyJ...             # server only — never commit / never expose to the browser
+```
+
+| Variable | Web app (Vercel / local) | Agent |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | ✓ | ✓ (or `SUPABASE_URL`) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✓ (signed uploads only) | |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✓ (server only) | ✓ |
 
-5. Check it: `node supabase/smoke.mjs` with the three variables in the environment confirms every table, the `record_capture` function, a private bucket and that the anon key can read nothing. In the app, **Researcher → System status** shows the same table counts and bucket check.
+5. Verify from the repo root:
+
+```bash
+export $(grep -E '^(NEXT_PUBLIC_SUPABASE_|SUPABASE_SERVICE)' .env.local | xargs)
+node supabase/smoke.mjs
+```
+
+You should see `ok` for every table, `record_capture`, a private `media` bucket, and anon unable to read participants. In the app, **Researcher → Settings** (system status) shows the same table counts and bucket check; the researcher chrome stops showing “demo” once Supabase mode is active.
 
 With the Supabase CLI instead: `supabase link`, then `supabase db push` (migrations) and `psql "$DATABASE_URL" -f supabase/seed.sql -f supabase/seed_demo.sql`.
 
@@ -61,8 +85,8 @@ Ids are text so records keep readable, stable ids across the demo seed, the app 
 | `studies` | A study and its condition. Builder-approved studies start as `draft`; the New study form creates `active` ones. | `id`, `condition`, `status` (draft/active/closed) | seed, web (New study form, builder approve) |
 | `protocols` | Versioned protocol: tasks, capture instructions, quality criteria, measurements, rewards, consent form and reminder schedule (`config` = zod `Protocol`). The latest version is used. | unique (`study_id`, `version`) | seed, web (New study form, builder approve) |
 | `workflow_drafts` | Condition-builder drafts (`draft` = zod `WorkflowDraft`), kept until a clinician approves one into a study. | `status` (draft/approved/discarded), `study_id` | web |
-| `cv_models` | Researcher-trained ridge heads on a module's features, plus overrides of bundled models (e.g. deactivated). | `module`, `study_id` (null = all studies), `active`, `status`, `provenance` | web |
-| `droid_jobs` | "Generate with Droid" requests and their GitHub Actions run and pull request. | `id` = request id, `status` (requested/dispatched/running/succeeded/failed), `run_url`, `pr_url` | web |
+| `cv_models` | Researcher-trained ridge heads and Droid-generated analyzers. | `module`, `study_id` (null = all studies), `active`, `status`, `provenance`, `source_code`, `module_params` | web |
+| `droid_jobs` | In-process Droid+Daytona generation jobs. | `id`, `status`, `progress` (steps, logs, experiments), `kind` (`module_generate`) | web |
 | `researchers`, `study_members` | Researcher accounts and study roles, for Supabase Auth (not used yet: sign-in is planned). | | |
 
 ### Participants and collection
@@ -575,6 +599,29 @@ update storage.buckets
  where id = 'media';
 -- RLS on storage.objects is on by default; no policy grants anon or signed-in users access to
 -- 'media', so only the service role (server code) and signed URLs can read or write it.
+```
+
+### `supabase/migrations/0005_droid_progress.sql`
+
+```sql
+-- Live Droid + Daytona module-generation progress on droid_jobs
+alter table droid_jobs add column if not exists progress jsonb;
+alter table droid_jobs add column if not exists kind text not null default 'module_generate'
+  check (kind in ('module_generate'));
+```
+
+### `supabase/migrations/0006_model_source.sql`
+
+```sql
+-- Persist Droid+Daytona generated analyzer source on the model registry row
+alter table cv_models add column if not exists source_code text;
+alter table cv_models add column if not exists module_params jsonb;
+
+-- Jobs are in-process generation only (no GitHub Actions)
+alter table droid_jobs drop constraint if exists droid_jobs_kind_check;
+update droid_jobs set kind = 'module_generate' where kind = 'github_model';
+alter table droid_jobs alter column kind set default 'module_generate';
+alter table droid_jobs add constraint droid_jobs_kind_check check (kind in ('module_generate'));
 ```
 
 <!-- END GENERATED SQL -->

@@ -86,6 +86,9 @@ export interface DroidJob {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** Live Droid+Daytona generation progress (module generator). */
+  progress?: import("./generation-types").GenerationProgress | null;
+  kind?: "module_generate";
 }
 
 export interface Message {

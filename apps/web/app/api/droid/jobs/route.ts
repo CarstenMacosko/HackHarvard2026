@@ -1,81 +1,73 @@
+import { after } from "next/server";
 import { NextResponse } from "next/server";
+import { DroidRequestInput } from "@/lib/droid";
+import { runModuleGeneration, startModuleGeneration } from "@/lib/generate-module";
 import { backend } from "@/lib/backend";
-import { DroidRequestInput, dispatch, ghCommand, githubConfig, newRequestId, recentRuns, type DroidRequest, type DroidRun } from "@/lib/droid";
+import { liveIntegrationStatus } from "@/lib/live-keys";
 import { RESEARCHER_NAME } from "@/lib/session";
-import type { DroidJob, DroidJobStatus } from "@/lib/types";
 
-function runStatus(r: DroidRun): DroidJobStatus {
-  if (r.status !== "completed") return "running";
-  return r.conclusion === "success" ? "succeeded" : "failed";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+/** List Droid+Daytona generation jobs from the database. */
+export async function GET() {
+  const jobs = await backend().droidJobs(30);
+  const live = liveIntegrationStatus();
+  return NextResponse.json({
+    jobs,
+    daytona: live.daytona,
+    droid: live.droid,
+    mode: live.mode,
+    droid_exec: live.droid_exec,
+  });
 }
 
 /**
- * Droid model requests (droid_jobs) with their live GitHub Actions status. Each poll writes any
- * change (status, run and pull-request links) back to the row, so the registry keeps the
- * outcome after the run has scrolled out of GitHub's recent list.
+ * Start in-process module generation (Factory Droid + Daytona).
+ * Results are written to droid_jobs.progress and cv_models — no GitHub Actions.
  */
-export async function GET() {
-  const db = backend();
-  let jobs = await db.droidJobs(20);
-  if (!githubConfig()) return NextResponse.json({ configured: false, jobs });
-  try {
-    const runs = await recentRuns(20);
-    for (const job of jobs) {
-      const run = runs.find((r) => r.request_id === job.id);
-      if (!run) continue;
-      const patch: Partial<DroidJob> = { status: runStatus(run), run_id: run.id, run_url: run.url, pr_url: run.pull_request?.url ?? job.pr_url };
-      if (patch.status !== job.status || patch.run_url !== job.run_url || patch.pr_url !== job.pr_url) {
-        await db.updateDroidJob(job.id, patch);
-        Object.assign(job, patch);
-      }
-    }
-    jobs = jobs.map((j) => ({ ...j, pull_request: runs.find((r) => r.request_id === j.id)?.pull_request ?? null }));
-    return NextResponse.json({ configured: true, jobs });
-  } catch (e) {
-    return NextResponse.json({ configured: true, jobs, error: e instanceof Error ? e.message : String(e) });
-  }
-}
-
-/** Ask Droid to build a model for one measurement of a drafted workflow. */
 export async function POST(req: Request) {
   const parsed = DroidRequestInput.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
-  const request: DroidRequest = { ...parsed.data, request_id: newRequestId(parsed.data.measurement.name), requested_by: RESEARCHER_NAME };
-  const db = backend();
-  const configured = githubConfig() !== null;
-  const at = new Date().toISOString();
-  const job: DroidJob = {
-    id: request.request_id,
-    study_id: request.study_id ?? null,
-    module: request.measurement.name,
-    request: request as unknown as Record<string, unknown>,
-    status: "requested",
-    run_id: null,
-    run_url: null,
-    pr_url: null,
-    error: null,
-    created_by: RESEARCHER_NAME,
-    created_at: at,
-    updated_at: at,
-  };
-  await db.insertDroidJob(job);
-  let ref: string | null = null;
-  if (configured) {
-    try {
-      ({ ref } = await dispatch(request));
-      await db.updateDroidJob(job.id, { status: "dispatched" });
-    } catch (e) {
-      const error = e instanceof Error ? e.message : String(e);
-      await db.updateDroidJob(job.id, { status: "failed", error });
-      return NextResponse.json({ error: `Could not start the Droid workflow: ${error}` }, { status: 502 });
-    }
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
   }
-  await db.insertAudit({
+  const input = {
+    condition: parsed.data.condition,
+    description: parsed.data.description || `${parsed.data.measurement.label} for ${parsed.data.condition}`,
+    measurements: [parsed.data.measurement],
+    media_type: parsed.data.media_type,
+    study_id: parsed.data.study_id ?? null,
+    has_clinical_labels: parsed.data.has_clinical_labels ?? false,
+    example_count: parsed.data.example_count ?? 0,
+  };
+  const job = await startModuleGeneration(input);
+  const live = liveIntegrationStatus();
+  await backend().insertAudit({
     actor: RESEARCHER_NAME,
-    action: "droid.requested",
+    action: "droid.module_requested",
     entity: "droid_job",
-    entity_id: request.request_id,
-    detail: { condition: request.condition, measurement: request.measurement.label, media_type: request.media_type, dispatched: configured, ref },
+    entity_id: job.id,
+    detail: {
+      condition: input.condition,
+      measurement: parsed.data.measurement.label,
+      media_type: input.media_type,
+      daytona: live.daytona,
+      droid: live.droid,
+      mode: live.mode,
+      via: "builder",
+    },
   });
-  return NextResponse.json({ request_id: request.request_id, dispatched: configured, ref, request, command: ghCommand(request) }, { status: configured ? 202 : 200 });
+  after(() => runModuleGeneration(job.id, input));
+  return NextResponse.json(
+    {
+      request_id: job.id,
+      job_id: job.id,
+      dispatched: true,
+      status: job.status,
+      daytona: live.daytona,
+      droid: live.droid,
+      mode: live.mode,
+    },
+    { status: 202 },
+  );
 }

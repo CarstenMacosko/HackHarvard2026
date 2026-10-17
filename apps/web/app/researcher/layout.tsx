@@ -28,6 +28,7 @@ export default async function ResearcherLayout({ children }: { children: React.R
       title: "CV toolkit",
       items: [
         { href: "/researcher/models", label: "Model registry", icon: "models", exact: true },
+        { href: "/researcher/generate", label: "Generate module", icon: "generate" },
         { href: "/researcher/models/new", label: "Train a model", icon: "train" },
         { href: "/researcher/builder", label: "Workflow builder", icon: "builder" },
       ],

@@ -14,6 +14,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
+    "@daytonaio/sdk": "^0.225.0",
+    "@factory/cli": "^0.244.0",
+    "@factory/droid-sdk": "^0.9.1",
     "@mediapipe/tasks-vision": "1.0.1",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",

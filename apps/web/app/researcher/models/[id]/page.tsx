@@ -130,10 +130,23 @@ export default async function ModelPage({ params }: { params: Promise<{ id: stri
                     ["Labels", p.label_kind.replace("_", " ")],
                     ["Cases", p.n_cases],
                     ["Excluded by quality gate", p.n_excluded_quality],
-                    ["Built by", p.source === "droid" ? "Factory Droid (training kit)" : `Training kit v${p.kit_version}`],
+                    ["Built by", p.source === "droid" ? "Factory Droid + Daytona" : `Training kit v${p.kit_version}`],
                   ]}
                 />
                 {p.citation && <p className="text-xs text-slate-500">{p.citation}</p>}
+              </CardBody>
+            </Card>
+          )}
+          {m.source_code && (
+            <Card>
+              <CardHeader title="Generated source" description="Python CVModule stored on this registry row" />
+              <CardBody>
+                {m.module_params && (
+                  <pre className="mb-3 overflow-auto rounded-md bg-slate-950 px-3 py-2 font-mono text-[11px] text-emerald-300">
+                    module_params = {JSON.stringify(m.module_params, null, 2)}
+                  </pre>
+                )}
+                <pre className="max-h-80 overflow-auto rounded-md bg-slate-50 p-3 font-mono text-[10px] leading-relaxed text-slate-700 ring-1 ring-slate-200">{m.source_code}</pre>
               </CardBody>
             </Card>
           )}

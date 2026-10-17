@@ -166,7 +166,7 @@ export function Builder() {
                 </div>
                 {approved && <p className="mt-2 text-xs text-slate-500">Measurements tagged “needs validation” or “needs new model” stay inactive until a trained, validated model is registered for them.</p>}
                 <p className="mt-3 text-xs text-slate-500">
-                  <span className="font-medium text-slate-700">Generate with Droid</span> (next to each measurement that needs a new model) asks Factory Droid to build it: Droid picks a module and a public dataset, trains and evaluates the model with the training kit, and opens a draft pull request with the model card for your team to review.
+                  <span className="font-medium text-slate-700">Generate with Droid</span> (next to each measurement that needs a new model) runs Factory Droid + Daytona in-process: Droid drafts an analyzer from existing CV components, Daytona sweeps parameters in sandboxes, and the result is saved to the model registry in the database for your team to review.
                 </p>
               </CardBody>
             </Card>
