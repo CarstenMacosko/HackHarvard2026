@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, claude/project-thread-dccopp]
+
+jobs:
+  web:
+    name: JS tests, types, lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash # -eo pipefail: a failing command in a pipeline fails the step
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+
+  python:
+    name: CV service and training kit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash # -eo pipefail: a failing command in a pipeline fails the step
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            training/requirements.txt
+            services/cv/requirements*.txt
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgles2
+      - run: pip install -r training/requirements.txt
+      - name: CV service
+        working-directory: services/cv
+        run: python -m pytest -q
+      - name: Training kit (tests, every study spec, Droid gate scripts)
+        working-directory: training
+        run: |
+          python -m pytest -q
+          python -m vfcv.run studies/* --check

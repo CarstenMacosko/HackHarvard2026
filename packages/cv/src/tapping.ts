@@ -4,7 +4,7 @@ import { blurCheck, exposureCheck, fractionCheck, measurement, minValueCheck, ru
 /** Mirror of services/cv/app/modules/finger_tapping.py (FingerTappingModule). */
 export const TAPPING_MODULE = {
   id: "finger_tapping",
-  version: "0.2.0",
+  version: "0.3.0",
   media_type: "video" as const,
   measurements: [
     { name: "tap_rate_hz", label: "Tap rate", unit: "Hz" },
@@ -28,6 +28,8 @@ export const TAPPING_MODULE = {
 };
 
 const MAX_TAP_HZ = 8;
+/** smallest opening range (hand widths) that counts as tapping (finger_tapping.MIN_TAP_SPREAD) */
+const MIN_TAP_SPREAD = 0.08;
 export const THUMB_TIP = 4, INDEX_TIP = 8, WRIST = 0, MIDDLE_MCP = 9;
 
 export interface TapMetrics {
@@ -43,12 +45,21 @@ export interface TapMetrics {
   rate_second_half: number;
 }
 
+/** MediaPipe's normalised landmarks → (21, 2) pixel positions. */
+export function landmarksToPixels(landmarks: { x: number; y: number }[], width: number, height: number): number[][] {
+  return landmarks.map((p) => [p.x * width, p.y * height]);
+}
+
+/** Thumb–index distance over wrist–middle-MCP distance; `pts` are (21, 2) pixel positions. */
+export function handDistancePx(pts: number[][]): number {
+  const dist = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const scale = dist(pts[WRIST], pts[MIDDLE_MCP]);
+  return scale > 1e-6 ? dist(pts[THUMB_TIP], pts[INDEX_TIP]) / scale : NaN;
+}
+
 /** Thumb–index distance over wrist–middle-MCP distance, in pixel space. */
 export function handDistance(landmarks: { x: number; y: number }[], width: number, height: number): number {
-  const pt = (k: number) => [landmarks[k].x * width, landmarks[k].y * height];
-  const dist = (a: number[], b: number[]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-  const scale = dist(pt(WRIST), pt(MIDDLE_MCP));
-  return scale > 1e-6 ? dist(pt(THUMB_TIP), pt(INDEX_TIP)) / scale : NaN;
+  return handDistancePx(landmarksToPixels(landmarks, width, height));
 }
 
 /** np.interp over the known (non-NaN) samples; edges take the nearest value. */
@@ -168,7 +179,7 @@ export function tapMetrics(distance: ArrayLike<number>, fps: number, detectionRa
   const win = smoothWindow(fps);
   if (d.length > win) d = savgol2(d, win);
   const spread = percentile(d, 95) - percentile(d, 5);
-  if (spread <= 1e-6) throw new TaskNotCompleted("I didn't see any taps. Tap your index finger and thumb together, opening wide each time.");
+  if (spread < MIN_TAP_SPREAD) throw new TaskNotCompleted("I didn't see any taps. Tap your index finger and thumb together, opening wide each time.");
   const peaks = findPeaks(d, Math.max(1, Math.trunc(fps / MAX_TAP_HZ)), 0.3 * spread);
   if (peaks.length < 4) {
     throw new TaskNotCompleted("I only saw a few taps. Please tap continuously for the full 10 seconds, as fast and wide as you can.");
@@ -219,8 +230,27 @@ export function sampleIndices(nFrames: number, k = 10): number[] {
   return out;
 }
 
+/**
+ * A hand-tracked video (mirrors services/cv/app/modules/hands.HandTrack): 21 landmarks per
+ * sampled frame in pixels, NaN rows where no hand was found.
+ */
+export interface PreparedHandTrack {
+  fps: number;
+  sample_fps?: number;
+  duration_s: number;
+  gray_samples: GrayImage[];
+  landmarks: number[][][];
+  detection_rate: number;
+}
+
+/** Finger-tapping input from a hand track (finger_tapping.from_track). */
+export function tappingFromTrack(t: PreparedHandTrack): PreparedVideo {
+  const distance = t.landmarks.map((pts) => (Number.isNaN(pts[WRIST][0]) ? NaN : handDistancePx(pts)));
+  return { fps: t.fps, sample_fps: t.sample_fps, duration_s: t.duration_s, gray_samples: t.gray_samples, distance, detection_rate: t.detection_rate };
+}
+
 /** quality.worst_frames: three evenly spaced samples. */
-function worstFrames<T>(xs: T[], k = 3): T[] {
+export function worstFrames<T>(xs: T[], k = 3): T[] {
   if (xs.length <= k) return xs;
   // np.linspace(0, n - 1, k).astype(int) truncates
   return Array.from({ length: k }, (_, i) => xs[Math.trunc((i * (xs.length - 1)) / (k - 1))]);

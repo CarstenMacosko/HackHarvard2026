@@ -15,6 +15,7 @@ This takes about 5 minutes and gives the team a shareable URL for both the resea
    - **Environment Variables:** none required. Optional:
      - `ANTHROPIC_API_KEY`: the workflow builder drafts with Claude instead of the offline template.
      - `CV_CALLBACK_SECRET`: shared secret the messaging agent sends to `/api/cv-callback`.
+     - `GITHUB_TOKEN` + `GITHUB_REPOSITORY`: lets **Generate with Droid** start the model-building workflow ([`DROID.md`](DROID.md)). The Factory API key is *not* a Vercel variable; it lives only in the GitHub secret.
 4. Click **Deploy**.
 
 ### Which branch gets deployed
@@ -45,7 +46,7 @@ Replace `<app>` with your deployment URL (e.g. `visual-followup.vercel.app`).
 
 ## What works with no services configured
 
-The whole app runs on Vercel alone. Participant uploads are analysed **on-device** in the browser (MediaPipe hand tracking for videos, the eczema module for photos), and trained models run on every new capture. The MediaPipe runtime and model are copied into `public/mediapipe` at build time.
+The whole app runs on Vercel alone. Participant uploads are analysed **on-device** in the browser: MediaPipe hand tracking for the tapping and tremor videos, and the skin module plus a MobileNet image embedding for photos. Trained models, including the bundled SCIN models, run on every new capture. The MediaPipe runtime and models are copied into `public/mediapipe` at build time.
 
 Large videos (>4 MB) can't pass through a Vercel function. Without Supabase Storage, only a still frame is kept for the researcher, and the measurements still come from the full video, analysed on the phone.
 

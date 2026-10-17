@@ -1,0 +1,5 @@
+# Training kit: the CV service's own modules (measure captures exactly as the product does),
+# MediaPipe (hand landmarks, image embeddings) and the spec format.
+-r ../services/cv/requirements-dev.txt
+-r ../services/cv/requirements-mediapipe.txt
+pyyaml>=6

@@ -5,9 +5,13 @@ import { cvHealth } from "@/lib/cv-service";
 import { CHECK_LABEL, shortDate } from "@/lib/format";
 import { BUILTIN_MODULES } from "@/lib/modules";
 import { modelRegistry } from "@/lib/queries";
+import { DroidJobs } from "@/components/droid";
 import { ModelActions } from "./model-actions";
 
 export const metadata = { title: "Model registry" };
+
+const LABEL_KIND = { expert: "Dermatologist labels", self_report: "Self-reported labels", synthetic: "Synthetic labels", researcher: "Researcher labels" } as const;
+const LABEL_TONE = { expert: "green", self_report: "amber", synthetic: "red", researcher: "slate" } as const;
 export const dynamic = "force-dynamic";
 
 export default async function ModelsPage() {
@@ -70,54 +74,88 @@ export default async function ModelsPage() {
         })}
       </div>
 
-      <h2 className="mb-3 text-sm font-semibold text-slate-900">Researcher-trained models</h2>
+      <h2 className="mb-3 text-sm font-semibold text-slate-900">Trained models</h2>
       <Card className="mb-8">
         {models.length === 0 ? (
-          <EmptyState title="No custom models yet" action={<ButtonLink href="/researcher/models/new" variant="secondary">Train your first model</ButtonLink>}>
+          <EmptyState title="No trained models yet" action={<ButtonLink href="/researcher/models/new" variant="secondary">Train your first model</ButtonLink>}>
             Train a study-specific measurement (for example, your clinicians&apos; 0–4 erythema grade) from labelled photos or videos. It takes about a minute in the browser.
           </EmptyState>
         ) : (
           <Table>
             <THead>
               <Th>Model</Th>
-              <Th>Base module</Th>
-              <Th>Study</Th>
+              <Th>Trained on</Th>
               <Th className="text-right">n</Th>
-              <Th className="text-right">CV error (MAE)</Th>
-              <Th className="text-right">r</Th>
+              <Th className="text-right">Out-of-fold error</Th>
+              <Th>Worst subgroup</Th>
               <Th>Status</Th>
               <Th className="text-right">Applied</Th>
               <Th />
             </THead>
             <tbody>
-              {models.map((m) => (
-                <Tr key={m.id}>
-                  <Td>
-                    <div className="font-medium text-slate-900">
-                      {m.name} <span className="font-normal text-slate-400">v{m.version}</span>
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      → {m.target.label} ({m.target.unit}) · {shortDate(m.created_at)}
-                    </div>
-                  </Td>
-                  <Td className="font-mono text-xs text-slate-600">{m.module}</Td>
-                  <Td className="text-slate-600">{m.study_name.split(":")[0]}</Td>
-                  <Td className="tabular text-right">{m.metrics.n}</Td>
-                  <Td className="tabular text-right">
-                    {m.metrics.mae.toFixed(2)} <span className="text-xs text-slate-400">vs {m.metrics.baseline_mae.toFixed(2)} baseline</span>
-                  </Td>
-                  <Td className="tabular text-right">{m.metrics.r.toFixed(2)}</Td>
-                  <Td>{m.active ? <ValidationBadge status={m.status} /> : <Badge>inactive</Badge>}</Td>
-                  <Td className="tabular text-right">{m.applied}</Td>
-                  <Td className="text-right">
-                    <ModelActions id={m.id} active={m.active} status={m.status} n={m.metrics.n} />
-                  </Td>
-                </Tr>
-              ))}
+              {models.map((m) => {
+                const p = m.provenance;
+                return (
+                  <Tr key={m.id}>
+                    <Td>
+                      <Link href={`/researcher/models/${m.id}`} className="font-medium text-slate-900 hover:underline">
+                        {m.name}
+                      </Link>{" "}
+                      <span className="text-slate-400">v{m.version}</span>
+                      <div className="text-xs text-slate-500">
+                        → {m.target.label} ({m.target.unit}) · <span className="font-mono">{m.module}</span> · {m.n_features} features · {m.study_name.split(":")[0]}
+                      </div>
+                    </Td>
+                    <Td className="text-xs">
+                      {p ? (
+                        <>
+                          <div className="text-slate-700">{p.dataset_title.split(":")[0]}</div>
+                          <div className="mt-0.5 flex flex-wrap gap-1">
+                            <Badge tone={p.source === "droid" ? "blue" : "slate"}>{p.source === "droid" ? "Droid" : "Training kit"}</Badge>
+                            <Badge tone={LABEL_TONE[p.label_kind]}>{LABEL_KIND[p.label_kind]}</Badge>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-slate-700">Researcher upload</div>
+                          <div className="mt-0.5">
+                            <Badge>Browser wizard · {shortDate(m.created_at)}</Badge>
+                          </div>
+                        </>
+                      )}
+                    </Td>
+                    <Td className="tabular text-right">{m.metrics.n}</Td>
+                    <Td className="tabular text-right">
+                      {p?.auc != null && <div>AUC {p.auc.toFixed(2)}</div>}
+                      <div className={p?.auc != null ? "text-xs text-slate-500" : ""}>
+                        MAE {m.metrics.mae.toFixed(2)} <span className="text-xs text-slate-400">vs {m.metrics.baseline_mae.toFixed(2)}</span>
+                      </div>
+                    </Td>
+                    <Td className="text-xs text-slate-600">
+                      {p?.worst_subgroup ? (
+                        <>
+                          {p.worst_subgroup.name} <span className="text-slate-400">({p.worst_subgroup.metric.toUpperCase()} {p.worst_subgroup.value.toFixed(2)})</span>
+                        </>
+                      ) : (
+                        "–"
+                      )}
+                    </Td>
+                    <Td>{m.active ? <ValidationBadge status={m.status} /> : <Badge>inactive</Badge>}</Td>
+                    <Td className="tabular text-right">{m.applied}</Td>
+                    <Td className="text-right">
+                      <ModelActions id={m.id} active={m.active} status={m.status} n={m.metrics.n} />
+                    </Td>
+                  </Tr>
+                );
+              })}
             </tbody>
           </Table>
         )}
       </Card>
+
+      <div id="droid" className="mb-8 scroll-mt-20">
+        <DroidJobs />
+      </div>
 
       <h2 className="mb-3 text-sm font-semibold text-slate-900">Bring your own CV</h2>
       <div className="grid items-start gap-6 lg:grid-cols-3">
@@ -131,10 +169,11 @@ export default async function ModelsPage() {
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title="2 · Fine-tune a full model" />
+          <CardHeader title="2 · Train on a public dataset, or ask Droid" />
           <CardBody className="text-sm text-slate-600">
-            When a linear head isn&apos;t enough (new visual sign, new body region): export features or media, fine-tune on a GPU (the repo ships a Princeton Adroit Slurm job in{" "}
-            <code className="font-mono text-xs">adroit/</code>), then serve it from the CV service. See <code className="font-mono text-xs">docs/GENERALIZED_CV.md</code>.
+            The training kit (<code className="font-mono text-xs">training/</code>) turns a short study spec into a trained, evaluated model with a model card, on public data such as SCIN.
+            Droid writes the spec (and a new module or dataset loader when needed) from a workflow-builder request and opens a pull request. Large datasets run on Princeton Adroit (
+            <code className="font-mono text-xs">adroit/</code>).
           </CardBody>
         </Card>
         <Card>

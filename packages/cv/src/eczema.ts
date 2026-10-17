@@ -28,7 +28,7 @@ export const ECZEMA_MODULE = {
     "a_bin_12_16",
     "a_bin_16_plus",
   ],
-  default_criteria: { blur: 80, exposure_min: 70, exposure_max: 210, skin_coverage: 0.25 } as Record<string, number>,
+  default_criteria: { blur: 15, exposure_min: 70, exposure_max: 210, skin_coverage: 0.25 } as Record<string, number>,
 };
 
 const AFFECTED_DELTA_A = 8;

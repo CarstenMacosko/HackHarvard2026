@@ -1,0 +1,82 @@
+{
+ "study": "tapping_updrs_synthetic",
+ "n_captures": 800,
+ "n_groups": 800,
+ "n_labelled": 800,
+ "n_excluded_quality": 0,
+ "excluded_reasons": {},
+ "lambda": 100,
+ "lambda_scores": [
+  {
+   "lambda": 0.01,
+   "mae": 0.573272959414527,
+   "rmse": 0.7423679533180892
+  },
+  {
+   "lambda": 0.1,
+   "mae": 0.5731422177536194,
+   "rmse": 0.742279218043831
+  },
+  {
+   "lambda": 1,
+   "mae": 0.5729031901899287,
+   "rmse": 0.7420114894547114
+  },
+  {
+   "lambda": 10,
+   "mae": 0.571859536252092,
+   "rmse": 0.7407128577769886
+  },
+  {
+   "lambda": 100,
+   "mae": 0.5700414596445377,
+   "rmse": 0.7418636147048869
+  }
+ ],
+ "ridge_metrics": {
+  "n": 800,
+  "folds": 5,
+  "mae": 0.5700414596445377,
+  "rmse": 0.7418636147048869,
+  "r": 0.6313942296285292,
+  "baseline_mae": 0.7744648437500001,
+  "label_min": 0.0,
+  "label_max": 4.0
+ },
+ "overall": {
+  "n": 800,
+  "mae": 0.5700414596445377,
+  "r": 0.6313942296285301
+ },
+ "subgroups": {
+  "groups": {
+   "24": {
+    "n": 266,
+    "mae": 0.55604843430462,
+    "r": 0.6987966230905895,
+    "excluded_by_quality": 0,
+    "exclusion_rate": 0.0
+   },
+   "30": {
+    "n": 254,
+    "mae": 0.5327779671857203,
+    "r": 0.6079115850233409,
+    "excluded_by_quality": 0,
+    "exclusion_rate": 0.0
+   },
+   "60": {
+    "n": 280,
+    "mae": 0.6171381447336722,
+    "r": 0.5956466020379035,
+    "excluded_by_quality": 0,
+    "exclusion_rate": 0.0
+   }
+  },
+  "worst": {
+   "name": "60",
+   "metric": "mae",
+   "value": 0.6171381447336722,
+   "n": 280
+  }
+ }
+}

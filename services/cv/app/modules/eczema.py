@@ -150,7 +150,10 @@ class EczemaPhotoModule(CVModule):
         MeasurementSpec("affected_area_pct", "Affected area", "% of skin"),
     ]
     feature_names = FEATURE_NAMES
-    default_criteria = {"blur": 80, "exposure_min": 70, "exposure_max": 210, "skin_coverage": 0.25}
+    # blur 15: calibrated on SCIN (training/calibration/eczema_photo_scin.md). Skin is smooth, so
+    # sharp skin photos have low Laplacian variance; 15 keeps 83% of dermatologist-gradable photos
+    # (the earlier 80 kept 33%) evenly across Fitzpatrick types.
+    default_criteria = {"blur": 15, "exposure_min": 70, "exposure_max": 210, "skin_coverage": 0.25}
 
     def prepare(self, path: str) -> PreparedPhoto:
         return self.prepare_array(load_photo(path))

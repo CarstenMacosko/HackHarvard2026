@@ -1,0 +1,27 @@
+# Psoriasis vs other conditions on curated atlas photos, with balanced skin-type reporting.
+# Not trained in this repo yet: the atlas image hosts are blocked from the cloud sandbox.
+# Train it on Adroit (adroit/README.md):  python -m vfcv.run studies/psoriasis_fitzpatrick17k
+id: psoriasis_fitzpatrick17k
+name: Psoriasis likelihood (Fitzpatrick17k)
+description: Probability that an atlas-style skin photo shows psoriasis, from the image embedding and skin colour/texture features.
+condition: psoriasis
+module: eczema_photo
+dataset: fitzpatrick17k
+target:
+  name: psoriasis_likelihood_f17k
+  label: Psoriasis likelihood (atlas-trained)
+  unit: probability
+  source_label: psoriasis
+  kind: binary
+quality: all  # atlas photos are curated; the smartphone quality gate does not apply to them
+feature_groups: [embedding]
+lambdas: [1000, 3000, 10000, 30000, 100000]
+select_by: rmse
+subgroup: fitzpatrick
+intended_use: >
+  Comparison model for psoriasis studies: trained on 16k atlas images with skin-type labels,
+  so its per-skin-type performance can be compared with the SCIN (smartphone) model.
+limitations:
+  - "Atlas teaching photos differ from participants' smartphone photos (framing, lighting, severity mix)."
+  - "Atlas diagnoses; Fitzpatrick17k has known label errors (images flagged 'wrongly labelled' are dropped)."
+  - "CC BY-NC-SA 3.0: non-commercial use only."

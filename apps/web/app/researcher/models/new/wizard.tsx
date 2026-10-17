@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CartesianGrid, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
 import { Dropzone } from "@/components/dropzone";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, KeyValues, SectionLabel, cn } from "@/components/ui";
-import { analyzePhotoFile, analyzeVideoFile } from "@/lib/cv-client/analyze";
+import { analyzePhotoFile, analyzeVideoFile, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { syntheticSkinDataset } from "@/lib/cv-client/synthetic";
 import { CHECK_LABEL } from "@/lib/format";
 import { BUILTIN_MODULES } from "@/lib/modules";
@@ -126,7 +126,7 @@ export function TrainingWizard({ studies }: { studies: { id: string; name: strin
       let patch: Partial<Item>;
       try {
         const { result } =
-          mod.media_type === "photo" ? await analyzePhotoFile(it.file, mod.default_criteria) : await analyzeVideoFile(it.file, mod.default_criteria);
+          mod.media_type === "photo" ? await analyzePhotoFile(it.file, mod.default_criteria) : await analyzeVideoFile(it.file, mod.id as VideoModuleId, mod.default_criteria);
         patch = result.quality.accepted
           ? { status: "ok", features: result.features }
           : { status: "excluded", reason: result.quality.checks.filter((c) => !c.passed).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ") };

@@ -47,11 +47,19 @@ ${JSON.stringify(CV_COMPONENTS.map(({ id, kind, label, media, description }) => 
 
 Quality-check thresholds use these conventions: blur = minimum Laplacian variance (60-100 typical), exposure = mean brightness ceiling (~200), skin_coverage / hand_visible = minimum fraction (0-1), duration = minimum seconds.`;
 
+/** Which built-in module produces each catalog measurement component. */
+const MODULE_FOR_COMPONENT: Record<string, { module: string; media: "photo" | "video" }> = {
+  erythema_index: { module: "eczema_photo", media: "photo" },
+  lesion_area: { module: "eczema_photo", media: "photo" },
+  tap_kinematics: { module: "finger_tapping", media: "video" },
+  tremor_spectrum: { module: "hand_tremor", media: "video" },
+};
+
 function toDraft(d: LlmDraft, source: WorkflowDraft["source"]): WorkflowDraft {
   const tasks: TaskConfig[] = d.tasks.map((t, i) => {
-    // reuse the eczema module only if it can produce every measurement; otherwise a new draft module is needed
-    const eczemaCovers = t.measurements.every((m) => m.component_id === "erythema_index" || m.component_id === "lesion_area");
-    const existingModule = t.media_type === "photo" && eczemaCovers ? "eczema_photo" : null;
+    // reuse a built-in module only if it produces every measurement; otherwise a new module is needed
+    const owners = new Set(t.measurements.map((m) => (m.component_id ? MODULE_FOR_COMPONENT[m.component_id] : undefined)).map((o) => (o && o.media === t.media_type ? o.module : null)));
+    const existingModule = owners.size === 1 && !owners.has(null) ? [...owners][0] : null;
     return {
       id: `${d.condition_slug}_${i + 1}`,
       module: existingModule ?? `draft_${d.condition_slug}`,
@@ -105,7 +113,7 @@ export function templateDraft(prompt: string): WorkflowDraft {
   if (has("red", "erythema", "inflam")) measurements.push({ name: "erythema_index", label: "Erythema index", unit: "Δa*", component_id: "erythema_index" });
   if (has("area", "extent", "plaque", "patch", "lesion", "spread")) measurements.push({ name: "affected_area_pct", label: "Affected area", unit: "% of skin", component_id: "lesion_area" });
   if (has("scal", "thick", "texture", "flak")) measurements.push({ name: "scaling_score", label: "Scaling", unit: "0–4", component_id: null });
-  if (has("tremor")) measurements.push({ name: "tremor_amplitude", label: "Tremor amplitude", unit: "× hand size", component_id: null });
+  if (has("tremor")) measurements.push({ name: "tremor_amplitude", label: "Tremor amplitude", unit: "× hand size", component_id: "tremor_spectrum" });
   if (has("gait", "walk")) measurements.push({ name: "stride_time_cv", label: "Stride time variability", unit: "CV", component_id: null });
   if (!measurements.length) measurements.push({ name: "primary_visual_score", label: "Primary visual score", unit: "a.u.", component_id: null });
 
@@ -124,7 +132,7 @@ export function templateDraft(prompt: string): WorkflowDraft {
             : "Weekly skin check 📸 Stand near a window (no flash), hold your phone one forearm's length from the affected area, and take a straight-on photo with the whole area in frame.",
           quality_checks: video
             ? [{ component_id: "blur", threshold: 60 }, { component_id: "exposure", threshold: 200 }, { component_id: "duration", threshold: 12 }]
-            : [{ component_id: "blur", threshold: 80 }, { component_id: "exposure", threshold: 210 }, { component_id: "skin_coverage", threshold: 0.25 }],
+            : [{ component_id: "blur", threshold: 15 }, { component_id: "exposure", threshold: 210 }, { component_id: "skin_coverage", threshold: 0.25 }],
           report_questions: [{ key: "symptom_severity", prompt: "How bad were your symptoms in the last 24h, 0 (none) to 10 (worst)?", type: "scale", options: [] }],
           measurements,
         },
