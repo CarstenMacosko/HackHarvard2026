@@ -17,5 +17,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "agent": "npm run dev -w services/agent"
+  },
+  "dependencies": {
+    "@factory/droid-sdk": "^0.9.1"
   }
 }
