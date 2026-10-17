@@ -2,11 +2,11 @@
 
 Remote, clinician-verified visual follow-up for longitudinal studies. Built at HackHarvard 2026.
 
-Participants complete short photo and video check-ins from home, **by text** (Photon 2.0 messaging agent) or **by upload** in the participant portal.
+Participants complete short photo and video check-ins from home **by upload** in the participant portal. The messaging-agent conversation flow is implemented with a local dev adapter; the Photon adapter for live texting is still unfinished.
 - Modular computer vision checks each capture **on the participant's device** and gives specific retake instructions when it isn't usable.
 - Usable captures are measured, and every result is accepted, corrected or rejected by a clinician on a longitudinal timeline that traces each point back to its source media.
 - Researchers can **train and plug in their own measurement models** from labelled captures in the browser, or ask **Factory Droid** to build one for a new study. Droid writes the study spec (or a new CV module), trains and evaluates it on public data with the training kit, and opens a pull request with a model card.
-- A simulated reward system keeps participation high.
+- A simulated reward system is designed to encourage participation; its effect on retention has not been measured.
 
 The three built-in modules are:
 - **Parkinson's finger tapping** (video, MediaPipe hand landmarks);
@@ -23,6 +23,12 @@ Five study models are trained and shipped:
 - 🤖 Droid model generation (setup + flow): [`docs/DROID.md`](docs/DROID.md)
 - 🏋️ Training kit, datasets and model cards: [`training/README.md`](training/README.md), [`training/DATASETS.md`](training/DATASETS.md)
 - 🔬 Background research: [`idea research/`](idea%20research/)
+
+## Team guide and current scope
+
+Start with the [documentation hub](docs/README.md) for the [feature inventory](docs/product/FEATURES.md), [project strengths and limitations](docs/product/ASSESSMENT.md), [frontend/backend map](docs/architecture/README.md), and [recommended delivery priorities](docs/delivery/ROADMAP.md).
+
+Current boundaries: identities use demo placeholders; hosted persistence and service integrations need verification; the Photon adapter is unfinished; model outputs remain experimental. The recommended demo focuses on one complete capture-to-review flow. See [demo scope and verification](docs/delivery/DEMO.md).
 
 ## What's in the app
 
