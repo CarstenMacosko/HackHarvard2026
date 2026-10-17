@@ -1,5 +1,6 @@
 import type { Observation } from "@vf/shared";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
+import { ScoreCard } from "./score";
 import { Badge, KeyValues, REVIEW_TONE, SectionLabel, ValidationBadge } from "./ui";
 
 const trimmed = (url: string, start: unknown) => (typeof start === "number" && start > 0 ? `${url}#t=${start}` : url);
@@ -17,6 +18,8 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
         <span className="text-slate-400">· {o.task_label}</span>
       </div>
 
+      <ScoreCard o={o} />
+
       <div
         className={
           o.media_url
@@ -33,7 +36,7 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
             <img src={o.media_url} alt={`${o.task_label}, ${dateTime(o.captured_at)}`} className="h-full w-full object-contain" />
           )
         ) : (
-          <span className="px-6 text-center">Source media for submission {o.submission_id}. This is a synthetic record, so no file is stored.</span>
+          <span className="px-6 text-center">No media file was kept for submission {o.submission_id}.</span>
         )}
         {o.context.media_kind === "poster" && <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">Still frame (video analysed on-device)</span>}
       </div>

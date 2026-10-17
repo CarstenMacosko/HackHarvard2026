@@ -1,5 +1,5 @@
 import "server-only";
-import { badgesEarned, balance, computeStreak, lifetimePoints, tierFor, type Observation, isOpen, type RewardEvent } from "@vf/shared";
+import { SCORE_NAME, badgesEarned, balance, computeStreak, lifetimePoints, tierFor, type Observation, isOpen, type RewardEvent } from "@vf/shared";
 import { PRETRAINED } from "@vf/shared/pretrained";
 import { backend } from "./backend";
 import { ensureSchedule } from "./schedule";
@@ -26,6 +26,7 @@ function summarize(p: Participant, study: Study | undefined, tasks: ScheduledTas
     pending_reviews: mine.filter((o) => o.review_status === "pending").length,
     points: balance(rewards.filter((e) => e.participant_id === p.id)),
     escalations: myTasks.filter((t) => t.status === "escalated" && Date.now() - new Date(t.due_at).getTime() < 14 * DAY).length,
+    latest_score: mine.at(-1)?.measurements.find((m) => m.name === SCORE_NAME)?.value ?? null,
   };
 }
 
@@ -198,13 +199,19 @@ export async function reviewQueue(studyId?: string) {
 
 export async function submissionsInbox(f: { studyId?: string; result?: string } = {}) {
   const db = backend();
-  const [subs, participants, studies] = await Promise.all([db.submissions({ studyId: f.studyId }), db.participants(), db.studies()]);
+  const [subs, participants, studies, obs] = await Promise.all([db.submissions({ studyId: f.studyId }), db.participants(), db.studies(), db.observations({ studyId: f.studyId })]);
+  const scores = new Map(obs.map((o) => [o.id, o.measurements.find((m) => m.name === SCORE_NAME)?.value ?? null]));
   const names = new Map(participants.map((p) => [p.id, p.display_name]));
   const taskLabels = new Map(studies.flatMap((s) => s.protocol.tasks.map((t) => [t.id, t.label] as const)));
   const rows = [...subs]
     .reverse()
     .filter((s) => !f.result || (f.result === "accepted" ? s.accepted : f.result === "escalated" ? s.escalated : !s.accepted))
-    .map((s) => ({ ...s, participant_name: names.get(s.participant_id) ?? s.participant_id, task_label: taskLabels.get(s.task_id) ?? s.task_id }));
+    .map((s) => ({
+      ...s,
+      participant_name: names.get(s.participant_id) ?? s.participant_id,
+      task_label: taskLabels.get(s.task_id) ?? s.task_id,
+      score: s.observation_id ? (scores.get(s.observation_id) ?? null) : null,
+    }));
   return { rows, funnel: submissionFunnel(subs) };
 }
 
