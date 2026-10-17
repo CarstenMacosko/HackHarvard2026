@@ -1,0 +1,17 @@
+{
+  "name": "visual-followup",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/shared",
+    "services/agent"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "lint": "npm run lint -w apps/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "agent": "npm run dev -w services/agent"
+  }
+}
