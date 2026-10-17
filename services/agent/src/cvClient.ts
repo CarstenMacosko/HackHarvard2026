@@ -62,6 +62,7 @@ function mockObservation(a: AnalyzeArgs, body: { study_id: string; participant_i
     measurements: accepted
       ? a.task.measurements.map((m) => ({ ...m, value: Math.round(Math.random() * 1000) / 100, uncertainty: 0.2 }))
       : [],
+    features: {},
     model_version: `${a.task.module}@mock`,
     patient_report: {},
     context: { attempt: a.attempt },

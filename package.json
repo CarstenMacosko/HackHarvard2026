@@ -1,9 +1,13 @@
 {
   "name": "visual-followup",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "apps/web",
     "packages/shared",
+    "packages/cv",
     "services/agent"
   ],
   "scripts": {

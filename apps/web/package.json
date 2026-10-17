@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/fetch-mediapipe.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/fetch-mediapipe.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -11,9 +13,13 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
+    "@mediapipe/tasks-vision": "1.0.1",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
+    "@vf/cv": "*",
     "@vf/shared": "*",
+    "geist": "1.7.2",
+    "lucide-react": "1.49.0",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
