@@ -130,6 +130,7 @@ class PreparedVideo:
     distance: np.ndarray  # NaN where no hand detected
     detection_rate: float
     hand_label: str | None = None
+    sample_landmarks: list = field(default_factory=list)  # hand landmarks of each gray sample (hand-region checks)
     extras: dict = field(default_factory=dict)
 
 
@@ -142,6 +143,7 @@ def from_track(track: HandTrack) -> PreparedVideo:
         distance=distance,
         detection_rate=float((~np.isnan(distance)).mean()),
         hand_label=track.hand_label,
+        sample_landmarks=track.sample_landmarks,
     )
 
 
@@ -153,7 +155,7 @@ def process_video(path: str, tracker_factory=HandTracker) -> PreparedVideo:
 @register
 class FingerTappingModule(CVModule):
     id = "finger_tapping"
-    version = "0.3.0"
+    version = "0.4.0"
     label = "Finger tapping (Parkinson's)"
     media_type = "video"
     conditions = ["parkinsons"]
@@ -165,13 +167,16 @@ class FingerTappingModule(CVModule):
         MeasurementSpec("rhythm_cv", "Rhythm variability", "CV"),
     ]
     feature_names = FEATURE_NAMES
-    default_criteria = {"blur": 60, "exposure_min": 60, "exposure_max": 200, "hand_visible": 0.8, "duration_s": 8, "fps": 20}
+    # blur 20 is advisory (hand region, 256 px): flags a visibly soft hand for the clinician but never
+    # rejects; MediaPipe tracked and measured perfectly even at heavy defocus
+    # (training/calibration/hand_video_sharpness.md). Exposure is judged on the hand region.
+    default_criteria = {"blur": 20, "exposure_min": 60, "exposure_max": 220, "hand_visible": 0.8, "duration_s": 8, "fps": 20}
 
     def prepare(self, path: str) -> PreparedVideo:
         return process_video(path)
 
     def quality_checks(self, p: PreparedVideo, c: dict[str, float]) -> list[QualityCheck]:
-        checks = q.image_checks_for_video(p.gray_samples, c)
+        checks = q.hand_video_checks(p.gray_samples, p.sample_landmarks, c)
         return checks + [
             q.min_value_check(
                 "duration_s", p.duration_s, c["duration_s"], "The video was too short. Please record a full 10 seconds of tapping."

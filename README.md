@@ -106,7 +106,7 @@ uvicorn app.main:app --reload     # http://localhost:8000/docs  → then set CV_
 cd services/agent
 MOCK_CV=1 WEB_URL=http://localhost:3000 npm run dev
 #   you> /due                     (agent sends the finger-tapping prompt)
-#   you> /video blurry.mp4        (mock CV fails it → retry instructions, attempt logged in the web app)
+#   you> /video dark.mp4          (mock CV fails it → retry instructions, attempt logged in the web app)
 #   you> /video good.mp4          (accepted → report questions → points from the web app's ledger)
 ```
 

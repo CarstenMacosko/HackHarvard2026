@@ -79,3 +79,29 @@ def write_tremor_video(
         writer.write(np.clip(frame, 0, 255).astype(np.uint8))
     writer.release()
     return path
+
+
+def write_phone_tapping_video(path: Path, rate_hz: float = 2.5, defocus: float = 0.0, seconds: float = 10.4, fps: int = 30) -> Path:
+    """Phone-like clip: portrait 1080x1920, hand about 700 px on a smooth wall, H.264 (libx264 CRF 23),
+    optional defocus. Needs ffmpeg with libx264."""
+    import subprocess
+
+    side, w, h = 700, 1080, 1920
+    canvas = np.full((h, w, 3), (196, 205, 205), np.uint8)
+    y0, x0 = (h - side) // 2, (w - side) // 2
+    frames = []
+    for name in ("hand_open.jpg", "hand_closed.jpg"):
+        f = canvas.copy()
+        f[y0 : y0 + side, x0 : x0 + side] = _load(name, side)
+        frames.append(cv2.GaussianBlur(f, (0, 0), defocus) if defocus else f)
+    proc = subprocess.Popen(
+        ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{w}x{h}", "-r", str(fps), "-i", "-",
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", str(path)],
+        stdin=subprocess.PIPE,
+    )
+    half = fps / (2 * rate_hz)
+    for i in range(int(seconds * fps)):
+        proc.stdin.write(frames[int(i // half) % 2].tobytes())
+    proc.stdin.close()
+    assert proc.wait() == 0, "ffmpeg failed"
+    return path

@@ -68,7 +68,7 @@ export default async function ParticipantHome() {
                         <div>
                           <div className="text-slate-900">{dateTime(s.created_at)}</div>
                           <div className="text-xs text-slate-500">
-                            {s.accepted ? "Usable capture" : `Retake requested: ${s.quality.checks.filter((c) => !c.passed).map((c) => (CHECK_LABEL[c.name] ?? c.name).toLowerCase()).join(", ")}`}
+                            {s.accepted ? "Usable capture" : `Retake requested: ${s.quality.checks.filter((c) => !c.passed && !c.advisory).map((c) => (CHECK_LABEL[c.name] ?? c.name).toLowerCase()).join(", ")}`}
                           </div>
                         </div>
                         {s.accepted ? (

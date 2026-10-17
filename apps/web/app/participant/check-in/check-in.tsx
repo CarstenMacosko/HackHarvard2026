@@ -10,6 +10,7 @@ import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ProgressBar, Sec
 import { analyzePhotoFile, analyzeVideoFile, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { planVideoUpload, type UploadPlan } from "@/lib/cv-client/upload";
 import { CHECK_LABEL } from "@/lib/format";
+import { isMediaKind } from "@/lib/media-kind";
 
 const GUIDE: Record<string, string[]> = {
   photo: [
@@ -96,13 +97,13 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
       let r: ModuleResult;
       let up: { photo?: Blob; poster?: Blob };
       if (task.media_type === "photo") {
-        if (!f.type.startsWith("image/")) throw new Error("Please choose a photo.");
+        if (!isMediaKind(f, "image")) throw new Error("Please choose a photo.");
         setProgress({ fraction: 0.5, stage: "Checking your photo…" });
         const a = await analyzePhotoFile(f, task.quality_criteria);
         r = a.result;
         up = { photo: a.upload };
       } else {
-        if (!f.type.startsWith("video/")) throw new Error("Please choose a video.");
+        if (!isMediaKind(f, "video")) throw new Error("Please choose a video.");
         const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }));
         r = a.result;
         up = { poster: a.poster };
@@ -144,7 +145,8 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
     }
   }
 
-  const failed: QualityCheck[] = result ? result.quality.checks.filter((c) => !c.passed) : [];
+  const failed: QualityCheck[] = result ? result.quality.checks.filter((c) => !c.passed && !c.advisory) : [];
+  const notes: QualityCheck[] = result ? result.quality.checks.filter((c) => !c.passed && c.advisory) : [];
   // after a submit, the server's verdict (re-analysis) wins over the on-device one
   const rejectionMessages = outcome && !outcome.accepted && outcome.runtime === "server" ? [outcome.message] : failed.map((c) => c.message);
   const accept = task.media_type === "photo" ? "image/*" : "video/*";
@@ -253,6 +255,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                         <li key={c.name} className="flex items-center gap-2">
                           {c.passed ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
                           <span className={c.passed ? "text-slate-700" : "font-medium text-slate-900"}>{CHECK_LABEL[c.name] ?? c.name}</span>
+                          {!c.passed && c.advisory && <span className="text-xs text-amber-700">(accepted)</span>}
                         </li>
                       ))}
                     </ul>
@@ -260,6 +263,12 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                   {(phase === "ready" || phase === "submitting") && (
                     <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Looks good. Answer the questions below and send it.</div>
                   )}
+                  {(phase === "ready" || phase === "submitting") &&
+                    notes.map((c) => (
+                      <div key={c.name} className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                        {c.message}
+                      </div>
+                    ))}
                 </div>
               </div>
             )}

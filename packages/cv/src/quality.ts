@@ -6,6 +6,8 @@ export const MESSAGES = {
   blur: "The picture is blurry. Rest your phone against something steady and tap the screen to focus first.",
   dark: "It's too dark. Turn on a light or face a window (no flash).",
   bright: "It's too bright or washed out. Move out of direct sunlight and turn off the flash.",
+  softHand:
+    "Your hand looks a little soft or blurry. We kept this video; next time, prop the phone up and tap the screen on your hand to focus.",
 } as const;
 
 /**
@@ -35,7 +37,10 @@ export function blurCheck(gray: GrayImage, minSharpness: number): QualityCheck {
 }
 
 export function exposureCheck(gray: GrayImage, lo: number, hi: number): QualityCheck {
-  const m = mean(gray.data);
+  return exposureValueCheck(mean(gray.data), lo, hi);
+}
+
+export function exposureValueCheck(m: number, lo: number, hi: number): QualityCheck {
   return {
     name: "exposure",
     passed: lo <= m && m <= hi,
@@ -57,8 +62,41 @@ export function taskFailed(message: string): QualityCheck {
   return { name: "task_completed", passed: false, value: null, threshold: null, message };
 }
 
+/** np.median */
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/** Hand crops are the landmark box (+25%) resized so the longest side is 256 px (quality.hand_crop). */
+export const HAND_CROP_SIDE = 256;
+export const HAND_CROP_MARGIN = 0.25;
+
+/**
+ * quality.hand_video_checks: sharpness (advisory) and exposure (blocking) of the hand, as medians
+ * over the sampled hand crops; the middle full frame if no hand was found in any sample.
+ * Landmark tracks without frames have nothing to check.
+ */
+export function handVideoChecks(grays: GrayImage[], handCrops: GrayImage[], c: Record<string, number>): QualityCheck[] {
+  if (!grays.length && !handCrops.length) return [];
+  let sharpness: number, brightness: number;
+  if (handCrops.length) {
+    sharpness = median(handCrops.map((g) => laplacianVariance(g)));
+    brightness = median(handCrops.map((g) => mean(g.data)));
+  } else {
+    const mid = grays[grays.length >> 1];
+    sharpness = laplacianVariance(mid);
+    brightness = mean(mid.data);
+  }
+  return [
+    { name: "blur", passed: sharpness >= c.blur, value: round(sharpness, 1), threshold: c.blur, message: MESSAGES.softHand, advisory: true },
+    exposureValueCheck(brightness, c.exposure_min, c.exposure_max),
+  ];
+}
+
 export function buildReport(checks: QualityCheck[]): QualityReport {
-  const failed = checks.filter((c) => !c.passed);
+  const failed = checks.filter((c) => !c.passed && !c.advisory);
   return {
     accepted: failed.length === 0,
     checks,
@@ -76,14 +114,14 @@ export interface ModuleResult {
   model_version: string;
 }
 
-/** Shared pipeline semantics: quality gate first, measure only if every check passed. */
+/** Shared pipeline semantics: quality gate first, measure only if every blocking check passed. */
 export function runPipeline(
   checks: QualityCheck[],
   measure: () => { measurements: Measurement[]; features: Record<string, number> },
   modelVersion: string,
 ): ModuleResult {
   let measured: { measurements: Measurement[]; features: Record<string, number> } = { measurements: [], features: {} };
-  if (checks.every((c) => c.passed)) {
+  if (checks.every((c) => c.passed || c.advisory)) {
     try {
       measured = measure();
     } catch (e) {

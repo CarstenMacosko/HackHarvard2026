@@ -1,10 +1,10 @@
 import { mean, percentile, std, type GrayImage } from "./image";
-import { blurCheck, exposureCheck, fractionCheck, measurement, minValueCheck, runPipeline, TaskNotCompleted, type ModuleResult } from "./quality";
+import { fractionCheck, handVideoChecks, measurement, minValueCheck, runPipeline, TaskNotCompleted, type ModuleResult } from "./quality";
 
 /** Mirror of services/cv/app/modules/finger_tapping.py (FingerTappingModule). */
 export const TAPPING_MODULE = {
   id: "finger_tapping",
-  version: "0.3.0",
+  version: "0.4.0",
   media_type: "video" as const,
   measurements: [
     { name: "tap_rate_hz", label: "Tap rate", unit: "Hz" },
@@ -24,7 +24,7 @@ export const TAPPING_MODULE = {
     "detection_rate",
     "duration_s",
   ],
-  default_criteria: { blur: 60, exposure_min: 60, exposure_max: 200, hand_visible: 0.8, duration_s: 8, fps: 20 } as Record<string, number>,
+  default_criteria: { blur: 20, exposure_min: 60, exposure_max: 220, hand_visible: 0.8, duration_s: 8, fps: 20 } as Record<string, number>,
 };
 
 const MAX_TAP_HZ = 8;
@@ -218,6 +218,8 @@ export interface PreparedVideo {
   sample_fps?: number;
   duration_s: number;
   gray_samples: GrayImage[];
+  /** hand-region crops of the sampled frames (256 px longest side), for the hand-region checks */
+  hand_crops?: GrayImage[];
   distance: number[]; // NaN where no hand was detected
   detection_rate: number;
 }
@@ -239,6 +241,7 @@ export interface PreparedHandTrack {
   sample_fps?: number;
   duration_s: number;
   gray_samples: GrayImage[];
+  hand_crops?: GrayImage[];
   landmarks: number[][][];
   detection_rate: number;
 }
@@ -246,25 +249,20 @@ export interface PreparedHandTrack {
 /** Finger-tapping input from a hand track (finger_tapping.from_track). */
 export function tappingFromTrack(t: PreparedHandTrack): PreparedVideo {
   const distance = t.landmarks.map((pts) => (Number.isNaN(pts[WRIST][0]) ? NaN : handDistancePx(pts)));
-  return { fps: t.fps, sample_fps: t.sample_fps, duration_s: t.duration_s, gray_samples: t.gray_samples, distance, detection_rate: t.detection_rate };
-}
-
-/** quality.worst_frames: three evenly spaced samples. */
-export function worstFrames<T>(xs: T[], k = 3): T[] {
-  if (xs.length <= k) return xs;
-  // np.linspace(0, n - 1, k).astype(int) truncates
-  return Array.from({ length: k }, (_, i) => xs[Math.trunc((i * (xs.length - 1)) / (k - 1))]);
+  return {
+    fps: t.fps,
+    sample_fps: t.sample_fps,
+    duration_s: t.duration_s,
+    gray_samples: t.gray_samples,
+    hand_crops: t.hand_crops,
+    distance,
+    detection_rate: t.detection_rate,
+  };
 }
 
 export function analyzeTapping(p: PreparedVideo, criteria: Record<string, number> = {}): ModuleResult {
   const c = { ...TAPPING_MODULE.default_criteria, ...criteria };
-  const sample = worstFrames(p.gray_samples);
-  const checks = sample.length
-    ? [
-        sample.map((g) => blurCheck(g, c.blur)).reduce((a, b) => ((b.value ?? 0) < (a.value ?? 0) ? b : a)),
-        exposureCheck(sample[sample.length >> 1], c.exposure_min, c.exposure_max),
-      ]
-    : [];
+  const checks = handVideoChecks(p.gray_samples, p.hand_crops ?? [], c);
   checks.push(
     minValueCheck("duration_s", p.duration_s, c.duration_s, "The video was too short. Please record a full 10 seconds of tapping."),
     minValueCheck("fps", p.fps, c.fps, "The video frame rate is too low. Use your phone's normal video mode (not slow-mo or time-lapse)."),

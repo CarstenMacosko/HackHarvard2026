@@ -69,10 +69,10 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
                       <Td>
                         <div className="flex flex-wrap gap-1">
                           {s.quality.checks
-                            .filter((c) => !s.accepted ? !c.passed : true)
+                            .filter((c) => (!s.accepted ? !c.passed && !c.advisory : true))
                             .slice(0, 3)
                             .map((c) => (
-                              <Badge key={c.name} tone={c.passed ? "slate" : "red"}>
+                              <Badge key={c.name} tone={c.passed ? "slate" : c.advisory ? "amber" : "red"}>
                                 {CHECK_LABEL[c.name] ?? c.name}
                               </Badge>
                             ))}

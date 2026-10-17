@@ -79,6 +79,7 @@ class HandTrack:
     fps: float
     landmarks: np.ndarray  # (frames, 21, 2) pixels, NaN where no hand was detected
     gray_samples: list[np.ndarray] = field(default_factory=list)
+    sample_landmarks: list[np.ndarray | None] = field(default_factory=list)  # landmarks of each gray sample
     hand_label: str | None = None
 
     @property
@@ -109,6 +110,7 @@ def track_video(path: str, tracker_factory=HandTracker) -> HandTrack:
     expected = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
     keep = sample_indices(min(expected, max_frames) if expected > 0 else max_frames)
     grays: list[np.ndarray] = []
+    sample_pts: list[np.ndarray | None] = []
     frames: list[np.ndarray] = []
     labels: list[str] = []
     missing = np.full((N_LANDMARKS, 2), np.nan)
@@ -118,9 +120,10 @@ def track_video(path: str, tracker_factory=HandTracker) -> HandTrack:
             if not ok:
                 break
             i = len(frames)
+            pts, label = tracker.landmarks(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), int(i * 1000 / fps))
             if i in keep:
                 grays.append(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
-            pts, label = tracker.landmarks(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), int(i * 1000 / fps))
+                sample_pts.append(pts)
             frames.append(missing if pts is None else pts)
             if label:
                 labels.append(label)
@@ -131,6 +134,7 @@ def track_video(path: str, tracker_factory=HandTracker) -> HandTrack:
         fps=float(fps),
         landmarks=np.stack(frames),
         gray_samples=grays,
+        sample_landmarks=sample_pts,
         hand_label=max(set(labels), key=labels.count) if labels else None,
     )
 

@@ -15,6 +15,8 @@ class QualityCheck(BaseModel):
     value: Optional[float]
     threshold: Optional[float]
     message: str
+    # advisory checks are recorded and shown to clinicians but never reject a capture
+    advisory: bool = False
 
 
 class QualityReport(BaseModel):

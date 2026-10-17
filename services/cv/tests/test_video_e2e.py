@@ -6,7 +6,7 @@ pytest.importorskip("mediapipe")
 from app.models import AnalyzeRequest  # noqa: E402
 from app.modules.finger_tapping import hand_model_path  # noqa: E402
 from app.pipeline import analyze  # noqa: E402
-from tests.videos import write_tapping_video  # noqa: E402
+from tests.videos import write_phone_tapping_video, write_tapping_video  # noqa: E402
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -44,3 +44,28 @@ def test_hand_missing_for_half_the_video(tmp_path):
     obs = run(write_tapping_video(tmp_path / "late.mp4", hand_visible_from=5.0))
     failed = {c.name for c in obs.quality.checks if not c.passed}
     assert "hand_visible" in failed
+
+
+needs_x264 = pytest.mark.skipif(
+    __import__("shutil").which("ffmpeg") is None, reason="ffmpeg (libx264) not installed"
+)
+
+
+@needs_x264
+def test_sharp_phone_video_is_accepted_without_flags(tmp_path):
+    """The case the team hit: 1080p H.264, hand on a smooth wall. Whole-frame sharpness was ~110 at
+    best and the old gate (≥ 60) rejected real phone clips; the hand region scores far higher."""
+    obs = run(write_phone_tapping_video(tmp_path / "phone.mp4"))
+    assert obs.quality.accepted, obs.quality.checks
+    blur = next(c for c in obs.quality.checks if c.name == "blur")
+    assert blur.passed and blur.advisory
+    assert measurement(obs, "tap_rate_hz").value == pytest.approx(2.5, abs=0.15)
+
+
+@needs_x264
+def test_defocused_phone_video_is_accepted_and_flagged(tmp_path):
+    obs = run(write_phone_tapping_video(tmp_path / "soft.mp4", defocus=4))
+    assert obs.quality.accepted, obs.quality.checks
+    blur = next(c for c in obs.quality.checks if c.name == "blur")
+    assert not blur.passed and blur.advisory  # flagged for the clinician, not rejected
+    assert measurement(obs, "tap_rate_hz").value == pytest.approx(2.5, abs=0.15)

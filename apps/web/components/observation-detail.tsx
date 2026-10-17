@@ -62,8 +62,9 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
         </SectionLabel>
         <div className="flex flex-wrap gap-1.5">
           {o.quality.checks.map((c) => (
-            <Badge key={c.name} tone={c.passed ? "green" : "red"}>
-              {c.passed ? "✓" : "✗"} {CHECK_LABEL[c.name] ?? c.name}
+            <Badge key={c.name} tone={c.passed ? "green" : c.advisory ? "amber" : "red"}>
+              {c.passed ? "✓" : c.advisory ? "!" : "✗"} {CHECK_LABEL[c.name] ?? c.name}
+              {!c.passed && c.advisory && <span className="font-normal">(low, accepted)</span>}
               {c.value !== null && <span className="tabular font-normal opacity-75">{Number(c.value.toFixed(2))}</span>}
             </Badge>
           ))}
