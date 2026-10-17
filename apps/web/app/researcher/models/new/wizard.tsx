@@ -10,6 +10,7 @@ import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, KeyValues, Secti
 import { analyzePhotoFile, analyzeVideoFile, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { syntheticSkinDataset } from "@/lib/cv-client/synthetic";
 import { CHECK_LABEL } from "@/lib/format";
+import { isMediaKind } from "@/lib/media-kind";
 import { BUILTIN_MODULES } from "@/lib/modules";
 
 interface Item {
@@ -83,7 +84,7 @@ export function TrainingWizard({ studies }: { studies: { id: string; name: strin
 
   function addFiles(files: File[]) {
     const csv = files.find((f) => f.name.toLowerCase().endsWith(".csv"));
-    const media = files.filter((f) => f.type.startsWith(mod.media_type === "photo" ? "image/" : "video/"));
+    const media = files.filter((f) => isMediaKind(f, mod.media_type === "photo" ? "image" : "video"));
     const apply = (labels: Map<string, string>) =>
       setItems((prev) => {
         const next = [
@@ -129,7 +130,7 @@ export function TrainingWizard({ studies }: { studies: { id: string; name: strin
           mod.media_type === "photo" ? await analyzePhotoFile(it.file, mod.default_criteria) : await analyzeVideoFile(it.file, mod.id as VideoModuleId, mod.default_criteria);
         patch = result.quality.accepted
           ? { status: "ok", features: result.features }
-          : { status: "excluded", reason: result.quality.checks.filter((c) => !c.passed).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ") };
+          : { status: "excluded", reason: result.quality.checks.filter((c) => !c.passed && !c.advisory).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ") };
       } catch (e) {
         patch = { status: "excluded", reason: e instanceof Error ? e.message : "could not read file" };
       }

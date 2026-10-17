@@ -2,14 +2,16 @@
 
 import type { ModuleResult } from "@vf/cv";
 import type { QualityCheck, RewardEvent, TaskConfig } from "@vf/shared";
-import { AlertTriangle, CheckCircle2, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle2, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dropzone } from "@/components/dropzone";
+import { LiveCapture, liveCaptureSupported } from "@/components/live-capture";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ProgressBar, SectionLabel, cn } from "@/components/ui";
 import { analyzePhotoFile, analyzeVideoFile, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { planVideoUpload, type UploadPlan } from "@/lib/cv-client/upload";
 import { CHECK_LABEL } from "@/lib/format";
+import { isMediaKind } from "@/lib/media-kind";
 
 const GUIDE: Record<string, string[]> = {
   photo: [
@@ -44,6 +46,9 @@ interface Outcome {
 
 type Phase = "capture" | "analyzing" | "rejected" | "ready" | "submitting" | "done";
 
+/** Modules with live camera coaching (components/live-capture.tsx). */
+const LIVE_MODULES = new Set(["finger_tapping"]);
+
 export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; dueNow: boolean; serverAnalysis: boolean }) {
   const [phase, setPhase] = useState<Phase>("capture");
   const [file, setFile] = useState<File | null>(null);
@@ -55,6 +60,15 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [attempts, setAttempts] = useState(0);
+  // live capture: where the task starts in the recorded clip (seconds of set-up before it)
+  const trimRef = useRef(0);
+  const [live, setLive] = useState(false);
+  const [canLive, setCanLive] = useState(false);
+  useEffect(() => {
+    const ok = LIVE_MODULES.has(task.module) && liveCaptureSupported();
+    setCanLive(ok);
+    setLive(ok);
+  }, [task.module]);
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
@@ -75,6 +89,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
     form.set("analysis", JSON.stringify(r));
     form.set("report", JSON.stringify(intent === "submit" ? answers : {}));
     form.set("device", navigator.userAgent.slice(0, 80));
+    if (trimRef.current > 0) form.set("trim_start_s", String(trimRef.current));
     let plan: UploadPlan;
     if (task.media_type === "photo") plan = { file: up.photo!, filename: "capture.jpg", kind: "original" };
     else plan = await planVideoUpload(f, up.poster!);
@@ -87,8 +102,9 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
     return body as Outcome;
   }
 
-  async function onFile(f: File) {
+  async function onFile(f: File, trimStartS = 0) {
     reset();
+    trimRef.current = trimStartS;
     setFile(f);
     setPreview(URL.createObjectURL(f));
     setPhase("analyzing");
@@ -96,14 +112,14 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
       let r: ModuleResult;
       let up: { photo?: Blob; poster?: Blob };
       if (task.media_type === "photo") {
-        if (!f.type.startsWith("image/")) throw new Error("Please choose a photo.");
+        if (!isMediaKind(f, "image")) throw new Error("Please choose a photo.");
         setProgress({ fraction: 0.5, stage: "Checking your photo…" });
         const a = await analyzePhotoFile(f, task.quality_criteria);
         r = a.result;
         up = { photo: a.upload };
       } else {
-        if (!f.type.startsWith("video/")) throw new Error("Please choose a video.");
-        const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }));
+        if (!isMediaKind(f, "video")) throw new Error("Please choose a video.");
+        const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
         r = a.result;
         up = { poster: a.poster };
       }
@@ -144,7 +160,8 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
     }
   }
 
-  const failed: QualityCheck[] = result ? result.quality.checks.filter((c) => !c.passed) : [];
+  const failed: QualityCheck[] = result ? result.quality.checks.filter((c) => !c.passed && !c.advisory) : [];
+  const notes: QualityCheck[] = result ? result.quality.checks.filter((c) => !c.passed && c.advisory) : [];
   // after a submit, the server's verdict (re-analysis) wins over the on-device one
   const rejectionMessages = outcome && !outcome.accepted && outcome.runtime === "server" ? [outcome.message] : failed.map((c) => c.message);
   const accept = task.media_type === "photo" ? "image/*" : "video/*";
@@ -220,14 +237,23 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         <Card>
           <CardHeader title="1 · Add your capture" actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw className="h-3.5 w-3.5" /> Start over</Button> : undefined} />
           <CardBody>
-            {!file ? (
-              <Dropzone
-                accept={accept}
-                capture="environment"
-                onFiles={([f]) => void onFile(f)}
-                title={task.media_type === "photo" ? "Take or choose a photo" : "Record or choose a video"}
-                hint={`Drag and drop it here, or tap to ${task.media_type === "photo" ? "open the camera" : "record"}.`}
-              />
+            {!file && live ? (
+              <LiveCapture onCapture={(f, trim) => void onFile(f, trim)} onCancel={() => setLive(false)} />
+            ) : !file ? (
+              <div className="space-y-3">
+                <Dropzone
+                  accept={accept}
+                  capture="environment"
+                  onFiles={([f]) => void onFile(f)}
+                  title={task.media_type === "photo" ? "Take or choose a photo" : "Record or choose a video"}
+                  hint={`Drag and drop it here, or tap to ${task.media_type === "photo" ? "open the camera" : "record"}.`}
+                />
+                {canLive && (
+                  <Button size="sm" variant="secondary" onClick={() => setLive(true)}>
+                    <Camera className="h-3.5 w-3.5" /> Record with live guidance
+                  </Button>
+                )}
+              </div>
             ) : (
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="overflow-hidden rounded-md bg-slate-900">
@@ -235,7 +261,15 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={preview!} alt="Your photo" className="aspect-[4/3] w-full object-contain" />
                   ) : (
-                    <video src={preview!} controls playsInline muted className="aspect-[4/3] w-full object-contain" />
+                    <video
+                      src={preview!}
+                      controls
+                      playsInline
+                      muted
+                      // live captures start with a few seconds of set-up: open at the task
+                      onLoadedMetadata={(e) => void (trimRef.current > 0 && (e.currentTarget.currentTime = trimRef.current))}
+                      className="aspect-[4/3] w-full object-contain"
+                    />
                   )}
                 </div>
                 <div className="space-y-3">
@@ -253,6 +287,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                         <li key={c.name} className="flex items-center gap-2">
                           {c.passed ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
                           <span className={c.passed ? "text-slate-700" : "font-medium text-slate-900"}>{CHECK_LABEL[c.name] ?? c.name}</span>
+                          {!c.passed && c.advisory && <span className="text-xs text-amber-700">(accepted)</span>}
                         </li>
                       ))}
                     </ul>
@@ -260,6 +295,12 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                   {(phase === "ready" || phase === "submitting") && (
                     <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Looks good. Answer the questions below and send it.</div>
                   )}
+                  {(phase === "ready" || phase === "submitting") &&
+                    notes.map((c) => (
+                      <div key={c.name} className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                        {c.message}
+                      </div>
+                    ))}
                 </div>
               </div>
             )}

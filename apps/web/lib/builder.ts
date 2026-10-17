@@ -131,7 +131,7 @@ export function templateDraft(prompt: string): WorkflowDraft {
             ? "Time for your weekly check 🎥 Prop your phone up in good light so your whole body part is in view, then record 15 seconds following the steps your coordinator showed you."
             : "Weekly skin check 📸 Stand near a window (no flash), hold your phone one forearm's length from the affected area, and take a straight-on photo with the whole area in frame.",
           quality_checks: video
-            ? [{ component_id: "blur", threshold: 60 }, { component_id: "exposure", threshold: 200 }, { component_id: "duration", threshold: 12 }]
+            ? [{ component_id: "blur", threshold: 20 }, { component_id: "exposure", threshold: 220 }, { component_id: "duration", threshold: 12 }]
             : [{ component_id: "blur", threshold: 15 }, { component_id: "exposure", threshold: 210 }, { component_id: "skin_coverage", threshold: 0.25 }],
           report_questions: [{ key: "symptom_severity", prompt: "How bad were your symptoms in the last 24h, 0 (none) to 10 (worst)?", type: "scale", options: [] }],
           measurements,

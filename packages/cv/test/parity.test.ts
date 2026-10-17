@@ -104,7 +104,7 @@ describe("hand_tremor signal parity with Python", () => {
     expect(res.quality.checks.map((q) => q.name)).toEqual(["duration_s", "fps", "hand_visible"]);
     expect(res.quality.accepted).toBe(true);
     close(res.features.tremor_freq_hz, c.expected.freq_hz, 1e-6); // features are stored to 6 decimals
-    expect(res.model_version).toBe("hand_tremor@0.1.0");
+    expect(res.model_version).toBe("hand_tremor@0.2.0");
     // the same track drives finger tapping through tappingFromTrack
     expect(tappingFromTrack(track).distance).toHaveLength(lm.length);
     expect(analyzeTapping(tappingFromTrack(track)).quality.accepted).toBe(false); // a still hand is not tapping
