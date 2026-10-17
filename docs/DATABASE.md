@@ -5,7 +5,7 @@ Every service persists to one Supabase project:
 | Service | Talks to the database | Writes |
 |---|---|---|
 | **Web app** (`apps/web`, Vercel) | directly, with the service role key (server code only: `lib/backend.ts`) | captures (via `record_capture`), reviews, participants and invites, rewards, models, builder drafts and studies, Droid jobs, audit log, media uploads |
-| **Messaging agent** (`services/agent`) | directly, with the service role key (`src/supabaseStore.ts`) | conversations, messages, check-in prompting and escalation, inbound attachments in Storage. Captures go to the web app's `/api/cv-callback`, so there is one ingest path and one reward ledger |
+| **Messaging agent** (`services/agent`) | directly, with the service role key (`src/supabaseStore.ts`); an agent without database access can instead use the web app's `/api/agent/roster` (participants, protocols, reminders) and `/api/agent/events` (audit events), guarded by `AGENT_INTERNAL_SECRET` | conversations, messages, check-in prompting and escalation, inbound attachments in Storage. Captures go to the web app's `/api/cv-callback`, so there is one ingest path and one reward ledger |
 | **CV service** (`services/cv`) | never | stateless: reads media from the signed URLs it is given and returns an `Observation`; the caller records it |
 
 Browsers never talk to the database. Row-level security is on for every table, no policy grants the `anon` role anything, and the `media` bucket is private (only signed URLs). The one browser-side Supabase call is uploading a large video to a **signed upload URL** the server created for that participant.
@@ -58,8 +58,8 @@ Ids are text so records keep readable, stable ids across the demo seed, the app 
 
 | Table | Purpose | Key columns | Written by |
 |---|---|---|---|
-| `studies` | A study and its condition. Builder-approved studies start as `draft`. | `id`, `condition`, `status` (draft/active/closed) | seed, web (builder approve) |
-| `protocols` | Versioned protocol: tasks, capture instructions, quality criteria, measurements, rewards (`config` = zod `Protocol`). The latest version is used. | unique (`study_id`, `version`) | seed, web (builder approve) |
+| `studies` | A study and its condition. Builder-approved studies start as `draft`; the New study form creates `active` ones. | `id`, `condition`, `status` (draft/active/closed) | seed, web (New study form, builder approve) |
+| `protocols` | Versioned protocol: tasks, capture instructions, quality criteria, measurements, rewards, consent form and reminder schedule (`config` = zod `Protocol`). The latest version is used. | unique (`study_id`, `version`) | seed, web (New study form, builder approve) |
 | `workflow_drafts` | Condition-builder drafts (`draft` = zod `WorkflowDraft`), kept until a clinician approves one into a study. | `status` (draft/approved/discarded), `study_id` | web |
 | `cv_models` | Researcher-trained ridge heads on a module's features, plus overrides of bundled models (e.g. deactivated). | `module`, `study_id` (null = all studies), `active`, `status`, `provenance` | web |
 | `droid_jobs` | "Generate with Droid" requests and their GitHub Actions run and pull request. | `id` = request id, `status` (requested/dispatched/running/succeeded/failed), `run_url`, `pr_url` | web |

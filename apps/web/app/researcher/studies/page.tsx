@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, PageHeader, Table, Td, Th, THead, Tr } from "@/components/ui";
+import { Badge, ButtonLink, Card, PageHeader, Table, Td, Th, THead, Tr } from "@/components/ui";
 import { conditionLabel, pct } from "@/lib/format";
 import { listStudies } from "@/lib/queries";
 
@@ -12,6 +12,7 @@ export default async function StudiesPage() {
       <PageHeader
         title="Studies"
         description="Each study runs a versioned protocol: which CV module, the capture instructions, the quality gate and the reward rules."
+        actions={<ButtonLink href="/researcher/studies/new">New study</ButtonLink>}
       />
       <Card>
         <Table>
