@@ -23,7 +23,7 @@ export interface DaytonaExperiment {
   params: Record<string, number>;
   status: "queued" | "running" | "passed" | "failed";
   sandbox_id: string | null;
-  metrics: { quality_pass_rate: number; feature_stability: number; score: number } | null;
+  metrics: { passed_cases: number; total_cases: number; accepted_cases: number; fixture_source: string; score: number } | null;
   error: string | null;
   ms: number | null;
 }

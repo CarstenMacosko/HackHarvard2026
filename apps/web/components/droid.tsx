@@ -44,6 +44,9 @@ export function DroidGenerate({ condition, task, measurement, description }: { c
     setState("done");
   }
 
+  if (measurement.name !== "index_straight_fraction") {
+    return <p className="mt-1 text-xs text-amber-700">This measurement needs task-specific landmark tracks before Droid generation can be evaluated.</p>;
+  }
   if (state === "done" && result) {
     return (
       <div className="mt-2 rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
@@ -57,7 +60,7 @@ export function DroidGenerate({ condition, task, measurement, description }: { c
         <Link href="/researcher/models#droid" className="font-medium underline">
           Model registry → Droid jobs
         </Link>
-        . The trained module is saved to the database when ready.
+        . The candidate and its software-check results are saved to the job record for review.
       </div>
     );
   }
@@ -90,11 +93,11 @@ const JOB_BADGE: Record<Job["status"], [string, "green" | "blue" | "red" | "slat
   requested: ["queued", "slate"],
   dispatched: ["queued", "blue"],
   running: ["running", "blue"],
-  succeeded: ["ready in DB", "green"],
+  succeeded: ["candidate ready", "green"],
   failed: ["failed", "red"],
 };
 
-/** Droid+Daytona jobs stored in droid_jobs (and models in cv_models). */
+/** Droid+Daytona candidate jobs stored in droid_jobs. */
 export function DroidJobs() {
   const [data, setData] = useState<{ jobs: Job[]; daytona?: boolean; droid?: boolean; error?: string } | null>(null);
   const load = useCallback(() => {
@@ -113,7 +116,7 @@ export function DroidJobs() {
     <Card>
       <CardHeader
         title="Droid jobs"
-        description="Factory Droid + Daytona generate analyzers in-process. Successful modules are written to cv_models in the database for review and approval."
+        description="Factory Droid drafts candidate analyzers. Daytona checks the shared writing feature on landmark tracks; candidates remain in job records for review."
         actions={
           data && (
             <div className="flex gap-1.5">
@@ -130,7 +133,7 @@ export function DroidJobs() {
           <THead>
             <Th>Request</Th>
             <Th>Status</Th>
-            <Th>Model</Th>
+            <Th>Candidate</Th>
             <Th className="text-right">Requested</Th>
           </THead>
           <tbody>
@@ -152,10 +155,8 @@ export function DroidJobs() {
                     {j.error && <div className="mt-1 max-w-xs truncate text-xs text-rose-600">{j.error}</div>}
                   </Td>
                   <Td>
-                    {j.progress?.model_id ? (
-                      <Link href={`/researcher/models/${j.progress.model_id}`} className="font-mono text-xs text-brand-700 hover:underline">
-                        {j.progress.model_id}
-                      </Link>
+                    {j.progress?.module_id ? (
+                      <span className="font-mono text-xs text-brand-700">{j.progress.module_id}</span>
                     ) : (
                       <span className="text-slate-400">–</span>
                     )}

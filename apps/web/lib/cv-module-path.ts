@@ -10,7 +10,7 @@ export function cvModuleDirectory(cwd = process.cwd()): string {
   ];
   const dir = candidates.find((candidate) => existsSync(path.join(candidate, "base.py")));
   if (!dir) {
-    throw new Error("CV service modules are not on this filesystem; approval requires a shared CV service directory");
+    throw new Error("CV service modules are not on this filesystem; landmark evaluation requires writing_posture_core.py");
   }
   return dir;
 }

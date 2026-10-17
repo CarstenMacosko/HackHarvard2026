@@ -10,7 +10,7 @@
 | Participant records | /participant/history, /participant/rewards | History and simulated rewards |
 | Research operations | /researcher, /researcher/studies, /researcher/participants | Study navigation |
 | Review/provenance | /researcher/review, /researcher/submissions, /researcher/participants/[id] | Adjudication and source inspection |
-| Research tooling | /researcher/models, /researcher/models/new, /researcher/builder | Inspect/train models and draft protocols |
+| Research tooling | /researcher/models, /researcher/generate, /researcher/builder | Inspect models, review writing candidate jobs, and draft protocols |
 | Operations | /researcher/audit, /researcher/settings | Audit and system status |
 
 Source: [apps/web/app](../../apps/web/app). Browser algorithms: [packages/cv](../../packages/cv). Some Next.js pages load data on the server; being part of the frontend does not mean every line runs in the browser.

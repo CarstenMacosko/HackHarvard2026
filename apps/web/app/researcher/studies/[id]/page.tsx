@@ -157,7 +157,7 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                   ))}
                 </ul>
               ) : (
-                <EmptyState title="No custom models yet" action={<ButtonLink href="/researcher/models/new" size="sm" variant="secondary">Train a model</ButtonLink>} />
+                <EmptyState title="No custom models yet" action={<ButtonLink href="/researcher/generate" size="sm" variant="secondary">Generate a candidate</ButtonLink>} />
               )}
             </Card>
           </div>

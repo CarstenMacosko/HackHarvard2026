@@ -12,20 +12,17 @@ const STEPS: { id: GenerationStep; label: string }[] = [
   { id: "daytona_experiments", label: "Daytona experiments" },
   { id: "iterating", label: "Iterate fixes" },
   { id: "validating", label: "Validate" },
-  { id: "ready", label: "Ready" },
-  { id: "approved", label: "Approved" },
+  { id: "ready", label: "Candidate ready" },
+  { id: "approved", label: "Reviewed" },
 ];
 
 const DEMO_PRESET = {
-  condition: "Parkinson's disease",
-  description: "Hand movement assessment: track postural hand motion amplitude and dominant frequency from a short phone video, reusing MediaPipe hand landmarks.",
+  condition: "Focal hand dystonia",
+  description: "With a fixed side-view camera, hold a pen for two seconds, then write the same short phrase. Measure index-finger straightening during writing from hand landmarks.",
   measurements: [
-    { name: "movement_amp", label: "Movement amplitude", unit: "× hand size" },
-    { name: "movement_freq_hz", label: "Dominant frequency", unit: "Hz" },
+    { name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" },
   ],
   media_type: "video" as const,
-  has_clinical_labels: false,
-  example_count: 3,
 };
 
 function stepIndex(step: GenerationStep): number {
@@ -39,7 +36,7 @@ function ExperimentCell({ exp }: { exp: DaytonaExperiment }) {
   return (
     <div
       className={cn("group relative aspect-square rounded-md ring-1 ring-inset ring-slate-200/80", tone)}
-      title={`${exp.label}: ${exp.status}${exp.metrics ? ` · score ${exp.metrics.score}` : ""}`}
+      title={`${exp.label}: ${exp.status}${exp.metrics ? ` · ${exp.metrics.passed_cases}/${exp.metrics.total_cases} ${exp.metrics.fixture_source} track checks · ${exp.metrics.accepted_cases} accepted` : ""}`}
     >
       <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold text-white/90 drop-shadow">{exp.id}</span>
     </div>
@@ -77,12 +74,14 @@ function Pipeline({ progress }: { progress: GenerationProgress }) {
 export function ModuleGenerator() {
   const [condition, setCondition] = useState(DEMO_PRESET.condition);
   const [description, setDescription] = useState(DEMO_PRESET.description);
+  const [measurementLabel, setMeasurementLabel] = useState(DEMO_PRESET.measurements[0].label);
+  const [measurementUnit, setMeasurementUnit] = useState(DEMO_PRESET.measurements[0].unit);
   const [jobId, setJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ daytona: boolean; droid: boolean } | null>(null);
   const [pending, start] = useTransition();
-  const [approving, startApprove] = useTransition();
+  const [reviewing, startReview] = useTransition();
   const input = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm";
 
   const poll = useCallback(async (id: string) => {
@@ -137,10 +136,8 @@ export function ModuleGenerator() {
         body: JSON.stringify({
           condition,
           description,
-          measurements: DEMO_PRESET.measurements,
+          measurements: [{ name: "index_straight_fraction", label: measurementLabel, unit: measurementUnit }],
           media_type: "video",
-          has_clinical_labels: false,
-          example_count: DEMO_PRESET.example_count,
         }),
       });
       const body = await res.json();
@@ -153,17 +150,17 @@ export function ModuleGenerator() {
     });
   }
 
-  function approve() {
+  function review() {
     if (!jobId) return;
-    startApprove(async () => {
+    startReview(async () => {
       const res = await fetch(`/api/droid/generate/${jobId}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "approve" }),
+        body: JSON.stringify({ action: "review" }),
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body.error ?? "Approve failed");
+        setError(body.error ?? "Review failed");
         return;
       }
       await poll(jobId);
@@ -173,7 +170,7 @@ export function ModuleGenerator() {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(300px,380px)_1fr]">
       <Card className="h-fit">
-        <CardHeader title="New assessment" description="Describe the clinical check. Droid reuses existing CV components; Daytona sweeps parameters in parallel sandboxes." />
+        <CardHeader title="New writing assessment" description="Describe the task and measurement. Daytona executes the shared index-angle feature on landmark tracks; the generated source stays a candidate." />
         <CardBody className="space-y-4">
           <label className="block text-sm font-medium text-slate-900">
             Condition
@@ -183,17 +180,13 @@ export function ModuleGenerator() {
             Assessment description
             <textarea className="mt-1 min-h-[140px] w-full rounded-md border border-slate-300 p-3 text-sm" value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
-          <div className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            <div className="font-medium text-slate-800">Demo target measurements</div>
-            <ul className="mt-1 list-disc pl-4">
-              {DEMO_PRESET.measurements.map((m) => (
-                <li key={m.name}>
-                  {m.label} <span className="text-slate-400">({m.unit})</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2">No clinical labels → interpretable feature extractor only (never invents a score).</p>
-          </div>
+          <label className="block text-sm font-medium text-slate-900">Measurement label
+            <input className={cn(input, "mt-1")} value={measurementLabel} onChange={(e) => setMeasurementLabel(e.target.value)} />
+          </label>
+          <label className="block text-sm font-medium text-slate-900">Measurement unit
+            <input className={cn(input, "mt-1")} value={measurementUnit} onChange={(e) => setMeasurementUnit(e.target.value)} />
+          </label>
+          <p className="text-xs text-slate-600">Feature: <code>index_straight_fraction</code>. No videos or clinical labels are supplied. The default checks use clearly labeled synthetic landmark tracks.</p>
           <Button className="w-full" disabled={pending} onClick={startJob}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {pending ? "Starting…" : "Generate with Droid + Daytona"}
@@ -213,7 +206,7 @@ export function ModuleGenerator() {
           <Card>
             <CardBody className="flex flex-col items-center gap-3 py-16 text-center text-sm text-slate-500">
               <Sparkles className="h-8 w-8 text-slate-300" />
-              <p>Start a hand-movement assessment to watch Droid draft and Daytona run ~20 parallel experiments.</p>
+              <p>Start a writing assessment to inspect a candidate and run 20 landmark-track checks.</p>
             </CardBody>
           </Card>
         ) : (
@@ -246,7 +239,7 @@ export function ModuleGenerator() {
             <Card>
               <CardHeader
                 title="Daytona experiment grid"
-                description={`${progress.experiments.length || 20} experiments · up to ${progress.daytona_parallel || 4} sandboxes${progress.iteration ? ` · iteration ${progress.iteration}` : ""}`}
+                description={`${progress.experiments.length || 20} checks · ${progress.experiments[0]?.metrics?.fixture_source ?? "synthetic"} landmark tracks · up to ${progress.daytona_parallel || 4} workers`}
                 actions={
                   <div className="flex gap-2 text-xs">
                     <span className="text-emerald-700">{passed} passed</span>
@@ -298,14 +291,14 @@ export function ModuleGenerator() {
                     <p className="text-sm text-slate-500">Source appears after the Droid draft step.</p>
                   )}
                   {progress.step === "ready" && (
-                    <Button onClick={approve} disabled={approving}>
-                      {approving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
-                      Approve → model registry
+                    <Button onClick={review} disabled={reviewing}>
+                      {reviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
+                      Mark candidate reviewed
                     </Button>
                   )}
                   {progress.step === "approved" && (
                     <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                      <CheckCircle2 className="h-4 w-4" /> Active as <span className="font-mono">{progress.model_id}</span>
+                      <CheckCircle2 className="h-4 w-4" /> Reviewed candidate <span className="font-mono">{progress.module_id}</span>; no trained model or deployment.
                     </div>
                   )}
                   {progress.step === "failed" && (

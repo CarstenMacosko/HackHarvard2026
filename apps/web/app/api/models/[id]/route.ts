@@ -13,6 +13,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const db = backend();
   const [model] = await db.models({ id });
   if (!model) return NextResponse.json({ error: "model not found" }, { status: 404 });
+  if (model.provenance?.source === "droid" && model.metrics.folds === 0 && parsed.data.active) {
+    return NextResponse.json({ error: "Legacy Droid placeholder has no trained/evaluated head and cannot be activated." }, { status: 400 });
+  }
   if (parsed.data.status === "validated" && model.metrics.n < 30) {
     return NextResponse.json({ error: "Validation needs at least 30 labelled examples; retrain with more data first." }, { status: 400 });
   }

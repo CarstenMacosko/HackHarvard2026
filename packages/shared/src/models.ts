@@ -168,6 +168,9 @@ export function customMeasurements(obs: Pick<Observation, "module" | "study_id" 
   const out: Measurement[] = [];
   for (const m of models) {
     if (!m.active || m.module !== obs.module || (m.study_id !== null && m.study_id !== obs.study_id)) continue;
+    // Older Droid jobs inserted zero-weight ridge placeholders with no evaluation folds.
+    // They must never contribute a patient observation, even if previously activated.
+    if (m.provenance?.source === "droid" && m.metrics.folds === 0) continue;
     const p = applyModel(m, obs.features);
     if (p === null) continue;
     out.push({
