@@ -60,6 +60,16 @@ def worst_frames(grays: list[np.ndarray], k: int = 3) -> list[np.ndarray]:
     return [grays[i] for i in idx]
 
 
+def image_checks_for_video(grays: list[np.ndarray], c: dict[str, float]) -> list[QualityCheck]:
+    """Blur (sharpest-is-not-enough: the blurriest of a few sampled frames) and exposure.
+    Landmark tracks (.npz) carry no frames, so there is nothing to check."""
+    if not grays:
+        return []
+    sample = worst_frames(grays)
+    blur = min((blur_check(g, c["blur"]) for g in sample), key=lambda chk: chk.value or 0)
+    return [blur, exposure_check(sample[len(sample) // 2], c["exposure_min"], c["exposure_max"])]
+
+
 def build_report(checks: list[QualityCheck]) -> QualityReport:
     failed = [c for c in checks if not c.passed]
     retry: Optional[str] = None

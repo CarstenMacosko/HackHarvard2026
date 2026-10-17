@@ -30,4 +30,4 @@ def catalog() -> list[dict[str, Any]]:
 
 
 def _load_builtin_modules() -> None:
-    from .modules import eczema, finger_tapping  # noqa: F401  (import registers them)
+    from .modules import eczema, finger_tapping, hand_tremor  # noqa: F401  (import registers them)

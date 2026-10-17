@@ -1,0 +1,25 @@
+# Rest tremor amplitude 0-4 (MDS-UPDRS 3.17 bands) from the tremor spectrum, on rule-labelled synthetic tracks.
+id: tremor_updrs_synthetic
+name: Rest tremor amplitude score, MDS-UPDRS 3.17 style (synthetic)
+description: Maps tremor amplitude, frequency and spectral features to the 0-4 rest-tremor amplitude bands of MDS-UPDRS 3.17. Trained on synthetic tracks with rule-derived labels.
+condition: parkinsons
+module: hand_tremor
+dataset: synthetic_tremor
+dataset_options: {n: 800, seed: 0}
+target:
+  name: rest_tremor_score
+  label: Rest tremor score (3.17-style, synthetic)
+  unit: 0-4
+  source_label: updrs_3_17
+  kind: score
+quality: passed
+subgroup: fps
+intended_use: >
+  Demonstrates the path for a tremor study model. The amplitude bands are defined in cm;
+  converting from hand-size units assumes a 10 cm hand, so the score needs calibration on
+  clinician-rated videos before use.
+limitations:
+  - "Labels come from rules applied to synthetic ground truth, assuming a 10 cm wrist-to-knuckle hand. They are not clinician ratings."
+  - "Synthetic tracks start after landmark detection; detection on real video is tested separately (services/cv/tests/test_tremor_video_e2e.py)."
+  - "Camera shake from a hand-held phone looks like hand tremor; the protocol asks for a propped-up phone."
+  - "The 0-4 bands are log-spaced in amplitude; a linear head on linear amplitude fits them only approximately."

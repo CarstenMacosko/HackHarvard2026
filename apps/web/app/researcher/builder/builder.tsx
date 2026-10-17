@@ -3,6 +3,7 @@
 import type { ValidationStatus, WorkflowDraft } from "@vf/shared";
 import { Sparkles } from "lucide-react";
 import { useState, useTransition } from "react";
+import { DroidGenerate } from "@/components/droid";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, EmptyState, SectionLabel, ValidationBadge } from "@/components/ui";
 
 const EXAMPLES = [
@@ -91,11 +92,14 @@ export function Builder() {
                       <SectionLabel>Measurements</SectionLabel>
                       <ul className="space-y-1.5 text-sm">
                         {t.measurements.map((m) => (
-                          <li key={m.name} className="flex items-center justify-between gap-2">
-                            <span>
-                              {m.label} <span className="text-slate-400">({m.unit})</span>
-                            </span>
-                            <ValidationBadge status={m.validation_status} />
+                          <li key={m.name}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span>
+                                {m.label} <span className="text-slate-400">({m.unit})</span>
+                              </span>
+                              <ValidationBadge status={m.validation_status} />
+                            </div>
+                            {m.validation_status === "new_model_required" && <DroidGenerate condition={draft.condition} task={t} measurement={m} description={prompt} />}
                           </li>
                         ))}
                       </ul>
@@ -143,6 +147,9 @@ export function Builder() {
                   </ButtonLink>
                 </div>
                 {approved && <p className="mt-2 text-xs text-slate-500">Measurements tagged “needs validation” or “needs new model” stay inactive until a trained, validated model is registered for them.</p>}
+                <p className="mt-3 text-xs text-slate-500">
+                  <span className="font-medium text-slate-700">Generate with Droid</span> (next to each measurement that needs a new model) asks Factory Droid to build it: Droid picks a module and a public dataset, trains and evaluates the model with the training kit, and opens a draft pull request with the model card for your team to review.
+                </p>
               </CardBody>
             </Card>
           </>

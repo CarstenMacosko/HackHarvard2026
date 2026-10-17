@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { CvModel as CvModelSchema, Protocol, type Observation, type RewardEvent } from "@vf/shared";
+import { PRETRAINED_MODELS } from "@vf/shared/pretrained";
 import { demoState } from "./demo-data";
 import type { AuditEntry, CvModel, Participant, Redemption, ScheduledTask, Study, Submission } from "./types";
 
@@ -159,7 +160,10 @@ function supabaseBackend(db: SupabaseClient): Backend {
     async models(f = {}) {
       let q = db.from("cv_models").select("*").order("created_at");
       if (f.id) q = q.eq("id", f.id);
-      return (must(await q) as unknown[]).map((m) => CvModelSchema.parse(m));
+      const rows = (must(await q) as unknown[]).map((m) => CvModelSchema.parse(m));
+      // bundled models (training kit / Droid) are listed unless a row overrides them, e.g. after deactivation
+      const builtins = PRETRAINED_MODELS.filter((m) => (!f.id || m.id === f.id) && !rows.some((r) => r.id === m.id));
+      return [...builtins, ...rows];
     },
     async audit(f = {}) {
       let q = db.from("audit_log").select("*").order("created_at", { ascending: false });
@@ -195,7 +199,10 @@ function supabaseBackend(db: SupabaseClient): Backend {
       must(await db.from("cv_models").insert(m));
     },
     async updateModel(id, patch) {
-      must(await db.from("cv_models").update(patch).eq("id", id));
+      const builtin = PRETRAINED_MODELS.find((m) => m.id === id);
+      const existing = builtin ? must(await db.from("cv_models").select("id").eq("id", id)) : [1];
+      if (builtin && !(existing as unknown[]).length) must(await db.from("cv_models").insert({ ...builtin, ...patch }));
+      else must(await db.from("cv_models").update(patch).eq("id", id));
     },
     async insertAudit(a) {
       must(await db.from("audit_log").insert(a));

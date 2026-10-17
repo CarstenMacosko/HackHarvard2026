@@ -1,0 +1,27 @@
+# How much a skin photo looks like eczema, learned from dermatologists' differential diagnoses.
+id: eczema_likelihood_scin
+name: Eczema likelihood (SCIN)
+description: Dermatologist-weighted probability that a skin photo shows eczema, from the skin module's colour and texture features.
+condition: eczema
+module: eczema_photo
+dataset: scin
+target:
+  name: eczema_likelihood
+  label: Eczema likelihood
+  unit: probability
+  source_label: eczema
+  kind: probability
+quality: passed
+subgroup: fitzpatrick
+feature_groups: [embedding]  # 1,024-value MobileNet-V3 image embedding, on-device and on the server
+lambdas: [1000, 3000, 10000, 30000, 100000]
+select_by: rmse
+intended_use: >
+  Supporting signal in atopic dermatitis studies: flags captures that look less like eczema
+  (e.g. a different rash, or a photo of the wrong site) for clinician attention. It does not
+  grade severity: SCIN has no EASI or SCORAD labels.
+limitations:
+  - "Trained on crowdsourced smartphone photos of many conditions; eczema is one label among ~400."
+  - "Labels are dermatologists' differential diagnoses from photos alone, without examination or history."
+  - "Inputs are a general-purpose ImageNet embedding plus colour and texture features from a rule-based skin mask; neither was designed for skin, so check the subgroup table."
+  - "Not a severity score. A severity model needs clinician-graded photos (see training/DATASETS.md)."

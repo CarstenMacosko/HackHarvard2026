@@ -1,0 +1,26 @@
+# How much a skin photo looks like psoriasis, learned from dermatologists' differential diagnoses.
+id: psoriasis_likelihood_scin
+name: Psoriasis likelihood (SCIN)
+description: Dermatologist-weighted probability that a skin photo shows psoriasis, from the skin module's colour and texture features.
+condition: psoriasis
+module: eczema_photo
+dataset: scin
+target:
+  name: psoriasis_likelihood
+  label: Psoriasis likelihood
+  unit: probability
+  source_label: psoriasis
+  kind: probability
+quality: passed
+subgroup: fitzpatrick
+feature_groups: [embedding]  # 1,024-value MobileNet-V3 image embedding, on-device and on the server
+lambdas: [1000, 3000, 10000, 30000, 100000]
+select_by: rmse
+intended_use: >
+  Starting point for a psoriasis follow-up study: a supporting signal that a capture shows
+  plaque-type disease. It does not estimate PASI; severity needs clinician-graded photos.
+limitations:
+  - "Psoriasis is uncommon in SCIN (about 200 of 3,100 gradable cases carry any psoriasis weight), so positives are few."
+  - "Labels are dermatologists' differential diagnoses from photos alone."
+  - "Inputs are a general-purpose ImageNet embedding plus colour and texture features from a rule-based skin mask; neither was designed for skin, so check the subgroup table."
+  - "Not a severity score (PASI)."
