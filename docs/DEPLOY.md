@@ -57,7 +57,7 @@ Without Supabase, the app keeps its data in server memory. On Vercel, each serve
 To make changes stick, and to share data between phones and the projector in a live demo, connect Supabase (about 5 minutes):
 
 1. [supabase.com](https://supabase.com) → **New project** (any region near you; save the database password).
-2. **SQL Editor → New query**: paste the whole of [`supabase/setup.sql`](../supabase/setup.sql) (every migration plus the demo seed, including the `media` storage bucket) and click **Run**. Do this once, on a fresh project.
+2. **SQL Editor → New query**: paste the whole of [`supabase/setup.sql`](../supabase/setup.sql) (every migration plus the core seed, including the private `media` storage bucket) and click **Run**. Do this once, on a fresh project. For a populated demo, run [`supabase/seed_demo.sql`](../supabase/seed_demo.sql) the same way: six weeks of synthetic check-ins, reviews and rewards, matching the built-in demo data. The table design is documented in [`docs/DATABASE.md`](DATABASE.md).
 3. **Project Settings → API**: copy the Project URL, the `anon` public key and the `service_role` secret key into Vercel → Settings → Environment Variables:
 
 ```
@@ -66,7 +66,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
 ```
 
-4. Redeploy. The "Demo data" banner in the researcher header disappears once Supabase is connected. For local runs, put the same three values in `.env.local`.
+4. Redeploy. The "Demo data" banner in the researcher header disappears once Supabase is connected, and **Researcher → System status** lists every table with its row count and checks that the bucket is private. For local runs, put the same three values in `.env.local`.
+5. The messaging agent (`services/agent`) uses the same project: set `NEXT_PUBLIC_SUPABASE_URL` (or `SUPABASE_URL`) and `SUPABASE_SERVICE_ROLE_KEY` where it runs. It then keeps conversations and the message log in Postgres, prompts check-ins from `scheduled_tasks`, and stores inbound photos and videos in the `media` bucket.
 
 Never commit the `service_role` key or paste it anywhere public: it bypasses row-level security.
 
