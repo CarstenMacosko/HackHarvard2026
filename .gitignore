@@ -19,3 +19,5 @@ media/
 *.mov
 *.pt
 *.safetensors
+*.tsbuildinfo
+next-env.d.ts

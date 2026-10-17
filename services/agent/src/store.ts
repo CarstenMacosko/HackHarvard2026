@@ -23,12 +23,12 @@ const participants = new Map<string, ParticipantRecord>();
 export function seedDemoParticipants(): void {
   const demo: ParticipantRecord[] = [
     {
-      id: "p_demo_pd", studyId: "study_pd", address: "+15550000001", name: "Demo PD participant",
+      id: "p_001", studyId: "study_pd", address: "+15550000001", name: "Participant 001",
       tasks: [FINGER_TAPPING_TASK], rewards: DEFAULT_REWARDS, conv: { kind: "idle" },
       acceptedAt: [], rewardEvents: [], lastPromptedAt: {},
     },
     {
-      id: "p_demo_ad", studyId: "study_ad", address: "+15550000002", name: "Demo eczema participant",
+      id: "p_101", studyId: "study_ad", address: "+15550000002", name: "Participant 101",
       tasks: [ECZEMA_TASK], rewards: DEFAULT_REWARDS, conv: { kind: "idle" },
       acceptedAt: [], rewardEvents: [], lastPromptedAt: {},
     },

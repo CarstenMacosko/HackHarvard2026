@@ -78,7 +78,8 @@ export const participants: Participant[] = profiles.map((p, i) => ({
   id: p.id,
   study_id: p.study,
   display_name: `Participant ${p.id.slice(2)}`,
-  phone: p.status === "invited" ? null : `+1555000${String(1000 + i).slice(1)}`,
+  // p_001 / p_101 match the messaging agent's demo participants and supabase/seed.sql
+  phone: p.status === "invited" ? null : p.id === "p_001" ? "+15550000001" : p.id === "p_101" ? "+15550000002" : `+1555000${String(i + 3).padStart(4, "0")}`,
   invite_code: `${p.study === "study_pd" ? "PD" : "AD"}-${p.id.slice(2)}${p.status === "invited" ? "J" : "X"}`,
   status: p.status,
   enrolled_at: p.enrolledDaysAgo ? new Date(NOW - p.enrolledDaysAgo * DAY).toISOString() : null,
@@ -166,7 +167,7 @@ function generate(p: Profile, seed: number) {
     const ageDays = (NOW - capturedAt) / DAY;
     const reviewRoll = r();
     const review_status: Observation["review_status"] =
-      ageDays < 5 ? "pending" : reviewRoll < 0.06 ? "rejected" : reviewRoll < 0.14 ? "corrected" : "accepted";
+      ageDays < 8 ? "pending" : reviewRoll < 0.06 ? "rejected" : reviewRoll < 0.14 ? "corrected" : "accepted";
     const reviewer = review_status === "pending" ? null : study.protocol.approved_by;
 
     observations.push({

@@ -135,7 +135,7 @@ create table reward_events (
 create index on reward_events (participant_id);
 
 create table redemptions (
-  id uuid primary key default gen_random_uuid(),
+  id text primary key,
   participant_id text not null references participants (id) on delete cascade,
   tier text not null,
   points int not null,
