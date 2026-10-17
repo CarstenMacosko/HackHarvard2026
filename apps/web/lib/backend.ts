@@ -27,7 +27,9 @@ export interface Backend {
   updateScheduledTask(id: string, patch: Partial<ScheduledTask>): Promise<void>;
   insertRewardEvents(e: RewardEvent[]): Promise<void>;
   insertRedemption(r: Redemption): Promise<void>;
+  insertStudy(s: Study): Promise<void>;
   insertParticipant(p: Participant): Promise<void>;
+  insertScheduledTask(t: ScheduledTask): Promise<void>;
   updateParticipant(id: string, patch: Partial<Participant>): Promise<void>;
   insertModel(m: CvModel): Promise<void>;
   updateModel(id: string, patch: Partial<CvModel>): Promise<void>;
@@ -85,8 +87,14 @@ const demoBackend: Backend = {
   insertRedemption: async (r) => {
     demoState().redemptions.push(r);
   },
+  insertStudy: async (s) => {
+    demoState().studies.push(s);
+  },
   insertParticipant: async (p) => {
     demoState().participants.push(p);
+  },
+  insertScheduledTask: async (t) => {
+    demoState().scheduledTasks.push(t);
   },
   updateParticipant: async (id, patch) => {
     const p = demoState().participants.find((x) => x.id === id);
@@ -189,8 +197,15 @@ function supabaseBackend(db: SupabaseClient): Backend {
     async insertRedemption(r) {
       must(await db.from("redemptions").insert(r));
     },
+    async insertStudy(s) {
+      must(await db.from("studies").insert({ id: s.id, name: s.name, condition: s.condition, status: s.status }));
+      must(await db.from("protocols").insert({ study_id: s.id, version: s.protocol.version, config: s.protocol }));
+    },
     async insertParticipant(p) {
       must(await db.from("participants").insert(p));
+    },
+    async insertScheduledTask(t) {
+      must(await db.from("scheduled_tasks").insert(t));
     },
     async updateParticipant(id, patch) {
       must(await db.from("participants").update(patch).eq("id", id));

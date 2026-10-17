@@ -1,6 +1,6 @@
 import type { CvModel, Observation, Protocol, RewardEvent, Submission } from "@vf/shared";
 
-export type Condition = "parkinsons" | "eczema";
+export type Condition = "parkinsons" | "eczema" | "other";
 export type ParticipantStatus = "invited" | "active" | "paused" | "withdrawn" | "completed";
 
 export interface Study {
