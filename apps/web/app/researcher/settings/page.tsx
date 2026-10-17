@@ -41,7 +41,7 @@ export default async function SettingsPage() {
             title="Database & storage (Supabase)"
             detail={
               !supabase
-                ? "Using the built-in synthetic dataset. Changes are kept in server memory until restart."
+                ? "No database: uploads are kept in this server\u2019s memory only, so they vanish on restart and aren\u2019t shared between server instances (e.g. on Vercel). Connect Supabase to keep them."
                 : health?.ok
                   ? "Every capture, review, reward, model, builder draft, Droid job and agent conversation is stored in Postgres; media in the private media bucket."
                   : `Connected, but: ${[...(health?.tables.filter((t) => t.error).map((t) => `${t.name}: ${t.error}`) ?? []), health?.bucket.ok ? null : `bucket: ${health?.bucket.detail}`].filter(Boolean).join("; ")}`

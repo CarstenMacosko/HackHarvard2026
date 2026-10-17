@@ -46,7 +46,7 @@ export default function Home() {
           ))}
         </div>
         <p className="mt-16 border-t border-slate-100 pt-6 text-xs text-slate-400">
-          HackHarvard 2026 prototype. All data shown is synthetic. Measurements are not clinically validated.
+          HackHarvard 2026 prototype. Scores and measurements are not clinically validated.
         </p>
       </div>
     </main>

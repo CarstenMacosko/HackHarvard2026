@@ -56,10 +56,10 @@ select pg_temp.check((select sum(points) from reward_events where id like 'sub_t
 select pg_temp.check((select count(*) from scheduled_tasks where participant_id = 'p_001' and due_at > now() + interval '206 days') = 1, 'no duplicate check-in');
 
 -- ---------- third unusable attempt escalates, atomically ----------
-insert into scheduled_tasks (id, participant_id, task_id, due_at, status) values ('st_test_esc', 'p_002', 'pd_finger_tap_right', now() + interval '300 days', 'prompted');
+insert into scheduled_tasks (id, participant_id, task_id, due_at, status) values ('st_test_esc', 'p_101', 'ad_photo_left_elbow', now() + interval '300 days', 'prompted');
 select pg_temp.check((select record_capture(jsonb_build_object(
-  'submission', jsonb_build_object('id', 'sub_t3', 'participant_id', 'p_002', 'study_id', 'study_pd', 'task_id', 'pd_finger_tap_right',
-    'scheduled_task_id', 'st_test_esc', 'attempt', 3, 'source', 'sms', 'media_type', 'video', 'analysis_runtime', 'server',
+  'submission', jsonb_build_object('id', 'sub_t3', 'participant_id', 'p_101', 'study_id', 'study_ad', 'task_id', 'ad_photo_left_elbow',
+    'scheduled_task_id', 'st_test_esc', 'attempt', 3, 'source', 'sms', 'media_type', 'photo', 'analysis_runtime', 'server',
     'quality', '{"accepted": false, "checks": [], "retry_instructions": "Too dark"}'::jsonb, 'accepted', false, 'escalated', true, 'created_at', now()),
   'observation', null,
   'scheduled_task', jsonb_build_object('id', 'st_test_esc', 'status', 'escalated')))) ->> 'scheduled_task_updated' = 'true', 'unusable capture recorded');
@@ -89,7 +89,7 @@ do $$ begin
   raise exception 'FAILED: duplicate check-in accepted';
 exception when unique_violation then raise notice 'ok - one check-in per task and due time';
 end $$;
-with t as (insert into scheduled_tasks (participant_id, task_id, due_at) values ('p_003', 'pd_finger_tap_right', now() + interval '400 days') returning id)
+with t as (insert into scheduled_tasks (participant_id, task_id, due_at) values ('p_201', 'pd_rest_tremor_right', now() + interval '400 days') returning id)
 select pg_temp.check((select id ~ '^[0-9a-f-]{36}$' from t), 'generated check-in ids are uuids');
 
 -- ---------- browsers see nothing ----------

@@ -7,6 +7,8 @@ import {
   nextDueAt,
   rewardMessage,
   rewardsForAcceptedSubmission,
+  scoreMeasurement,
+  severityScore,
   type Observation,
   type RewardEvent,
   type TaskConfig,
@@ -114,6 +116,7 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
   if (accepted) {
     const models = await db.models();
     const base = { module: task.module, study_id: study.id, features: analysis.features };
+    const score = severityScore(task.module, analysis.measurements);
     observation = {
       id: input.observationId ?? id("obs"),
       study_id: study.id,
@@ -124,11 +127,18 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
       captured_at: nowIso,
       media_url: input.mediaUrl,
       quality: analysis.quality,
-      measurements: [...analysis.measurements, ...customMeasurements(base, models)],
+      // the rule-based 0–4 severity score leads, then the module's measurements and study models
+      measurements: [...(score ? [scoreMeasurement(score)] : []), ...analysis.measurements, ...customMeasurements(base, models)],
       features: analysis.features,
       model_version: analysis.model_version,
       patient_report: input.patientReport,
-      context: { ...input.context, attempts: attempt, source: input.source, analysis_runtime: input.runtime },
+      context: {
+        ...input.context,
+        attempts: attempt,
+        source: input.source,
+        analysis_runtime: input.runtime,
+        ...(score ? { score_basis: score.worst.label, score_components: score.components.map((c) => `${c.label} ${c.grade}`).join(", ") } : {}),
+      },
       review_status: "pending",
       reviewer: null,
       reviewed_at: null,
