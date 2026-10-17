@@ -147,9 +147,9 @@ def from_track(track: HandTrack) -> PreparedVideo:
     )
 
 
-def process_video(path: str, tracker_factory=HandTracker) -> PreparedVideo:
+def process_video(path: str, tracker_factory=HandTracker, start_s: float = 0.0) -> PreparedVideo:
     """A video (or an .npz landmark track) → per-frame thumb–index distance."""
-    return from_track(load_hand_media(path, tracker_factory))
+    return from_track(load_hand_media(path, tracker_factory, start_s))
 
 
 @register
@@ -172,8 +172,8 @@ class FingerTappingModule(CVModule):
     # (training/calibration/hand_video_sharpness.md). Exposure is judged on the hand region.
     default_criteria = {"blur": 20, "exposure_min": 60, "exposure_max": 220, "hand_visible": 0.8, "duration_s": 8, "fps": 20}
 
-    def prepare(self, path: str) -> PreparedVideo:
-        return process_video(path)
+    def prepare(self, path: str, start_s: float = 0.0) -> PreparedVideo:
+        return process_video(path, start_s=start_s)
 
     def quality_checks(self, p: PreparedVideo, c: dict[str, float]) -> list[QualityCheck]:
         checks = q.hand_video_checks(p.gray_samples, p.sample_landmarks, c)

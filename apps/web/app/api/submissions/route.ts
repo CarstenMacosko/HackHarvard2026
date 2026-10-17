@@ -41,12 +41,15 @@ export async function POST(req: Request) {
   const isPoster = form.get("media_kind") === "poster"; // video kept on-device; only a still frame uploaded
   // the browser's quality gate already said "unusable" and the participant was told why: record that verdict as-is
   const failedAttempt = form.get("intent") === "failed_attempt";
+  // live capture: seconds of framing kept before the task began (analysis and playback start there)
+  const trimRaw = Number(form.get("trim_start_s") ?? 0);
+  const trimStartS = Number.isFinite(trimRaw) && trimRaw > 0 ? Math.min(trimRaw, 30) : 0;
   let mediaUrl: string | null = null;
   let bytes: Uint8Array | null = null;
   let contentType = "";
   if (file instanceof File && file.size > 0) {
     if (file.size > MAX_INLINE_BYTES) return NextResponse.json({ error: "File too large." }, { status: 413 });
-    contentType = file.type || "application/octet-stream";
+    contentType = (file.type || "application/octet-stream").split(";")[0].trim(); // MediaRecorder adds ";codecs=…"
     if (!/^(image|video)\//.test(contentType)) return NextResponse.json({ error: "Please upload a photo or a video." }, { status: 415 });
     bytes = new Uint8Array(await file.arrayBuffer());
     mediaUrl = await saveMedia(bytes, contentType, EXT[contentType] ?? (contentType.split("/")[1] || "bin"));
@@ -63,7 +66,15 @@ export async function POST(req: Request) {
   if (cvServiceUrl() && !isPoster && !failedAttempt) {
     try {
       analysis = await analyzeOnServer(
-        { module: task.module, study_id: study.id, participant_id: participant.id, submission_id: "pending", task_label: task.label, quality_criteria: task.quality_criteria },
+        {
+          module: task.module,
+          study_id: study.id,
+          participant_id: participant.id,
+          submission_id: "pending",
+          task_label: task.label,
+          quality_criteria: task.quality_criteria,
+          ...(trimStartS ? { trim_start_s: trimStartS } : {}),
+        },
         bytes ? { bytes, filename: `upload.${EXT[contentType] ?? "bin"}`, contentType } : { url: await signedUrlForStoragePath(String(mediaPath)) },
       );
       runtime = "server";
@@ -98,7 +109,11 @@ export async function POST(req: Request) {
       source: "web",
       mediaUrl,
       patientReport: report,
-      context: { media_kind: isPoster ? "poster" : "original", device: String(form.get("device") ?? "").slice(0, 80) || "web" },
+      context: {
+        media_kind: isPoster ? "poster" : "original",
+        device: String(form.get("device") ?? "").slice(0, 80) || "web",
+        ...(trimStartS ? { trim_start_s: Math.round(trimStartS * 100) / 100 } : {}),
+      },
     });
     return NextResponse.json({
       accepted: result.submission.accepted,

@@ -152,8 +152,8 @@ class HandTremorModule(CVModule):
     def __init__(self, tracker_factory=HandTracker) -> None:
         self._tracker_factory = tracker_factory
 
-    def prepare(self, path: str) -> PreparedTremor:
-        return PreparedTremor(track=load_hand_media(path, self._tracker_factory))
+    def prepare(self, path: str, start_s: float = 0.0) -> PreparedTremor:
+        return PreparedTremor(track=load_hand_media(path, self._tracker_factory, start_s))
 
     def quality_checks(self, p: PreparedTremor, c: dict[str, float]) -> list[QualityCheck]:
         t = p.track

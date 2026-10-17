@@ -29,7 +29,7 @@ export const TAPPING_MODULE = {
 
 const MAX_TAP_HZ = 8;
 /** smallest opening range (hand widths) that counts as tapping (finger_tapping.MIN_TAP_SPREAD) */
-const MIN_TAP_SPREAD = 0.08;
+export const MIN_TAP_SPREAD = 0.08;
 export const THUMB_TIP = 4, INDEX_TIP = 8, WRIST = 0, MIDDLE_MCP = 9;
 
 export interface TapMetrics {

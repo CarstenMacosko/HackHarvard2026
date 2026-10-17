@@ -43,6 +43,8 @@ class AnalyzeRequest(BaseModel):
     task_label: str = ""
     captured_at: Optional[str] = None
     quality_criteria: dict[str, float] = Field(default_factory=dict)
+    # video modules: seconds to skip at the start (live capture keeps a short framing segment)
+    trim_start_s: Optional[float] = Field(default=None, ge=0, le=60)
     patient_report: dict[str, ReportValue] = Field(default_factory=dict)
     context: dict[str, ReportValue] = Field(default_factory=dict)
 

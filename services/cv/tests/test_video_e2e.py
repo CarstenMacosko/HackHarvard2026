@@ -69,3 +69,13 @@ def test_defocused_phone_video_is_accepted_and_flagged(tmp_path):
     blur = next(c for c in obs.quality.checks if c.name == "blur")
     assert not blur.passed and blur.advisory  # flagged for the clinician, not rejected
     assert measurement(obs, "tap_rate_hz").value == pytest.approx(2.5, abs=0.15)
+
+
+def test_trim_start_skips_the_framing_segment(tmp_path):
+    """Live capture keeps a few seconds of framing before the first tap; trim_start_s skips it."""
+    path = write_tapping_video(tmp_path / "live.mp4", seconds=14.4, hand_visible_from=4.0)
+    untrimmed = run(path)
+    assert "hand_visible" in {c.name for c in untrimmed.quality.checks if not c.passed}
+    obs = analyze(AnalyzeRequest(module="finger_tapping", trim_start_s=4.0), str(path))
+    assert obs.quality.accepted, [c for c in obs.quality.checks if not c.passed]
+    assert measurement(obs, "tap_rate_hz").value == pytest.approx(2.5, abs=0.15)

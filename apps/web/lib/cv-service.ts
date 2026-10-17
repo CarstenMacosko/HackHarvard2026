@@ -23,6 +23,8 @@ interface AnalyzeRequest {
   submission_id: string;
   task_label: string;
   quality_criteria: Record<string, number>;
+  /** video modules: skip this many seconds (live-capture framing before the task began) */
+  trim_start_s?: number;
 }
 
 /** Run the reference Python module on uploaded bytes or on a fetchable URL. */
