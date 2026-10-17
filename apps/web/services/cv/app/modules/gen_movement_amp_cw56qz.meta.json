@@ -1,0 +1,12 @@
+{
+  "module_id": "gen_movement_amp_cw56qz",
+  "params": {
+    "band_lo_hz": 3.5,
+    "band_hi_hz": 12,
+    "blur_min": 30,
+    "duration_s": 10,
+    "hand_visible": 0.85
+  },
+  "written_at": "2026-10-17T21:11:17.596Z",
+  "sandboxed": true
+}
