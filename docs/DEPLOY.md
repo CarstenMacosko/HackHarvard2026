@@ -6,6 +6,8 @@ This takes about 5 minutes and gives the team a shareable URL for both the resea
 
 1. Go to [vercel.com](https://vercel.com), sign in with GitHub and click **Add New → Project**.
 2. Import **`carstenmacosko/hackharvard2026`**. If it isn't listed, click "Adjust GitHub App Permissions" and grant access to the repo.
+   - Importing the **whole repo** is expected: the web app uses shared code from `packages/shared`. The only required setting is the Root Directory in step 3. Leaving it at the repo root makes the build fail.
+   - Connecting your whole GitHub account works, but Vercel can then read every repo. To limit it, go to GitHub → **Settings → Applications → Vercel → Configure** and choose **Only select repositories** → `hackharvard2026`. You can change this any time without affecting deployments.
 3. On the configure screen:
    - **Root Directory:** click *Edit* and choose **`apps/web`**.
    - **Framework Preset:** Next.js (detected automatically).
@@ -22,6 +24,12 @@ Vercel builds the repo's default branch as "production". Pushes to every other b
 The app currently lives on `claude/hopeful-ritchie-f0dust`. Either:
 - merge it into `main`, which makes the production URL show it; or
 - in Vercel, go to **Settings → Git → Production Branch** and set it to `claude/hopeful-ritchie-f0dust`, then redeploy.
+
+### Making the links public
+
+The **production** URL is public. **Preview** URLs (every other branch) are behind a Vercel login by default (Deployment Protection), so teammates or judges without access to your Vercel team would hit a login wall. Either:
+- make the app's branch the production branch (above), or merge it to `main`; or
+- turn off **Settings → Deployment Protection → Vercel Authentication** so preview links are public too.
 
 ## Links to share
 
