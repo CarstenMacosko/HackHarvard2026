@@ -53,7 +53,8 @@ def test_pipeline_accepts_good_capture():
     assert obs.quality.accepted
     names = [m.name for m in obs.measurements]
     assert names == ["tap_rate_hz", "amplitude_norm", "amplitude_decrement", "rhythm_cv"]
-    assert obs.model_version == "finger_tapping@0.1.0"
+    assert obs.model_version == f"finger_tapping@{FingerTappingModule.version}"
+    assert obs.features["n_taps"] >= 4
 
 
 def test_pipeline_rejects_blurry_dark_capture_with_instructions():

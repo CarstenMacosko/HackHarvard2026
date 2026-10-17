@@ -7,6 +7,7 @@
   "workspaces": [
     "apps/web",
     "packages/shared",
+    "packages/cv",
     "services/agent"
   ],
   "scripts": {
