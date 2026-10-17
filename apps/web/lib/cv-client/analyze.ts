@@ -171,7 +171,8 @@ export async function analyzeVideoFile(
     const tsBase = nextTimestampMs;
     nextTimestampMs = tsBase + Math.ceil((n * 1000) / VIDEO_SAMPLE_FPS) + 1000;
     for (let i = 0; i < n; i++) {
-      await seek(video, i / VIDEO_SAMPLE_FPS);
+      // the middle of each frame interval: seeking to a frame boundary can decode the previous frame
+      await seek(video, (i + 0.5) / VIDEO_SAMPLE_FPS);
       const res = landmarker.detectForVideo(video, tsBase + Math.round((i * 1000) / VIDEO_SAMPLE_FPS));
       landmarks.push(res.landmarks.length ? landmarksToPixels(res.landmarks[0], W, H) : missing);
       tiny.ctx.drawImage(video, 0, 0, 24, 24);

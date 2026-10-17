@@ -1,7 +1,7 @@
 # How much a skin photo looks like psoriasis, learned from dermatologists' differential diagnoses.
 id: psoriasis_likelihood_scin
 name: Psoriasis likelihood (SCIN)
-description: Dermatologist-weighted probability that a skin photo shows psoriasis, from the skin module's colour and texture features.
+description: Dermatologist-weighted probability that a skin photo shows psoriasis, from a MobileNet image embedding plus the skin module's colour and texture features.
 condition: psoriasis
 module: eczema_photo
 dataset: scin
