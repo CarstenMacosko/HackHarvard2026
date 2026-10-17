@@ -1,56 +1,91 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, Card, PageHeader, STATUS_TONE, Stat } from "@/components/ui";
 import { Timeline } from "@/components/timeline";
-import { pct, relTime, shortDate } from "@/lib/format";
+import { Badge, Card, CardBody, CardHeader, PageHeader, STATUS_TONE, Stat, Table, Td, Th, THead, Tr } from "@/components/ui";
+import { CHECK_LABEL, dateTime, pct, relTime, shortDate } from "@/lib/format";
 import { getParticipantDetail } from "@/lib/queries";
-
-export const dynamic = "force-dynamic";
 
 export default async function ParticipantPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const detail = await getParticipantDetail(id);
-  if (!detail) notFound();
-  const { participant: p, study, observations, tasks } = detail;
+  const d = await getParticipantDetail(id);
+  if (!d) notFound();
+  const { participant: p, study, observations, tasks, submissions } = d;
   const past = tasks.filter((t) => t.status !== "pending").sort((a, b) => a.due_at.localeCompare(b.due_at));
+  const TASK_COLOR = { completed: "bg-emerald-500", missed: "bg-rose-300", escalated: "bg-rose-600", pending: "bg-slate-200" } as const;
 
   return (
     <>
-      <div className="mb-2 text-sm">
-        <Link href={`/researcher/studies/${p.study_id}`} className="text-brand-600 hover:underline">← {study?.name}</Link>
-      </div>
       <PageHeader
-        title={p.display_name}
-        subtitle={<>Enrolled {p.enrolled_at ? shortDate(p.enrolled_at) : "—"} · check-ins at {p.preferred_time ?? "—"} · {p.phone ?? "no phone linked"}</>}
-        action={<Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>}
+        breadcrumbs={[
+          { label: "Participants", href: "/researcher/participants" },
+          { label: study?.name.split(":")[0] ?? p.study_id, href: `/researcher/studies/${p.study_id}` },
+          { label: p.display_name },
+        ]}
+        title={
+          <span className="flex items-center gap-3">
+            {p.display_name} <Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>
+          </span>
+        }
+        description={`Enrolled ${p.enrolled_at ? shortDate(p.enrolled_at) : "—"} · reminders at ${p.preferred_time ?? "—"} · ${p.phone ?? "no phone linked"}`}
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
-        <Card><Stat label="Completion" value={pct(p.completion_rate)} /></Card>
-        <Card><Stat label="Streak" value={p.streak} /></Card>
-        <Card><Stat label="Observations" value={observations.length} /></Card>
-        <Card><Stat label="To review" value={p.pending_reviews} /></Card>
-        <Card><Stat label="Last check-in" value={relTime(p.last_submission_at)} /></Card>
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <Stat label="Completion" value={pct(p.completion_rate)} tone={p.completion_rate < 0.75 && p.status === "active" ? "warn" : "default"} />
+        <Stat label="Current streak" value={p.streak} />
+        <Stat label="Observations" value={observations.length} />
+        <Stat label="Awaiting review" value={p.pending_reviews} />
+        <Stat label="Escalations (14 d)" value={p.escalations} tone={p.escalations ? "bad" : "default"} />
+        <Stat label="Last check-in" value={relTime(p.last_submission_at)} />
       </div>
 
       <Card className="mb-6">
-        <h2 className="mb-4 font-semibold">Longitudinal timeline</h2>
-        <Timeline observations={observations} />
+        <CardHeader title="Longitudinal timeline" description="Every point links to its source submission, quality checks, patient report and model version" />
+        <CardBody>
+          <Timeline observations={observations} />
+        </CardBody>
       </Card>
 
-      <Card>
-        <h2 className="mb-3 font-semibold">Adherence</h2>
-        <div className="flex flex-wrap gap-1.5">
-          {past.map((t) => (
-            <div
-              key={t.id}
-              title={`${shortDate(t.due_at)}: ${t.status}`}
-              className={`h-6 w-6 rounded ${t.status === "completed" ? "bg-emerald-500" : "bg-rose-300"}`}
-            />
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-slate-500">Each square is a scheduled check-in: green completed, red missed.</p>
-      </Card>
+      <div className="grid gap-6 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <CardHeader title="Capture attempts" description="Including unusable attempts and the instructions the participant received" />
+          <Table>
+            <THead>
+              <Th>When</Th>
+              <Th>Attempt</Th>
+              <Th>Result</Th>
+              <Th>Failed checks</Th>
+              <Th>Channel</Th>
+              <Th>Analysed</Th>
+            </THead>
+            <tbody>
+              {[...submissions].reverse().map((s) => (
+                <Tr key={s.id}>
+                  <Td className="whitespace-nowrap text-slate-600">{dateTime(s.created_at)}</Td>
+                  <Td className="tabular">{s.attempt}</Td>
+                  <Td>{s.accepted ? <Badge tone="green">usable</Badge> : s.escalated ? <Badge tone="red">escalated</Badge> : <Badge tone="amber">retry</Badge>}</Td>
+                  <Td className="text-slate-600">{s.quality.checks.filter((c) => !c.passed).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ") || "—"}</Td>
+                  <Td className="text-slate-600">{s.source === "web" ? "Web upload" : "Messaging"}</Td>
+                  <Td className="text-slate-600">{s.analysis_runtime === "on-device" ? "On-device" : "CV service"}</Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+        <Card>
+          <CardHeader title="Adherence" description="Each square is a scheduled check-in" />
+          <CardBody>
+            <div className="flex flex-wrap gap-1.5">
+              {past.map((t) => (
+                <div key={t.id} title={`${shortDate(t.due_at)}: ${t.status}`} className={`h-6 w-6 rounded ${TASK_COLOR[t.status]}`} />
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-emerald-500" />completed</span>
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-rose-300" />missed</span>
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded bg-rose-600" />escalated after 3 unusable attempts</span>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
     </>
   );
 }

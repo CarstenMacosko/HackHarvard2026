@@ -1,4 +1,4 @@
-import type { Observation, Protocol, RewardEvent } from "@vf/shared";
+import type { CvModel, Observation, Protocol, RewardEvent, Submission } from "@vf/shared";
 
 export type Condition = "parkinsons" | "eczema";
 export type ParticipantStatus = "invited" | "active" | "paused" | "withdrawn" | "completed";
@@ -28,7 +28,9 @@ export interface ScheduledTask {
   participant_id: string;
   task_id: string;
   due_at: string;
-  status: "pending" | "completed" | "missed";
+  window_hours: number;
+  status: "pending" | "completed" | "missed" | "escalated";
+  completed_at: string | null;
 }
 
 export interface ParticipantSummary extends Participant {
@@ -37,6 +39,7 @@ export interface ParticipantSummary extends Participant {
   last_submission_at: string | null;
   pending_reviews: number;
   points: number;
+  escalations: number;
 }
 
 export interface StudySummary extends Study {
@@ -57,4 +60,14 @@ export interface Redemption {
   created_at: string;
 }
 
-export type { Observation, RewardEvent };
+export interface AuditEntry {
+  id: string;
+  actor: string;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  detail: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export type { CvModel, Observation, RewardEvent, Submission };

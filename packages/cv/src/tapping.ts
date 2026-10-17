@@ -201,7 +201,10 @@ export function tapMetrics(distance: ArrayLike<number>, fps: number, detectionRa
 
 /** What the browser extracts from a video before analysis (mirrors finger_tapping.PreparedVideo). */
 export interface PreparedVideo {
+  /** native frame rate of the recording (quality check) */
   fps: number;
+  /** rate at which `distance` was sampled, if different from fps (browsers sample by seeking) */
+  sample_fps?: number;
   duration_s: number;
   gray_samples: GrayImage[];
   distance: number[]; // NaN where no hand was detected
@@ -245,7 +248,7 @@ export function analyzeTapping(p: PreparedVideo, criteria: Record<string, number
   return runPipeline(
     checks,
     () => {
-      const m = tapMetrics(p.distance, p.fps, p.detection_rate);
+      const m = tapMetrics(p.distance, p.sample_fps ?? p.fps, p.detection_rate);
       const [rate, amp, dec, rhythm] = TAPPING_MODULE.measurements;
       return {
         measurements: [

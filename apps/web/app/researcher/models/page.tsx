@@ -1,0 +1,150 @@
+import { CircleCheck, CircleDashed } from "lucide-react";
+import Link from "next/link";
+import { Badge, ButtonLink, Card, CardBody, CardHeader, EmptyState, PageHeader, SectionLabel, Table, Td, Th, THead, Tr, ValidationBadge } from "@/components/ui";
+import { cvHealth } from "@/lib/cv-service";
+import { CHECK_LABEL, shortDate } from "@/lib/format";
+import { BUILTIN_MODULES } from "@/lib/modules";
+import { modelRegistry } from "@/lib/queries";
+import { ModelActions } from "./model-actions";
+
+export const metadata = { title: "Model registry" };
+export const dynamic = "force-dynamic";
+
+export default async function ModelsPage() {
+  const [{ models }, cv] = await Promise.all([modelRegistry(), cvHealth()]);
+  return (
+    <>
+      <PageHeader
+        title="Model registry"
+        description="Every measurement traces to a versioned model. Built-in modules run on-device and in the CV service; researcher-trained models add study-specific measurements on top of their feature vectors."
+        actions={<ButtonLink href="/researcher/models/new">Train a model</ButtonLink>}
+      />
+
+      <h2 className="mb-3 text-sm font-semibold text-slate-900">Built-in CV modules</h2>
+      <div className="mb-8 grid items-start gap-6 xl:grid-cols-2">
+        {BUILTIN_MODULES.map((m) => {
+          const onServer = cv.modules.find((x) => x.id === m.id);
+          return (
+            <Card key={m.id}>
+              <CardHeader title={m.label} description={<span className="font-mono">{m.id}@{m.version}</span>} actions={<Badge>{m.media_type}</Badge>} />
+              <CardBody className="space-y-4">
+                <p className="text-sm text-slate-600">{m.summary}</p>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <SectionLabel>Measurements</SectionLabel>
+                    <ul className="space-y-1.5 text-sm">
+                      {m.measurements.map((x) => (
+                        <li key={x.name} className="flex items-center justify-between gap-2">
+                          <span>
+                            {x.label} <span className="text-slate-400">({x.unit})</span>
+                          </span>
+                          <ValidationBadge status="reusable_needs_validation" />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <SectionLabel>Quality gate defaults</SectionLabel>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(m.default_criteria).map(([k, v]) => (
+                        <Badge key={k}>
+                          {CHECK_LABEL[k.replace(/_(min|max)$/, "")] ?? k} {k.endsWith("_max") ? "≤" : "≥"} {v}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-slate-100 pt-3 text-xs text-slate-600">
+                  <span className="flex items-center gap-1.5">
+                    <CircleCheck className="h-3.5 w-3.5 text-emerald-600" /> On-device (browser)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {onServer ? <CircleCheck className="h-3.5 w-3.5 text-emerald-600" /> : <CircleDashed className="h-3.5 w-3.5 text-slate-400" />}
+                    CV service {onServer ? `@${onServer.version}` : cv.configured ? "(unreachable)" : "(not configured)"}
+                  </span>
+                  <span>{m.feature_names.length}-value feature vector for custom models</span>
+                </div>
+              </CardBody>
+            </Card>
+          );
+        })}
+      </div>
+
+      <h2 className="mb-3 text-sm font-semibold text-slate-900">Researcher-trained models</h2>
+      <Card className="mb-8">
+        {models.length === 0 ? (
+          <EmptyState title="No custom models yet" action={<ButtonLink href="/researcher/models/new" variant="secondary">Train your first model</ButtonLink>}>
+            Train a study-specific measurement (for example, your clinicians&apos; 0–4 erythema grade) from labelled photos or videos. It takes about a minute in the browser.
+          </EmptyState>
+        ) : (
+          <Table>
+            <THead>
+              <Th>Model</Th>
+              <Th>Base module</Th>
+              <Th>Study</Th>
+              <Th className="text-right">n</Th>
+              <Th className="text-right">CV error (MAE)</Th>
+              <Th className="text-right">r</Th>
+              <Th>Status</Th>
+              <Th className="text-right">Applied</Th>
+              <Th />
+            </THead>
+            <tbody>
+              {models.map((m) => (
+                <Tr key={m.id}>
+                  <Td>
+                    <div className="font-medium text-slate-900">
+                      {m.name} <span className="font-normal text-slate-400">v{m.version}</span>
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      → {m.target.label} ({m.target.unit}) · {shortDate(m.created_at)}
+                    </div>
+                  </Td>
+                  <Td className="font-mono text-xs text-slate-600">{m.module}</Td>
+                  <Td className="text-slate-600">{m.study_name.split(":")[0]}</Td>
+                  <Td className="tabular text-right">{m.metrics.n}</Td>
+                  <Td className="tabular text-right">
+                    {m.metrics.mae.toFixed(2)} <span className="text-xs text-slate-400">vs {m.metrics.baseline_mae.toFixed(2)} baseline</span>
+                  </Td>
+                  <Td className="tabular text-right">{m.metrics.r.toFixed(2)}</Td>
+                  <Td>{m.active ? <ValidationBadge status={m.status} /> : <Badge>inactive</Badge>}</Td>
+                  <Td className="tabular text-right">{m.applied}</Td>
+                  <Td className="text-right">
+                    <ModelActions id={m.id} active={m.active} status={m.status} n={m.metrics.n} />
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
+
+      <h2 className="mb-3 text-sm font-semibold text-slate-900">Bring your own CV</h2>
+      <div className="grid items-start gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader title="1 · Train a head in the browser" />
+          <CardBody className="text-sm text-slate-600">
+            Fastest path. Pick a built-in module, drop labelled media, and fit a cross-validated ridge model on its feature vector. Nothing leaves the browser until you register the model.{" "}
+            <Link href="/researcher/models/new" className="font-medium text-brand-700 hover:underline">
+              Open the wizard →
+            </Link>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="2 · Fine-tune a full model" />
+          <CardBody className="text-sm text-slate-600">
+            When a linear head isn&apos;t enough (new visual sign, new body region): export features or media, fine-tune on a GPU (the repo ships a Princeton Adroit Slurm job in{" "}
+            <code className="font-mono text-xs">adroit/</code>), then serve it from the CV service. See <code className="font-mono text-xs">docs/GENERALIZED_CV.md</code>.
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="3 · Add a module" />
+          <CardBody className="text-sm text-slate-600">
+            Implement a <code className="font-mono text-xs">CVModule</code> in <code className="font-mono text-xs">services/cv/app/modules/</code> (prepare → quality checks → measure + features),
+            decorate it with <code className="font-mono text-xs">@register</code>, and port it to <code className="font-mono text-xs">packages/cv</code> if it should run on-device. Parity fixtures keep both in sync.
+          </CardBody>
+        </Card>
+      </div>
+    </>
+  );
+}

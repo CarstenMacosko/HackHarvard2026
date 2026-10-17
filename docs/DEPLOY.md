@@ -41,7 +41,13 @@ Replace `<app>` with your deployment URL (e.g. `visual-followup.vercel.app`).
 | Researcher portal | `https://<app>/researcher` (studies → participant timeline, **Review queue**, **Workflow builder**) |
 | Participant portal | `https://<app>/participant` (best on a phone) |
 | Participant sign-up | `https://<app>/participant/join`, with demo invite codes `PD-006J` (Parkinson's) and `AD-106J` (eczema) |
-| View as a demo patient | `https://<app>/participant/join?as=p_001` (Parkinson's) or `?as=p_101` (eczema) |
+| View as a demo patient | `https://<app>/participant/view-as?id=p_001` (Parkinson's, video) or `?id=p_101` (eczema, photo) |
+
+## What works with no services configured
+
+The whole app runs on Vercel alone. Participant uploads are analysed **on-device** in the browser (MediaPipe hand tracking for videos, the eczema module for photos), and trained models run on every new capture. The MediaPipe runtime and model are copied into `public/mediapipe` at build time.
+
+Large videos (>4 MB) can't pass through a Vercel function. Without Supabase Storage, only a still frame is kept for the researcher, and the measurements still come from the full video, analysed on the phone.
 
 ## Known demo-mode limitation
 

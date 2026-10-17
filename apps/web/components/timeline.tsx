@@ -5,8 +5,10 @@ import { useMemo, useState } from "react";
 import { CartesianGrid, ErrorBar, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ObservationDetail } from "./observation-detail";
 import { ReviewActions } from "./review-actions";
+import { cn } from "./ui";
 
-const STATUS_COLOR: Record<string, string> = { accepted: "#059669", corrected: "#2f6fde", pending: "#d97706", rejected: "#94a3b8" };
+/** Review state colours (status palette; also named in the legend, never colour alone). */
+const STATUS_COLOR: Record<string, string> = { accepted: "#0f8a5f", corrected: "#2a78d6", pending: "#c98500", rejected: "#94a3b8" };
 
 interface Point {
   t: number;
@@ -17,29 +19,39 @@ interface Point {
 
 /** Longitudinal chart per measurement. Each point opens its source observation. Rejected points are excluded from the line. */
 export function Timeline({ observations }: { observations: Observation[] }) {
-  const names = useMemo(() => observations[0]?.measurements.map((m) => ({ name: m.name, label: m.label, unit: m.unit })) ?? [], [observations]);
+  const names = useMemo(() => {
+    const seen = new Map<string, { name: string; label: string; unit: string }>();
+    for (const o of observations) for (const m of o.measurements) if (!seen.has(m.name)) seen.set(m.name, { name: m.name, label: m.label, unit: m.unit });
+    return [...seen.values()];
+  }, [observations]);
   const [metric, setMetric] = useState(names[0]?.name);
   const [selectedId, setSelectedId] = useState<string | null>(observations.at(-1)?.id ?? null);
   const selected = observations.find((o) => o.id === selectedId) ?? null;
 
-  const data: Point[] = observations.map((o) => {
-    const m = o.measurements.find((x) => x.name === metric);
-    return { t: new Date(o.captured_at).getTime(), value: o.review_status === "rejected" ? null : (m?.value ?? null), err: m?.uncertainty ?? 0, obs: o };
-  });
+  if (!observations.length) return <p className="py-8 text-center text-sm text-slate-500">No observations yet.</p>;
+
+  const data: Point[] = observations
+    .filter((o) => o.measurements.some((m) => m.name === metric))
+    .map((o) => {
+      const m = o.measurements.find((x) => x.name === metric)!;
+      return { t: new Date(o.captured_at).getTime(), value: o.review_status === "rejected" ? null : m.value, err: m.uncertainty ?? 0, obs: o };
+    });
   const unit = names.find((n) => n.name === metric)?.unit ?? "";
   const reportKey = observations[0] ? Object.keys(observations[0].patient_report)[0] : undefined;
-
-  if (!observations.length) return <p className="text-sm text-slate-500">No observations yet.</p>;
+  const hasMedState = observations.some((o) => o.patient_report.medication_state);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      <div className="lg:col-span-3">
+    <div className="grid gap-6 xl:grid-cols-5">
+      <div className="xl:col-span-3">
         <div className="mb-3 flex flex-wrap gap-1.5">
           {names.map((n) => (
             <button
               key={n.name}
               onClick={() => setMetric(n.name)}
-              className={`rounded-full px-3 py-1 text-xs font-medium ${metric === n.name ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset",
+                metric === n.name ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
+              )}
             >
               {n.label}
             </button>
@@ -48,16 +60,18 @@ export function Timeline({ observations }: { observations: Observation[] }) {
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
-              <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+              <CartesianGrid stroke="#e2e8f0" vertical={false} />
               <XAxis
                 dataKey="t"
                 type="number"
                 scale="time"
                 domain={["dataMin", "dataMax"]}
                 tickFormatter={(t) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                tick={{ fontSize: 12, fill: "#64748b" }}
+                tick={{ fontSize: 11, fill: "#64748b" }}
+                axisLine={false}
+                tickLine={false}
               />
-              <YAxis tick={{ fontSize: 12, fill: "#64748b" }} domain={["auto", "auto"]} unit={unit.length < 4 ? ` ${unit}` : ""} />
+              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} domain={["auto", "auto"]} axisLine={false} tickLine={false} />
               <Tooltip
                 labelFormatter={(t) => new Date(Number(t)).toLocaleDateString()}
                 formatter={(v: number, _n, item) => {
@@ -65,11 +79,12 @@ export function Timeline({ observations }: { observations: Observation[] }) {
                   const extra = reportKey ? ` · ${reportKey.replace(/_/g, " ")}: ${p.obs.patient_report[reportKey]}` : "";
                   return [`${v?.toFixed(2)} ${unit}${extra}`, p.obs.review_status];
                 }}
+                contentStyle={{ fontSize: 12, borderRadius: 6, borderColor: "#e2e8f0" }}
               />
               <Line
                 type="linear"
                 dataKey="value"
-                stroke="#2f6fde"
+                stroke="#64748b"
                 strokeWidth={2}
                 connectNulls
                 isAnimationActive={false}
@@ -78,41 +93,45 @@ export function Timeline({ observations }: { observations: Observation[] }) {
                   if (cx === undefined || cy === undefined || !payload || payload.value === null) return <g key={index} />;
                   const off = payload.obs.patient_report.medication_state === "OFF";
                   const isSel = payload.obs.id === selectedId;
+                  const color = STATUS_COLOR[payload.obs.review_status];
                   return (
-                    <circle
-                      key={index}
-                      cx={cx}
-                      cy={cy}
-                      r={isSel ? 7 : 5}
-                      fill={off ? "#fff" : STATUS_COLOR[payload.obs.review_status]}
-                      stroke={STATUS_COLOR[payload.obs.review_status]}
-                      strokeWidth={isSel ? 3 : 2}
-                      style={{ cursor: "pointer" }}
-                      onClick={() => setSelectedId(payload.obs.id)}
-                    />
+                    <g key={index} style={{ cursor: "pointer" }} onClick={() => setSelectedId(payload.obs.id)}>
+                      <circle cx={cx} cy={cy} r={12} fill="transparent" />
+                      <circle cx={cx} cy={cy} r={isSel ? 6.5 : 5} fill={off ? "#fff" : color} stroke={isSel ? "#0f172a" : off ? color : "#fff"} strokeWidth={2} />
+                    </g>
                   );
                 }}
               >
-                <ErrorBar dataKey="err" width={4} stroke="#94a3b8" />
+                <ErrorBar dataKey="err" width={4} stroke="#cbd5e1" />
               </Line>
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
           {Object.entries(STATUS_COLOR).map(([k, c]) => (
-            <span key={k} className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: c }} />{k}</span>
+            <span key={k} className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: c }} />
+              {k}
+            </span>
           ))}
-          {observations.some((o) => o.patient_report.medication_state) && (
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-500 bg-white" />medication OFF</span>
+          {hasMedState && (
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-500 bg-white" />
+              medication OFF
+            </span>
           )}
-          <span>Error bars = CV uncertainty · rejected results excluded</span>
+          <span>Bars: ±CV uncertainty · rejected results are excluded · click a point to open it</span>
         </div>
       </div>
-      <div className="lg:col-span-2">
+      <div className="xl:col-span-2">
         {selected ? (
           <>
-            <ObservationDetail o={selected} />
-            {selected.review_status === "pending" && <div className="mt-4"><ReviewActions observation={selected} /></div>}
+            <ObservationDetail o={selected} compact />
+            {selected.review_status === "pending" && (
+              <div className="mt-4">
+                <ReviewActions observation={selected} />
+              </div>
+            )}
           </>
         ) : (
           <p className="text-sm text-slate-500">Click a point to see its source submission.</p>

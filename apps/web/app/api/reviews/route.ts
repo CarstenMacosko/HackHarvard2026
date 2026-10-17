@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { backend } from "@/lib/backend";
+import { RESEARCHER_NAME } from "@/lib/session";
 
 const Body = z.object({
   id: z.string(),
@@ -9,8 +10,7 @@ const Body = z.object({
   corrected: z.array(z.object({ name: z.string(), value: z.number() })).default([]),
 });
 
-// TODO(A): take the reviewer from the Supabase session and also insert into `reviews` + `audit_log`.
-const DEMO_REVIEWER = "Demo clinician";
+// TODO(A): take the reviewer from the Supabase session and also insert into `reviews`.
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json());
@@ -33,9 +33,16 @@ export async function POST(req: Request) {
   await db.updateObservation(id, {
     review_status: decision,
     measurements,
-    reviewer: DEMO_REVIEWER,
+    reviewer: RESEARCHER_NAME,
     reviewed_at: new Date().toISOString(),
     review_note: note,
+  });
+  await db.insertAudit({
+    actor: RESEARCHER_NAME,
+    action: `review.${decision}`,
+    entity: "observation",
+    entity_id: id,
+    detail: { participant_id: obs.participant_id, note, corrected },
   });
   return NextResponse.json({ ok: true });
 }

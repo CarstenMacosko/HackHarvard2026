@@ -1,7 +1,7 @@
 -- Visual Follow-Up Platform: initial schema.
 -- Observation columns mirror packages/shared/src/schemas.ts (PRD §4 common format).
 
-create extension if not exists "pgcrypto";
+-- gen_random_uuid() is built into Postgres 13+ (Supabase runs 15), so no extension is needed.
 
 -- ---------- people ----------
 create table researchers (

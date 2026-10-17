@@ -1,32 +1,69 @@
 import Link from "next/link";
+import { AppShell, Brand, type NavSection } from "@/components/shell";
 import { backend } from "@/lib/backend";
+import { navCounts } from "@/lib/queries";
+import { RESEARCHER_NAME } from "@/lib/session";
 
-const NAV = [
-  { href: "/researcher", label: "Studies" },
-  { href: "/researcher/review", label: "Review queue" },
-  { href: "/researcher/builder", label: "Workflow builder" },
-];
+export const dynamic = "force-dynamic";
 
-export default function ResearcherLayout({ children }: { children: React.ReactNode }) {
+export default async function ResearcherLayout({ children }: { children: React.ReactNode }) {
+  const counts = await navCounts();
   const demo = backend().mode === "demo";
+  const sections: NavSection[] = [
+    {
+      items: [
+        { href: "/researcher", label: "Overview", icon: "overview", exact: true },
+        { href: "/researcher/studies", label: "Studies", icon: "studies" },
+        { href: "/researcher/participants", label: "Participants", icon: "participants" },
+      ],
+    },
+    {
+      title: "Data quality",
+      items: [
+        { href: "/researcher/review", label: "Review queue", icon: "review", badge: counts.pendingReviews },
+        { href: "/researcher/submissions", label: "Submissions", icon: "submissions", badge: counts.escalations },
+      ],
+    },
+    {
+      title: "CV toolkit",
+      items: [
+        { href: "/researcher/models", label: "Model registry", icon: "models", exact: true },
+        { href: "/researcher/models/new", label: "Train a model", icon: "train" },
+        { href: "/researcher/builder", label: "Workflow builder", icon: "builder" },
+      ],
+    },
+    {
+      title: "Governance",
+      items: [
+        { href: "/researcher/audit", label: "Audit log", icon: "audit" },
+        { href: "/researcher/settings", label: "System status", icon: "settings" },
+      ],
+    },
+  ];
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link href="/" className="font-semibold">
-            Visual Follow-Up <span className="font-normal text-slate-400">· Research</span>
-          </Link>
-          <nav className="flex gap-1 text-sm">
-            {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className="rounded-md px-3 py-1.5 text-slate-600 hover:bg-slate-100 hover:text-ink">
-                {n.label}
+    <AppShell
+      brand={<Brand suffix="Research workspace" />}
+      sections={sections}
+      footer={
+        <div className="space-y-2 px-1 text-xs">
+          {demo && (
+            <div className="rounded-md bg-amber-50 px-2 py-1.5 text-amber-800 ring-1 ring-inset ring-amber-600/20">
+              Demo data: Supabase is not configured.{" "}
+              <Link href="/researcher/settings" className="underline">
+                Details
               </Link>
-            ))}
-          </nav>
-          {demo && <span className="ml-auto text-xs text-amber-600">Demo data (Supabase not configured)</span>}
+            </div>
+          )}
+          <div className="flex items-center justify-between text-slate-500">
+            <span>{RESEARCHER_NAME}</span>
+            <Link href="/participant" className="hover:text-slate-900">
+              Participant view →
+            </Link>
+          </div>
         </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-    </div>
+      }
+    >
+      {children}
+    </AppShell>
   );
 }

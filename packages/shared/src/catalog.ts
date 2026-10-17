@@ -26,6 +26,8 @@ export const CV_COMPONENTS: CvComponent[] = [
   { id: "tap_kinematics", kind: "measurement", label: "Finger-tap kinematics", media: ["video"], description: "Tap rate, amplitude, decrement, rhythm variability.", validated_for: ["parkinsons"] },
   { id: "erythema_index", kind: "measurement", label: "Erythema index", media: ["photo"], description: "Redness within skin (CIELAB a*).", validated_for: ["eczema"] },
   { id: "lesion_area", kind: "measurement", label: "Affected area fraction", media: ["photo"], description: "Share of visible skin with elevated redness.", validated_for: ["eczema"] },
+  { id: "color_texture_features", kind: "extractor", label: "Skin colour & texture features", media: ["photo"], description: "16-value feature vector (CIELAB statistics, redness bands, texture) that researcher-trained models read.", validated_for: [] },
+  { id: "tap_features", kind: "extractor", label: "Tapping kinematics features", media: ["video"], description: "10-value feature vector (rate, amplitude, fatigue, rhythm) that researcher-trained models read.", validated_for: [] },
 ];
 
 export function validationStatusFor(componentId: string, condition: string): ValidationStatus {
