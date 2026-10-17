@@ -27,7 +27,7 @@ Without Supabase you can still run the full demo (studies, captures, module gene
 
 1. Create a project at [supabase.com](https://supabase.com) (free tier is fine).
 2. Open **SQL → New query**. Paste the entire contents of [`supabase/setup.sql`](../supabase/setup.sql) and **Run**. That applies every migration (through `0006_model_source.sql`) plus the core seed and creates the private `media` bucket.
-3. Optional: paste and run [`supabase/seed_demo.sql`](../supabase/seed_demo.sql) for six weeks of synthetic history (dashboards, charts, review queue). Safe to run twice.
+3. If this project was set up earlier with the synthetic demo history, paste and run [`supabase/cleanup_synthetic.sql`](../supabase/cleanup_synthetic.sql) once: it removes the generated participants, check-ins and observations and keeps every real upload. Safe to run twice.
 4. **Project Settings → API** — copy into the **repo-root** `.env.local` (same file as Factory/Daytona keys). Restart `npm run dev` after saving.
 
 ```bash
@@ -51,7 +51,7 @@ node supabase/smoke.mjs
 
 You should see `ok` for every table, `record_capture`, a private `media` bucket, and anon unable to read participants. In the app, **Researcher → Settings** (system status) shows the same table counts and bucket check; the researcher chrome stops showing “demo” once Supabase mode is active.
 
-With the Supabase CLI instead: `supabase link`, then `supabase db push` (migrations) and `psql "$DATABASE_URL" -f supabase/seed.sql -f supabase/seed_demo.sql`.
+With the Supabase CLI instead: `supabase link`, then `supabase db push` (migrations) and `psql "$DATABASE_URL" -f supabase/seed.sql`.
 
 ## Entity relationships
 
@@ -96,7 +96,7 @@ Ids are text so records keep readable, stable ids across the demo seed, the app 
 | `participants` | Enrolment, contact and reminder preferences. | unique `phone` (the agent's address), unique upper-case `invite_code`, `status`, `consented_at`, `preferred_time`, `timezone` | seed, web (invite, join) |
 | `scheduled_tasks` | Check-ins: one per protocol task per period. | unique (`participant_id`, `task_id`, `due_at`), `status` (pending → prompted → completed / missed / escalated), `window_hours` | web (enrolment, each capture), agent (scheduler) |
 | `submissions` | Every capture attempt, usable or not, from either channel. | `scheduled_task_id`, `attempt`, `source` (web/sms), `analysis_runtime` (on-device/server), `quality`, `accepted`, `escalated`, `observation_id`, `media_url` | `record_capture` |
-| `observations` | The common observation format: one per usable capture, waiting for clinician review. | `measurements`, `features`, `quality`, `patient_report`, `context` (e.g. `trim_start_s`), `model_version`, `review_status` | `record_capture`; review updates |
+| `observations` | The common observation format: one per usable capture, waiting for clinician review. The first measurement is the rule-based 0–4 `severity_score` (`packages/shared/src/scores.ts`; what drove it is in `context.score_basis`). | `measurements`, `features`, `quality`, `patient_report`, `context` (e.g. `trim_start_s`), `model_version`, `review_status` | `record_capture`; review updates |
 | `reviews` | Every clinician decision, including the values a correction replaced. The observation holds the latest decision. | `decision`, `corrected_measurements`, `before_measurements`, `reviewer`, `note` | web |
 | `reward_events` | Simulated points ledger; the balance is the sum. Redemptions are negative entries. | id `<submission>:<kind>:<n>` (so a retried capture can't award twice) | `record_capture`, web (redeem) |
 | `redemptions` | Simulated payouts with a mock code. No money moves. | `tier`, `points`, `mock_code` | web |
@@ -136,7 +136,7 @@ RLS is enabled on every table. The policies in `0001_init.sql` are for the plann
 
 ## Tests
 
-`supabase/test/run.sh` applies `setup.sql` and `seed_demo.sql` to a throwaway Postgres (or `DATABASE_URL`, an empty database) and runs `supabase/test/tests.sql`:
+`supabase/test/run.sh` applies `setup.sql` to a throwaway Postgres (or `DATABASE_URL`, an empty database) and runs `supabase/test/tests.sql`:
 - `record_capture` semantics and idempotency;
 - escalation;
 - constraints;

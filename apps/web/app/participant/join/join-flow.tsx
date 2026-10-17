@@ -128,14 +128,17 @@ export function JoinFlow({ initialCode, photonNumber }: { initialCode: string; p
       </Card>
       <Card className="h-fit">
         <CardBody className="space-y-2 text-sm text-slate-600">
-          <div className="font-medium text-slate-900">Trying the demo?</div>
-          <p>Use an invite code above, or view the portal as an existing synthetic participant:</p>
+          <div className="font-medium text-slate-900">Trying it out?</div>
+          <p>Use an invite code above, or use one of the open test accounts (no history, everything you send is real data):</p>
           <div className="flex flex-col gap-1">
             <a className="text-brand-700 hover:underline" href="/participant/view-as?id=p_001">
-              Participant 001 · Parkinson&apos;s (video check-ins)
+              Participant 001 · Parkinson&apos;s finger tapping (video)
+            </a>
+            <a className="text-brand-700 hover:underline" href="/participant/view-as?id=p_201">
+              Participant 201 · rest tremor (video)
             </a>
             <a className="text-brand-700 hover:underline" href="/participant/view-as?id=p_101">
-              Participant 101 · eczema (photo check-ins)
+              Participant 101 · eczema (photo)
             </a>
           </div>
         </CardBody>

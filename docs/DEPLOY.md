@@ -57,7 +57,7 @@ Without Supabase, the app keeps its data in server memory. On Vercel, each serve
 To make changes stick, and to share data between phones and the projector in a live demo, connect Supabase (about 5 minutes):
 
 1. [supabase.com](https://supabase.com) → **New project** (any region near you; save the database password).
-2. **SQL Editor → New query**: paste the whole of [`supabase/setup.sql`](../supabase/setup.sql) (every migration plus the core seed, including the private `media` storage bucket) and click **Run**. Do this once, on a fresh project. For a populated demo, run [`supabase/seed_demo.sql`](../supabase/seed_demo.sql) the same way: six weeks of synthetic check-ins, reviews and rewards, matching the built-in demo data. The table design is documented in [`docs/DATABASE.md`](DATABASE.md).
+2. **SQL Editor → New query**: paste the whole of [`supabase/setup.sql`](../supabase/setup.sql) (every migration plus the core seed, including the private `media` storage bucket) and click **Run**. Do this once, on a fresh project. If the project was set up earlier with the synthetic demo history, also run [`supabase/cleanup_synthetic.sql`](../supabase/cleanup_synthetic.sql) once; it keeps every real upload. The table design is documented in [`docs/DATABASE.md`](DATABASE.md).
 3. **Project Settings → API**: copy the Project URL, the `anon` public key and the `service_role` secret key into Vercel → Settings → Environment Variables:
 
 ```
