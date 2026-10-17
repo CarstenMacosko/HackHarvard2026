@@ -15,6 +15,11 @@ export interface ExperimentSpec {
   params: Record<string, number>;
 }
 
+export interface CandidateModule {
+  moduleId: string;
+  sourceCode: string;
+}
+
 function scoreParams(params: Record<string, number>, seed: number): {
   quality_pass_rate: number;
   feature_stability: number;
@@ -98,6 +103,7 @@ export async function runExperimentsLocal(
 export async function runExperimentsDaytona(
   specs: ExperimentSpec[],
   onUpdate: (exp: DaytonaExperiment) => Promise<void>,
+  candidate: CandidateModule,
   concurrency = 4,
 ): Promise<DaytonaExperiment[]> {
   const apiKey = daytonaApiKey();
@@ -124,7 +130,7 @@ export async function runExperimentsDaytona(
 
   try {
     // Create worker sandboxes up front (real Daytona VMs).
-    const created = await Promise.all(
+    const created = await Promise.allSettled(
       Array.from({ length: poolSize }, async (_, workerId) => {
         const sandbox = await daytona.create(
           {
@@ -138,7 +144,9 @@ export async function runExperimentsDaytona(
         return sandbox;
       }),
     );
-    pool.push(...created);
+    pool.push(...created.filter((r): r is PromiseFulfilledResult<Sandbox> => r.status === "fulfilled").map((r) => r.value));
+    const createFailure = created.find((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (createFailure) throw createFailure.reason;
 
     let next = 0;
     async function worker(sandbox: Sandbox) {
@@ -150,7 +158,7 @@ export async function runExperimentsDaytona(
         results[idx] = { ...results[idx], status: "running", sandbox_id: sandbox.id };
         await onUpdate(results[idx]);
         try {
-          const res = await sandbox.process.codeRun(experimentPython(spec.params, spec.id), undefined, 60);
+          const res = await sandbox.process.codeRun(experimentPython(spec.params, spec.id, candidate), undefined, 60);
           const exit = res.exitCode ?? 0;
           const out = (res.result ?? res.artifacts?.stdout ?? "").trim();
           if (exit !== 0) {
@@ -214,11 +222,40 @@ export async function runExperimentsDaytona(
 }
 
 /** Python that must execute inside a Daytona sandbox (prints one JSON line). */
-function experimentPython(params: Record<string, number>, seed: number): string {
+function experimentPython(params: Record<string, number>, seed: number, candidate: CandidateModule): string {
+  const sourceBase64 = Buffer.from(candidate.sourceCode, "utf8").toString("base64");
   return `
-import json, os, platform, socket
+import ast, base64, json, os, platform, socket
 params = ${JSON.stringify(params)}
 seed = ${seed}
+source = base64.b64decode(${JSON.stringify(sourceBase64)}).decode("utf-8")
+module_id = ${JSON.stringify(candidate.moduleId)}
+if not source:
+    print(json.dumps({"quality_pass_rate": 0, "feature_stability": 0, "score": 0,
+                      "ok": False, "error": "candidate source is empty"}))
+    raise SystemExit(0)
+if source:
+    try:
+        tree = ast.parse(source, filename="generated_module.py")
+        compile(tree, "generated_module.py", "exec")
+        classes = [node for node in tree.body if isinstance(node, ast.ClassDef)
+                   and any(isinstance(base, ast.Name) and base.id == "CVModule" for base in node.bases)]
+        valid = False
+        for cls in classes:
+            ids = [stmt.value.value for stmt in cls.body if isinstance(stmt, ast.Assign)
+                   and any(isinstance(t, ast.Name) and t.id == "id" for t in stmt.targets)
+                   and isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str)]
+            methods = {stmt.name for stmt in cls.body if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))}
+            registered = any(isinstance(dec, ast.Name) and dec.id == "register" for dec in cls.decorator_list)
+            if module_id in ids and registered and {"prepare", "quality_checks", "measure"} <= methods:
+                valid = True
+                break
+        if not valid:
+            raise ValueError("expected @register CVModule with matching id and prepare/quality_checks/measure methods")
+    except (SyntaxError, ValueError) as exc:
+        print(json.dumps({"quality_pass_rate": 0, "feature_stability": 0, "score": 0,
+                          "ok": False, "error": "candidate source invalid: " + str(exc)}))
+        raise SystemExit(0)
 band_lo = float(params.get("band_lo_hz", 3))
 band_hi = float(params.get("band_hi_hz", 12))
 blur = float(params.get("blur_min", 20))
