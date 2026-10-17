@@ -1,0 +1,2 @@
+# Minimal config for `supabase start` / `supabase db push`. Run `supabase init` to regenerate the full file if needed.
+project_id = "visual-followup"
