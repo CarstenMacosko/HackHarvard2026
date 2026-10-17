@@ -26,5 +26,6 @@ export async function POST() {
   const redemption = { id, participant_id: pid, tier: tier.name, points: tier.points, payout_label: tier.payout_label, mock_code: mockRedemptionCode(id), created_at: now };
   await db.insertRewardEvents([{ id: `${id}:redemption`, participant_id: pid, kind: "redemption", points: -tier.points, reason: `Redeemed ${tier.payout_label}`, created_at: now }]);
   await db.insertRedemption(redemption);
+  await db.insertAudit({ actor: pid, action: "reward.redeemed", entity: "redemption", entity_id: id, detail: { tier: tier.name, points: tier.points } });
   return NextResponse.json(redemption);
 }

@@ -7,6 +7,7 @@ import {
   rewardsForAcceptedSubmission,
   tierFor,
   type Observation,
+  type RewardEvent,
 } from "@vf/shared";
 import { DevAdapter } from "./adapters/dev";
 import { PhotonAdapter } from "./adapters/photon";
@@ -37,6 +38,8 @@ async function runEffect(p: ParticipantRecord, e: Effect): Promise<void> {
     case "analyze":
       try {
         const observation = await analyze({ participant: p, task: e.task, submissionId: e.submissionId, mediaUrl: e.mediaUrl, attempt: e.attempt });
+        // unusable attempts are recorded too, so researchers see the retry funnel
+        if (!observation.quality.accepted) void postObservation(observation, e.attempt, e.task.id);
         await dispatch(p, { type: "analysis_result", observation });
       } catch (err) {
         console.error(err);
@@ -46,18 +49,26 @@ async function runEffect(p: ParticipantRecord, e: Effect): Promise<void> {
     case "complete": {
       const now = new Date();
       p.acceptedAt.push(now.toISOString());
+      // the web app owns the reward ledger; fall back to a local estimate if it is unreachable
+      const ingested = await postObservation(e.observation, e.attempts, e.task.id);
+      if (ingested) {
+        p.rewardEvents.push(...ingested.reward_events);
+        p.ledger = { balance: ingested.points_balance, tier: ingested.tier, lifetime: ingested.lifetime_points, nextTier: ingested.next_tier };
+        save(p);
+        await channel.send(p.address, ingested.message ?? rewardMessage(ingested.reward_events, ingested.streak));
+        return;
+      }
       const streak = computeStreak(p.acceptedAt, e.task.cadence, now);
       const events = rewardsForAcceptedSubmission(p.rewards, {
         participantId: p.id,
         submissionId: e.observation.submission_id,
-        onTime: true, // TODO: compare against scheduled_tasks.due_at window
+        onTime: true,
         streak,
         totalAccepted: p.acceptedAt.length,
         at: now,
       });
       p.rewardEvents.push(...events);
       save(p);
-      await postObservation(e.observation);
       await channel.send(p.address, rewardMessage(events, streak));
       return;
     }
@@ -65,6 +76,12 @@ async function runEffect(p: ParticipantRecord, e: Effect): Promise<void> {
       console.warn(`[escalate] ${p.id} ${e.task.id}: ${e.reason}`); // TODO: flag in researcher dashboard
       return;
     case "show_points": {
+      if (p.ledger) {
+        const { balance: bal, tier, lifetime, nextTier } = p.ledger;
+        const toNext = nextTier ? ` · ${nextTier.points - lifetime} pts to ${nextTier.name}` : "";
+        await channel.send(p.address, `You have ${bal} pts (${tier} tier${toNext}).`);
+        return;
+      }
       const { current, next } = tierFor(p.rewards, lifetimePoints(p.rewardEvents));
       const toNext = next ? ` · ${next.points - lifetimePoints(p.rewardEvents)} pts to ${next.name}` : "";
       await channel.send(p.address, `You have ${balance(p.rewardEvents)} pts (${current.name} tier${toNext}).`);
@@ -73,17 +90,33 @@ async function runEffect(p: ParticipantRecord, e: Effect): Promise<void> {
   }
 }
 
-/** Hand accepted observations to the web app, which owns database writes. */
-async function postObservation(observation: Observation): Promise<void> {
+interface IngestResponse {
+  accepted: boolean;
+  reward_events: RewardEvent[];
+  streak: number;
+  message: string | null;
+  points_balance: number;
+  tier: string;
+  lifetime_points: number;
+  next_tier: { name: string; points: number } | null;
+}
+
+/** Hand every analysed attempt to the web app, which owns database writes and the reward ledger. */
+async function postObservation(observation: Observation, attempt: number, taskId: string): Promise<IngestResponse | null> {
   try {
     const res = await fetch(`${WEB_URL}/api/cv-callback`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-callback-secret": process.env.CV_CALLBACK_SECRET ?? "" },
-      body: JSON.stringify(observation),
+      body: JSON.stringify({ observation, attempt, task_id: taskId }),
     });
-    if (!res.ok) console.warn(`cv-callback ${res.status}`);
+    if (!res.ok) {
+      console.warn(`cv-callback ${res.status}: ${await res.text()}`);
+      return null;
+    }
+    return (await res.json()) as IngestResponse;
   } catch {
     console.warn(`web app not reachable at ${WEB_URL}; observation kept locally`);
+    return null;
   }
 }
 

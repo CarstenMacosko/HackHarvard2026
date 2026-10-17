@@ -16,6 +16,8 @@ export interface ParticipantRecord {
   acceptedAt: string[];
   rewardEvents: RewardEvent[];
   lastPromptedAt: Record<string, string>;
+  /** authoritative balance from the web app's reward ledger, when known */
+  ledger?: { balance: number; tier: string; lifetime: number; nextTier: { name: string; points: number } | null };
 }
 
 const participants = new Map<string, ParticipantRecord>();
