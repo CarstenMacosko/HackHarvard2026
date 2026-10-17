@@ -136,7 +136,7 @@ export default async function OverviewPage() {
                   </Td>
                   <Td>{s.accepted ? <Badge tone="green">usable</Badge> : s.escalated ? <Badge tone="red">escalated</Badge> : <Badge tone="amber">retry requested</Badge>}</Td>
                   <Td className="text-slate-600">
-                    {s.accepted ? "—" : s.quality.checks.filter((c) => !c.passed).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ")}
+                    {s.accepted ? "—" : s.quality.checks.filter((c) => !c.passed && !c.advisory).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ")}
                   </Td>
                   <Td className="tabular">{s.attempt}</Td>
                   <Td className="text-slate-600">{s.source === "web" ? "Web upload" : "Messaging"}</Td>

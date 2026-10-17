@@ -17,7 +17,7 @@ def run_prepared(module: CVModule, prepared: Any, req: AnalyzeRequest, embed: bo
     criteria = {**module.default_criteria, **req.quality_criteria}
     checks = module.quality_checks(prepared, criteria)
     result = MeasureResult(measurements=[])
-    if all(c.passed for c in checks):
+    if all(c.passed or c.advisory for c in checks):
         try:
             result = module.measure(prepared, criteria)
         except TaskNotCompleted as e:

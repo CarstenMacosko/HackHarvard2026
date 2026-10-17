@@ -150,7 +150,7 @@ async function main() {
   seedDemoParticipants();
   await channel.start(onMessage);
   if (channel.name === "dev") {
-    console.log("Dev chat as +15550000001 (PD demo). Try: /due  then  /video blurry.mp4  then  /video good.mp4");
+    console.log("Dev chat as +15550000001 (PD demo). Try: /due  then  /video dark.mp4  then  /video good.mp4");
   } else {
     startScheduler(promptTask);
   }

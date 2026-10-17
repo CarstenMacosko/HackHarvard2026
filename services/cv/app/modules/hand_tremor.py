@@ -133,7 +133,7 @@ class PreparedTremor:
 @register
 class HandTremorModule(CVModule):
     id = "hand_tremor"
-    version = "0.1.0"
+    version = "0.2.0"
     label = "Hand tremor (rest / postural)"
     media_type = "video"
     conditions = ["parkinsons", "essential_tremor"]
@@ -144,7 +144,10 @@ class HandTremorModule(CVModule):
         MeasurementSpec("tremor_power_ratio", "Tremor share of movement", "fraction"),
     ]
     feature_names = FEATURE_NAMES
-    default_criteria = {"blur": 60, "exposure_min": 60, "exposure_max": 200, "hand_visible": 0.8, "duration_s": 8, "fps": 24}
+    # blur 20 is advisory (hand region, 256 px): flags a visibly soft hand for the clinician but never
+    # rejects; MediaPipe tracked and measured perfectly even at heavy defocus
+    # (training/calibration/hand_video_sharpness.md). Exposure is judged on the hand region.
+    default_criteria = {"blur": 20, "exposure_min": 60, "exposure_max": 220, "hand_visible": 0.8, "duration_s": 8, "fps": 24}
 
     def __init__(self, tracker_factory=HandTracker) -> None:
         self._tracker_factory = tracker_factory
@@ -154,7 +157,7 @@ class HandTremorModule(CVModule):
 
     def quality_checks(self, p: PreparedTremor, c: dict[str, float]) -> list[QualityCheck]:
         t = p.track
-        return q.image_checks_for_video(t.gray_samples, c) + [
+        return q.hand_video_checks(t.gray_samples, t.sample_landmarks, c) + [
             q.min_value_check(
                 "duration_s", t.duration_s, c["duration_s"], "The video was too short. Please hold your hand still in view for 10 seconds."
             ),

@@ -1,10 +1,10 @@
-import { blurCheck, exposureCheck, fractionCheck, measurement, minValueCheck, pyRound, runPipeline, TaskNotCompleted, type ModuleResult } from "./quality";
-import { fillGaps, INDEX_TIP, MIDDLE_MCP, WRIST, worstFrames, type PreparedHandTrack } from "./tapping";
+import { fractionCheck, handVideoChecks, measurement, minValueCheck, pyRound, runPipeline, TaskNotCompleted, type ModuleResult } from "./quality";
+import { fillGaps, INDEX_TIP, MIDDLE_MCP, WRIST, type PreparedHandTrack } from "./tapping";
 
 /** Mirror of services/cv/app/modules/hand_tremor.py (HandTremorModule). */
 export const TREMOR_MODULE = {
   id: "hand_tremor",
-  version: "0.1.0",
+  version: "0.2.0",
   media_type: "video" as const,
   measurements: [
     { name: "tremor_amplitude", label: "Tremor amplitude", unit: "× hand size" },
@@ -21,7 +21,7 @@ export const TREMOR_MODULE = {
     "detection_rate",
     "duration_s",
   ],
-  default_criteria: { blur: 60, exposure_min: 60, exposure_max: 200, hand_visible: 0.8, duration_s: 8, fps: 24 } as Record<string, number>,
+  default_criteria: { blur: 20, exposure_min: 60, exposure_max: 220, hand_visible: 0.8, duration_s: 8, fps: 24 } as Record<string, number>,
 };
 
 const BAND_LO = 3, BAND_HI = 12, MOTION_MIN_HZ = 0.5, LOW_MOTION_HZ = 2, SEGMENT_S = 4;
@@ -156,13 +156,7 @@ export function tremorMetrics(landmarks: number[][][], fps: number): TremorMetri
 
 export function analyzeTremor(t: PreparedHandTrack, criteria: Record<string, number> = {}): ModuleResult {
   const c = { ...TREMOR_MODULE.default_criteria, ...criteria };
-  const sample = worstFrames(t.gray_samples);
-  const checks = sample.length
-    ? [
-        sample.map((g) => blurCheck(g, c.blur)).reduce((a, b) => ((b.value ?? 0) < (a.value ?? 0) ? b : a)),
-        exposureCheck(sample[sample.length >> 1], c.exposure_min, c.exposure_max),
-      ]
-    : [];
+  const checks = handVideoChecks(t.gray_samples, t.hand_crops ?? [], c);
   checks.push(
     minValueCheck("duration_s", t.duration_s, c.duration_s, "The video was too short. Please hold your hand still in view for 10 seconds."),
     minValueCheck(

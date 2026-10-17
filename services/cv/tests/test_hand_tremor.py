@@ -72,3 +72,23 @@ def test_low_frame_rate_and_short_capture_fail_quality():
     failed = {c.name for c in obs.quality.checks if not c.passed}
     assert failed == {"duration_s", "fps"}
     assert obs.measurements == []
+
+
+def test_hand_checks_use_the_hand_region():
+    import cv2
+
+    from app import quality as q
+    from app.synthetic import base_hand
+
+    rng = np.random.default_rng(0)
+    frame = np.full((1920, 1080), 200, np.uint8)  # smooth wall everywhere...
+    pts = base_hand(scale_px=180, centre=(540.0, 960.0))
+    (x0, y0), (x1, y1) = pts.min(0).astype(int), pts.max(0).astype(int)
+    frame[y0:y1, x0:x1] = rng.integers(60, 200, (y1 - y0, x1 - x0))  # ...except a detailed hand
+    whole = float(cv2.Laplacian(frame, cv2.CV_64F).var())
+    blur, exposure = q.hand_video_checks([frame] * 3, [pts] * 3, {"blur": 20, "exposure_min": 60, "exposure_max": 220})
+    assert blur.advisory and blur.passed and blur.value > whole  # the wall no longer dilutes it
+    assert exposure.name == "exposure" and not exposure.advisory and exposure.passed
+    # no hand in any sample: fall back to the middle frame
+    blur2, _ = q.hand_video_checks([frame] * 3, [None] * 3, {"blur": 20, "exposure_min": 60, "exposure_max": 220})
+    assert blur2.value == pytest.approx(round(whole, 1))

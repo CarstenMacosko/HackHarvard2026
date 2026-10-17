@@ -5,6 +5,8 @@ import {
   analyzeTapping,
   analyzeTremor,
   embeddingFeatures,
+  HAND_CROP_MARGIN,
+  HAND_CROP_SIDE,
   landmarksToPixels,
   sampleIndices,
   tappingFromTrack,
@@ -101,6 +103,26 @@ async function embed(source: HTMLCanvasElement): Promise<Record<string, number>>
   }
 }
 
+/**
+ * The hand's landmark box (+25%) from the current video frame, drawn straight into a canvas whose
+ * longest side is 256 px (services/cv quality.hand_crop), so quality is judged on the hand.
+ */
+function handCrop(video: HTMLVideoElement, pts: number[][], W: number, H: number): GrayImage | null {
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const m = HAND_CROP_MARGIN * Math.max(x1 - x0, y1 - y0);
+  const X0 = Math.max(0, Math.floor(x0 - m)), Y0 = Math.max(0, Math.floor(y0 - m));
+  const X1 = Math.min(W, Math.ceil(x1 + m)), Y1 = Math.min(H, Math.ceil(y1 + m));
+  const sw = X1 - X0, sh = Y1 - Y0;
+  if (sw < 16 || sh < 16) return null;
+  const s = HAND_CROP_SIDE / Math.max(sw, sh);
+  const cw = Math.max(1, Math.round(sw * s)), ch = Math.max(1, Math.round(sh * s));
+  const { ctx } = canvas(cw, ch);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(video, X0, Y0, sw, sh, 0, 0, cw, ch);
+  return toGray(ctx.getImageData(0, 0, cw, ch));
+}
+
 function once(target: EventTarget, ok: string, timeoutMs = 15_000): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -165,6 +187,7 @@ export async function analyzeVideoFile(
     const landmarks: number[][][] = [];
     const missing = Array.from({ length: 21 }, () => [NaN, NaN]);
     const grays: GrayImage[] = [];
+    const handCrops: GrayImage[] = [];
     let prev: Uint8ClampedArray | null = null;
     let duplicates = 0;
 
@@ -182,6 +205,8 @@ export async function analyzeVideoFile(
       if (grayAt.has(i)) {
         full.ctx.drawImage(video, 0, 0, W, H);
         grays.push(toGray(full.ctx.getImageData(0, 0, W, H)));
+        const crop = res.landmarks.length ? handCrop(video, landmarks[i], W, H) : null;
+        if (crop) handCrops.push(crop);
       }
       if (i % 5 === 0) onProgress(i / n, "Tracking your hand…");
     }
@@ -194,6 +219,7 @@ export async function analyzeVideoFile(
       sample_fps: VIDEO_SAMPLE_FPS,
       duration_s: n / VIDEO_SAMPLE_FPS,
       gray_samples: grays,
+      hand_crops: handCrops,
       landmarks,
       detection_rate: detected / n,
     };
