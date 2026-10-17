@@ -43,8 +43,8 @@ Current boundaries: identities use demo placeholders; hosted persistence and ser
   - built-in modules with their on-device and server status;
   - every trained model with its training data, label type, out-of-fold metrics and worst skin-type subgroup, plus a page per model with its model card;
   - **Droid jobs**: in-process generation runs (progress + Daytona experiments) stored in the database.
-- **Generate module:** `/researcher/generate` — Droid drafts an analyzer, Daytona sweeps parameters, result lands in `cv_models`.
-- **Train a model:** fit a ridge-regression head on a module's feature vector from labelled photos or videos (a synthetic demo dataset is built in). See the cross-validated error against a baseline, register the model, and it runs on every new capture.
+- **Generate module:** `/researcher/generate` — Droid drafts a writing-posture candidate. Daytona runs the shared index-angle feature on landmark tracks; the candidate stays in its job record for review.
+- **Offline training kit:** `training/vfcv` remains available for later clinician-labelled datasets. The researcher browser training page and registration API have been removed.
 - **Workflow builder:** drafts a protocol for a new condition from catalog components (Claude, with an offline fallback). Next to each measurement that needs a new model, **Generate with Droid** starts in-process generation.
 - **Audit log** and **System status.**
 
@@ -167,8 +167,8 @@ The on-device port in `packages/cv` reproduces OpenCV's integer colour conversio
 1. Add a `CVModule` subclass in `services/cv/app/modules/` (see `base.py`) that implements `prepare`, `quality_checks` and `measure` (returning measurements and a feature vector). Decorate it with `@register` and import it in `registry.py`.
 2. If it should run on-device, port it to `packages/cv/src/`, add cases to `app/parity.py`, and run `python scripts/export_parity_fixtures.py`.
 3. Add a `TaskConfig` (instructions, quality criteria, report questions, measurements) to the study protocol, and add any reusable components to `packages/shared/src/catalog.ts` so the workflow builder can propose them.
-4. Or skip the code: train a head on an existing module's features in **Train a model**, or write a study spec for the training kit.
-5. Or ask Droid: **Generate module** / **Workflow builder → Generate with Droid** runs Factory Droid + Daytona and saves the model to the database ([`docs/MODULE_GENERATION.md`](docs/MODULE_GENERATION.md)).
+4. For a future labelled study, write a study spec for the offline training kit.
+5. For the writing-posture demo, **Generate module** / **Workflow builder → Generate with Droid** drafts a candidate and checks shared feature behavior in Daytona ([`docs/MODULE_GENERATION.md`](docs/MODULE_GENERATION.md)).
 
 ## Disclaimer
 

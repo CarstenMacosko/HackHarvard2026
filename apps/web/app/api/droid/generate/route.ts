@@ -24,8 +24,6 @@ const Body = z.object({
     .max(6),
   media_type: z.enum(["photo", "video"]).default("video"),
   study_id: z.string().max(60).nullable().optional(),
-  has_clinical_labels: z.boolean().default(false),
-  example_count: z.number().int().min(0).max(50).default(0),
 });
 
 /** Start a Droid + Daytona module generation job (progress via GET /api/droid/generate/[id]). */
@@ -33,6 +31,9 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
+  }
+  if (parsed.data.media_type !== "video" || !parsed.data.measurements.some((m) => m.name === "index_straight_fraction")) {
+    return NextResponse.json({ error: "The current track evaluator supports index_straight_fraction video candidates only." }, { status: 422 });
   }
   const live = liveIntegrationStatus();
   const job = await startModuleGeneration(parsed.data);

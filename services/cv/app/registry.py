@@ -1,8 +1,8 @@
 """Module registry. Adding a condition = write a CVModule subclass, decorate it with
 @register, and import it in _load_builtin_modules().
 
-Droid+Daytona approved modules are written as ``gen_*.py`` beside the builtins and
-loaded dynamically so participant uploads can use them without a redeploy cycle in demos.
+Legacy ``gen_*.py`` modules already on disk are loaded dynamically. Current candidate
+review does not write or activate generated modules.
 """
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ def _load_builtin_modules() -> None:
     if _LOADED:
         _load_generated_modules()
         return
-    from .modules import eczema, finger_tapping, hand_tremor  # noqa: F401  (import registers them)
+    from .modules import eczema, finger_tapping, hand_tremor, writing_posture  # noqa: F401  (import registers them)
     _LOADED = True
     _load_generated_modules()
 

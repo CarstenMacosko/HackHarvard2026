@@ -1,7 +1,4 @@
 import "server-only";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import type { CvModel } from "@vf/shared";
 import { backend } from "./backend";
 import { buildParamGrid, runExperimentsDaytona, runExperimentsLocal } from "./daytona-runner";
 import { draftModuleWithDroid, pickComponents, templateModuleSource } from "./droid-generate";
@@ -20,8 +17,6 @@ export interface StartGenerateInput {
   measurements: { name: string; label: string; unit: string }[];
   media_type: "photo" | "video";
   study_id?: string | null;
-  has_clinical_labels?: boolean;
-  example_count?: number;
 }
 
 function slugify(s: string): string {
@@ -57,11 +52,14 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
     description: input.description,
     measurements: input.measurements,
     media_type: input.media_type,
-    example_count: input.example_count ?? 0,
+    example_count: 0,
     mode,
   });
 
   try {
+    if (input.media_type !== "video" || !input.measurements.some((m) => m.name === "index_straight_fraction")) {
+      throw new Error("Track evaluation currently supports the index_straight_fraction video measurement only. Other candidate modules need task-specific fixtures before evaluation.");
+    }
     progress = log(
       { ...progress, step: "inspecting" },
       `Live integrations · Droid=${status.droid ? "on" : "off"} · Daytona=${status.daytona ? "on" : "off"} · exec=${status.droid_exec}`,
@@ -69,7 +67,6 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
     await patch(jobId, progress, "running");
     progress = log(progress, "Inspecting existing CV modules (MediaPipe hands, tapping, tremor, skin)…");
     await patch(jobId, progress);
-    await sleep(400);
 
     const components = pickComponents(input.description, input.media_type);
     const moduleId = `gen_${slugify(input.measurements[0]?.name ?? input.condition)}_${jobId.slice(-6)}`;
@@ -78,7 +75,6 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
       `Reusing components: ${components.join(", ")}`,
     );
     await patch(jobId, progress);
-    await sleep(350);
 
     progress = log(
       { ...progress, step: "drafting" },
@@ -86,7 +82,7 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
     );
     await patch(jobId, progress);
 
-    let params: Record<string, number> = { band_lo_hz: 3, band_hi_hz: 12, blur_min: 20, duration_s: 8, hand_visible: 0.8 };
+    let params: Record<string, number> = { hold_s: 2, straight_deg: 160, min_visible: 0.7, min_duration_s: 6 };
     let draft = await draftModuleWithDroid({
       condition: input.condition,
       description: input.description,
@@ -95,7 +91,7 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
       module_id: moduleId,
       params,
       components,
-      has_clinical_labels: Boolean(input.has_clinical_labels),
+      has_clinical_labels: false,
     });
     progress = log(
       { ...progress, source_code: draft.source_code, missing_validation: draft.missing_validation, mode: draft.mode === "live" && mode === "live" ? "live" : progress.mode },
@@ -117,33 +113,42 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
           `Daytona cloud · ${EXPERIMENT_COUNT} experiments on ${PARALLEL} live sandboxes (no local score fallback)`,
         );
       } else {
-        progress = log(progress, "DAYTONA_API_KEY unset — running local sandbox score (same parallel visualization).", "warn");
+        progress = log(progress, "DAYTONA_API_KEY unset — executing the same landmark-track checks in local Python.", "warn");
       }
       await patch(jobId, progress);
 
-      const experiments = await (daytonaConfigured() ? runExperimentsDaytona : runExperimentsLocal)(grid, async (exp) => {
-        const current = (await db.droidJobs(50)).find((j) => j.id === jobId)?.progress ?? progress;
-        const list = [...(current.experiments ?? [])];
-        const at = list.findIndex((e) => e.id === exp.id);
-        if (at >= 0) list[at] = exp;
-        else list.push(exp);
-        list.sort((a, b) => a.id - b.id);
-        progress = { ...current, experiments: list, step: "daytona_experiments" };
-        await patch(jobId, progress);
-      }, PARALLEL);
+      let updateQueue = Promise.resolve();
+      const onExperimentUpdate = (exp: GenerationProgress["experiments"][number]) => {
+        updateQueue = updateQueue.then(async () => {
+          const list = [...progress.experiments];
+          const at = list.findIndex((e) => e.id === exp.id);
+          if (at >= 0) list[at] = exp;
+          else list.push(exp);
+          list.sort((a, b) => a.id - b.id);
+          progress = { ...progress, experiments: list, step: "daytona_experiments" };
+          await patch(jobId, progress);
+        });
+        return updateQueue;
+      };
+      const experiments = daytonaConfigured()
+        ? await runExperimentsDaytona(grid, onExperimentUpdate, { moduleId, sourceCode: draft.source_code }, PARALLEL)
+        : await runExperimentsLocal(grid, onExperimentUpdate, { moduleId, sourceCode: draft.source_code }, PARALLEL);
 
       const passed = experiments.filter((e) => e.status === "passed" && e.metrics);
-      const best = [...passed].sort((a, b) => (b.metrics!.score - a.metrics!.score))[0];
+      const best = [...passed].sort((a, b) =>
+        b.metrics!.score - a.metrics!.score ||
+        Math.abs(a.params.straight_deg - 160) - Math.abs(b.params.straight_deg - 160) ||
+        Math.abs(a.params.min_visible - 0.7) - Math.abs(b.params.min_visible - 0.7))[0];
       progress = log(
         { ...progress, experiments },
-        `Daytona finished: ${passed.length}/${experiments.length} passed` + (best ? ` · best score ${best.metrics!.score} (${best.label})` : ""),
+        `Track checks finished: ${passed.length}/${experiments.length} passed` + (best ? ` · ${best.metrics!.passed_cases}/${best.metrics!.total_cases} ${best.metrics!.fixture_source} cases (${best.label})` : ""),
       );
       await patch(jobId, progress);
 
       if (!best) {
-        progress = log({ ...progress, step: "iterating" }, "No experiment passed the gate — Droid adjusting parameters…", "warn");
+        progress = log({ ...progress, step: "iterating" }, "The candidate failed the track/contract checks; retrying with the repository's writing-posture template.", "warn");
         await patch(jobId, progress);
-        params = { band_lo_hz: 3.5, band_hi_hz: 10, blur_min: 18, duration_s: 9, hand_visible: 0.8 };
+        params = { hold_s: 2, straight_deg: 160, min_visible: 0.7, min_duration_s: 6 };
         draft = {
           ...draft,
           source_code: templateModuleSource({
@@ -154,7 +159,7 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
             module_id: moduleId,
             params,
             components,
-            has_clinical_labels: Boolean(input.has_clinical_labels),
+            has_clinical_labels: false,
           }),
         };
         progress = { ...progress, source_code: draft.source_code };
@@ -163,7 +168,7 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
       }
 
       params = best.params;
-      progress = log({ ...progress, step: "validating", best_params: params }, "Rewriting module with best Daytona params and validating structure…");
+      progress = log({ ...progress, step: "validating", best_params: params }, "Saving a candidate draft; Daytona checked its Python contract and ran the shared writing feature on landmark tracks.");
       await patch(jobId, progress);
 
       const finalCode = templateModuleSource({
@@ -174,22 +179,12 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
         module_id: moduleId,
         params,
         components,
-        has_clinical_labels: Boolean(input.has_clinical_labels),
+        has_clinical_labels: false,
       });
-      // Prefer Droid's draft body if it already looks like a module; otherwise use the tuned template.
+      // The shared feature was tested; a Droid-authored wrapper remains only a proposal.
       const source = /class\s+\w+\(CVModule\)/.test(draft.source_code) && draft.mode === "live"
-        ? injectParamsComment(draft.source_code, params)
+        ? draft.source_code
         : finalCode;
-
-      const model = await registerPendingModel({
-        moduleId,
-        input,
-        params,
-        jobId,
-        missing: draft.missing_validation,
-        bestScore: best.metrics!.score,
-        source_code: source,
-      });
 
       progress = log(
         {
@@ -197,11 +192,13 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
           source_code: source,
           best_params: params,
           module_id: moduleId,
-          model_id: model.id,
-          missing_validation: draft.missing_validation,
+          model_id: null,
+          missing_validation: best.metrics!.fixture_source === "synthetic"
+            ? "Synthetic landmark tests check software behavior only. The candidate source has not been deployed or clinically validated. Obtain consented captures and clinician labels before use as an endpoint."
+            : "Provided landmark tracks check software behavior only. The candidate source has not been deployed or clinically validated. Obtain clinician labels and validate across participants before use as an endpoint.",
           step: "ready",
         },
-        `Ready for researcher review · model ${model.id} saved to database (inactive until approved)`,
+        "Candidate ready for researcher review in this job record; no trained model was created.",
       );
       await patch(jobId, progress, "succeeded");
       await db.insertAudit({
@@ -209,7 +206,7 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
         action: "droid.module_ready",
         entity: "droid_job",
         entity_id: jobId,
-        detail: { module_id: moduleId, model_id: model.id, best_score: best.metrics!.score, mode: progress.mode },
+        detail: { module_id: moduleId, fixture_pass_rate: best.metrics!.score, fixture_source: best.metrics!.fixture_source, mode: progress.mode },
       });
       return;
     }
@@ -223,127 +220,25 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
   }
 }
 
-async function registerPendingModel(args: {
-  moduleId: string;
-  input: StartGenerateInput;
-  params: Record<string, number>;
-  jobId: string;
-  missing: string | null;
-  bestScore: number;
-  source_code: string;
-}): Promise<CvModel> {
-  const db = backend();
-  const at = new Date().toISOString();
-  const target = args.input.measurements[0] ?? { name: "movement_amp", label: "Movement amplitude", unit: "× hand size" };
-  const model: CvModel = {
-    id: `mdl_${args.moduleId}`,
-    name: `${target.label} (Droid-generated)`,
-    description: args.input.description.slice(0, 400),
-    study_id: args.input.study_id ?? null,
-    module: args.moduleId,
-    target: { name: target.name, label: target.label, unit: target.unit },
-    kind: "ridge",
-    features: ["band_power_ratio", "detection_rate", "duration_s", target.name],
-    weights: [0, 0, 0, 1],
-    intercept: 0,
-    feature_means: [0, 0, 0, 0],
-    feature_stds: [1, 1, 1, 1],
-    lambda: 1,
-    metrics: {
-      n: Math.max(1, args.input.example_count ?? 0),
-      folds: 0,
-      mae: 0,
-      rmse: 0,
-      r: 0,
-      baseline_mae: 0,
-      label_min: 0,
-      label_max: 1,
-    },
-    status: "reusable_needs_validation",
-    active: false,
-    version: 1,
-    created_by: RESEARCHER_NAME,
-    created_at: at,
-    source_code: args.source_code,
-    module_params: args.params,
-    provenance: {
-      source: "droid",
-      dataset: "example_videos",
-      dataset_title: "Researcher example videos (generation job)",
-      licence: "study-internal",
-      url: "",
-      citation: `Droid+Daytona job ${args.jobId}`,
-      label_kind: args.input.has_clinical_labels ? "researcher" : "synthetic",
-      n_cases: args.input.example_count ?? 0,
-      n_excluded_quality: 0,
-      auc: null,
-      worst_subgroup: null,
-      card_path: "",
-      spec_path: "",
-      kit_version: `daytona-score=${args.bestScore};params=${JSON.stringify(args.params)}`,
-    },
-  };
-  await db.insertModel(model);
-  return model;
-}
-
-function injectParamsComment(code: string, params: Record<string, number>): string {
-  return `# Daytona-tuned params: ${JSON.stringify(params)}\n${code}`;
-}
-
-export async function approveGeneratedModule(jobId: string): Promise<{ module_id: string; model_id: string }> {
+export async function reviewGeneratedCandidate(jobId: string): Promise<{ module_id: string; status: "reviewed_candidate" }> {
   const db = backend();
   const job = (await db.droidJobs(50)).find((j) => j.id === jobId);
-  if (!job?.progress?.module_id || !job.progress.model_id || job.progress.step !== "ready") {
+  if (!job?.progress?.module_id || job.progress.step !== "ready") {
     throw new Error("Job is not ready for approval");
   }
-  const { module_id, model_id, source_code, best_params } = job.progress;
+  const { module_id, source_code } = job.progress;
   if (!source_code) throw new Error("No generated source code on job");
 
-  await writeGeneratedModuleFiles(module_id, source_code, best_params ?? {});
-  await db.updateModel(model_id, {
-    active: true,
-    source_code,
-    module_params: best_params ?? {},
-  });
-  const progress = log({ ...job.progress, step: "approved" }, `Approved · saved to cv_models (${model_id}) · module ${module_id} active`);
+  const progress = log({ ...job.progress, step: "approved" }, `Reviewed candidate ${module_id}; no model activation or CV-service deployment`);
   await db.updateDroidJob(jobId, { progress });
   await db.insertAudit({
     actor: RESEARCHER_NAME,
-    action: "droid.module_approved",
-    entity: "cv_model",
-    entity_id: model_id,
+    action: "droid.candidate_reviewed",
+    entity: "droid_job",
+    entity_id: jobId,
     detail: { module_id, job_id: jobId },
   });
-  return { module_id, model_id };
-}
-
-async function writeGeneratedModuleFiles(moduleId: string, source: string, params: Record<string, number>) {
-  // Sibling of finger_tapping.py so relative imports (.hands, .hand_tremor) resolve.
-  const candidates = [
-    path.join(process.cwd(), "services/cv/app/modules"),
-    path.join(process.cwd(), "../../services/cv/app/modules"),
-    path.join(process.cwd(), "../services/cv/app/modules"),
-  ];
-  let dir: string | null = null;
-  for (const c of candidates) {
-    try {
-      await mkdir(c, { recursive: true });
-      dir = c;
-      break;
-    } catch {
-      /* try next */
-    }
-  }
-  if (!dir) throw new Error("Could not locate services/cv/app/modules");
-  // Only allow sandboxed gen_* filenames into the CV package.
-  if (!/^gen_[a-z0-9_]+$/.test(moduleId)) throw new Error("Refusing to write non-gen module id");
-  await writeFile(path.join(dir, `${moduleId}.py`), source, "utf8");
-  await writeFile(
-    path.join(dir, `${moduleId}.meta.json`),
-    JSON.stringify({ module_id: moduleId, params, written_at: new Date().toISOString(), sandboxed: true }, null, 2),
-    "utf8",
-  );
+  return { module_id, status: "reviewed_candidate" };
 }
 
 export async function startModuleGeneration(input: StartGenerateInput): Promise<DroidJob> {
@@ -368,14 +263,10 @@ export async function startModuleGeneration(input: StartGenerateInput): Promise<
       description: input.description,
       measurements: input.measurements,
       media_type: input.media_type,
-      example_count: input.example_count ?? 0,
+      example_count: 0,
       mode,
     }),
   };
   await backend().insertDroidJob(job);
   return job;
-}
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
 }

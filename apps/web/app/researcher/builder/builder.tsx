@@ -160,13 +160,13 @@ export function Builder() {
                       {approving ? "Saving…" : "Approve as draft protocol"}
                     </Button>
                   )}
-                  <ButtonLink href="/researcher/models/new" variant="secondary">
-                    Train a model for a new measurement
+                  <ButtonLink href="/researcher/generate" variant="secondary">
+                    Review writing module generator
                   </ButtonLink>
                 </div>
                 {approved && <p className="mt-2 text-xs text-slate-500">Measurements tagged “needs validation” or “needs new model” stay inactive until a trained, validated model is registered for them.</p>}
                 <p className="mt-3 text-xs text-slate-500">
-                  <span className="font-medium text-slate-700">Generate with Droid</span> (next to each measurement that needs a new model) runs Factory Droid + Daytona in-process: Droid drafts an analyzer from existing CV components, Daytona sweeps parameters in sandboxes, and the result is saved to the model registry in the database for your team to review.
+                  <span className="font-medium text-slate-700">Generate with Droid</span> drafts a source candidate. The current track evaluator supports index-finger straightening; other measurements need their own test tracks. Candidate jobs do not become trained models or active modules.
                 </p>
               </CardBody>
             </Card>

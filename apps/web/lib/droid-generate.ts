@@ -38,6 +38,64 @@ Shared helpers: services/cv/app/modules/hands.py (HandTracker), quality.py, base
 `;
 
 export function templateModuleSource(input: GenerateModuleInput): string {
+  if (input.measurements.some((m) => m.name === "index_straight_fraction")) {
+    const c = input.params;
+    return `"""Candidate index straightening module; requires clinician validation before deployment."""
+from __future__ import annotations
+from .. import quality as q
+from ..models import QualityCheck
+from ..registry import register
+from .base import CVModule, MeasureResult, MeasurementSpec, TaskNotCompleted
+from .hands import HandTracker, load_hand_media
+from .writing_posture_core import evaluate_track
+
+@register
+class GeneratedWritingPostureModule(CVModule):
+    id = ${JSON.stringify(input.module_id)}
+    version = "0.1.0-candidate"
+    label = ${JSON.stringify(input.measurements[0]?.label ?? "Index straightening")}
+    media_type = "video"
+    conditions = ["focal_hand_dystonia"]
+    components = ["hand_landmarks", "index_joint_angle"]
+    measurements = [MeasurementSpec("index_straight_fraction", ${JSON.stringify(input.measurements[0]?.label ?? "Index finger straight during writing")}, ${JSON.stringify(input.measurements[0]?.unit ?? "fraction")})]
+    feature_names = ["index_straight_fraction", "index_pip_angle_deg", "hold_index_pip_angle_deg", "posture_change_deg", "index_visible_fraction", "example_frame_s"]
+    default_criteria = {"blur": 20, "exposure_min": 60, "exposure_max": 220, "hand_visible": 0.8,
+                        "fps": 20, "duration_s": ${c.min_duration_s ?? 6}, "index_visible": ${c.min_visible ?? 0.7},
+                        "hold_s": ${c.hold_s ?? 2}, "straight_deg": ${c.straight_deg ?? 160}}
+
+    def prepare(self, path: str, start_s: float = 0.0):
+        return load_hand_media(path, HandTracker, start_s)
+
+    def quality_checks(self, track, criteria):
+        result = evaluate_track(track.landmarks.tolist(), track.fps,
+            hold_s=criteria["hold_s"], straight_deg=criteria["straight_deg"],
+            min_visible=criteria["index_visible"], min_duration_s=criteria["duration_s"])
+        return q.hand_video_checks(track.gray_samples, track.sample_landmarks, criteria) + [
+            q.min_value_check("duration_s", track.duration_s, criteria["duration_s"], "Record a longer pen hold and writing video."),
+            q.min_value_check("fps", track.fps, criteria["fps"], "Use normal video mode."),
+            q.fraction_check("hand_visible", track.detection_rate, criteria["hand_visible"], "Keep your hand in view."),
+            q.fraction_check("index_visible", result["visible_fraction"], criteria["index_visible"], "Keep the index finger visible."),
+            q.fraction_check("index_hold_visible", result["hold_visible_fraction"], criteria["index_visible"], "Keep the index finger visible during pen hold."),
+            QualityCheck(name="hold_and_writing", passed=result["reason"] != "incomplete_hold_or_writing", value=None,
+                         threshold=None, message="Hold the pen for two seconds, then write the phrase."),
+        ]
+
+    def measure(self, track, criteria):
+        result = evaluate_track(track.landmarks.tolist(), track.fps,
+            hold_s=criteria["hold_s"], straight_deg=criteria["straight_deg"],
+            min_visible=criteria["index_visible"], min_duration_s=criteria["duration_s"])
+        if not result["accepted"]:
+            raise TaskNotCompleted("Keep the index finger visible during writing.")
+        return MeasureResult(
+            measurements=[self.measurement("index_straight_fraction", result["straight_fraction"], None)],
+            features={"index_straight_fraction": result["straight_fraction"],
+                      "index_pip_angle_deg": result["writing_angle_deg"],
+                      "hold_index_pip_angle_deg": result["hold_angle_deg"],
+                      "posture_change_deg": result["writing_angle_deg"] - result["hold_angle_deg"],
+                      "index_visible_fraction": result["visible_fraction"],
+                      "example_frame_s": result["example_frame_s"]})
+`;
+  }
   const meas = input.measurements
     .map((m) => `        MeasurementSpec(${JSON.stringify(m.name)}, ${JSON.stringify(m.label)}, ${JSON.stringify(m.unit)}),`)
     .join("\n");

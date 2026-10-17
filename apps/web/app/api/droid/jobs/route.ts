@@ -31,14 +31,15 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
   }
+  if (parsed.data.media_type !== "video" || parsed.data.measurement.name !== "index_straight_fraction") {
+    return NextResponse.json({ error: "The current track evaluator supports index_straight_fraction video candidates only." }, { status: 422 });
+  }
   const input = {
     condition: parsed.data.condition,
     description: parsed.data.description || `${parsed.data.measurement.label} for ${parsed.data.condition}`,
     measurements: [parsed.data.measurement],
     media_type: parsed.data.media_type,
     study_id: parsed.data.study_id ?? null,
-    has_clinical_labels: parsed.data.has_clinical_labels ?? false,
-    example_count: parsed.data.example_count ?? 0,
   };
   const job = await startModuleGeneration(input);
   const live = liveIntegrationStatus();

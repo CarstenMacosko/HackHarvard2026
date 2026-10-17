@@ -20,13 +20,12 @@ export default async function ModelsPage() {
     <>
       <PageHeader
         title="Model registry"
-        description="Every measurement traces to a versioned model. Built-in modules run on-device and in the CV service; researcher-trained models add study-specific measurements on top of their feature vectors."
+        description="Inspect versioned CV modules and previously registered models. Writing posture currently runs in the CV service; generated source remains a candidate until evaluated with consented captures."
         actions={
           <>
             <ButtonLink href="/researcher/generate" variant="secondary">
               Generate module
             </ButtonLink>
-            <ButtonLink href="/researcher/models/new">Train a model</ButtonLink>
           </>
         }
       />
@@ -81,11 +80,16 @@ export default async function ModelsPage() {
         })}
       </div>
 
+      <Card className="mb-8">
+        <CardHeader title="Writing posture (CV service)" description="writing_posture@0.1.0 · index-finger straightening during a fixed side-view pen hold and repeated phrase" />
+        <CardBody className="text-sm text-slate-600">Measures writing-phase index PIP angle and the fraction of visible frames above a provisional straightening threshold. A missing or obscured index finger fails the quality gate. This module is not yet available in the browser capture flow and is not a diagnostic score.</CardBody>
+      </Card>
+
       <h2 className="mb-3 text-sm font-semibold text-slate-900">Trained models</h2>
       <Card className="mb-8">
         {models.length === 0 ? (
-          <EmptyState title="No trained models yet" action={<ButtonLink href="/researcher/models/new" variant="secondary">Train your first model</ButtonLink>}>
-            Train a study-specific measurement (for example, your clinicians&apos; 0–4 erythema grade) from labelled photos or videos. It takes about a minute in the browser.
+          <EmptyState title="No trained models yet">
+            The offline training kit remains available for future labeled studies. Generated candidate modules do not appear here as trained models.
           </EmptyState>
         ) : (
           <Table>
@@ -126,7 +130,7 @@ export default async function ModelsPage() {
                         <>
                           <div className="text-slate-700">Researcher upload</div>
                           <div className="mt-0.5">
-                            <Badge>Browser wizard · {shortDate(m.created_at)}</Badge>
+                            <Badge>Legacy browser wizard · {shortDate(m.created_at)}</Badge>
                           </div>
                         </>
                       )}
@@ -147,7 +151,7 @@ export default async function ModelsPage() {
                         "–"
                       )}
                     </Td>
-                    <Td>{m.active ? <ValidationBadge status={m.status} /> : <Badge>inactive</Badge>}</Td>
+                    <Td>{m.provenance?.source === "droid" && m.metrics.folds === 0 ? <Badge tone="red">legacy placeholder blocked</Badge> : m.active ? <ValidationBadge status={m.status} /> : <Badge>inactive</Badge>}</Td>
                     <Td className="tabular text-right">{m.applied}</Td>
                     <Td className="text-right">
                       <ModelActions id={m.id} active={m.active} status={m.status} n={m.metrics.n} />
@@ -167,19 +171,15 @@ export default async function ModelsPage() {
       <h2 className="mb-3 text-sm font-semibold text-slate-900">Bring your own CV</h2>
       <div className="grid items-start gap-6 lg:grid-cols-3">
         <Card>
-          <CardHeader title="1 · Train a head in the browser" />
+          <CardHeader title="1 · Offline training kit" />
           <CardBody className="text-sm text-slate-600">
-            Fastest path. Pick a built-in module, drop labelled media, and fit a cross-validated ridge model on its feature vector. Nothing leaves the browser until you register the model.{" "}
-            <Link href="/researcher/models/new" className="font-medium text-brand-700 hover:underline">
-              Open the wizard →
-            </Link>
+            The <code className="font-mono text-xs">training/vfcv</code> kit remains for future labeled datasets and study-specific heads. Browser training has been removed from researcher workflows.
           </CardBody>
         </Card>
         <Card>
           <CardHeader title="2 · Generate with Droid + Daytona" />
           <CardBody className="text-sm text-slate-600">
-            Describe an assessment; Droid drafts a module from existing CV components and Daytona sweeps parameters in sandboxes. The result is saved to{" "}
-            <code className="font-mono text-xs">cv_models</code> for review.{" "}
+            Droid drafts a writing-posture candidate from shared hand landmarks. Daytona runs the shared feature on landmark tracks. The source and results stay in the generation job for review.{" "}
             <Link href="/researcher/generate" className="font-medium text-brand-700 hover:underline">
               Open the generator →
             </Link>
