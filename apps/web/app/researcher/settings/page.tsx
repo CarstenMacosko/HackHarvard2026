@@ -26,8 +26,9 @@ function Row({ state, title, detail, hint }: { state: State; title: string; deta
 }
 
 export default async function SettingsPage() {
-  const supabase = backend().mode === "supabase";
-  const cv = await cvHealth();
+  const db = backend();
+  const supabase = db.mode === "supabase";
+  const [cv, health] = await Promise.all([cvHealth(), supabase ? db.health().catch((e: Error) => ({ ok: false, tables: [], bucket: { ok: false, detail: e.message } })) : null]);
   const env = (k: string) => Boolean(process.env[k]?.trim());
   return (
     <>
@@ -36,10 +37,20 @@ export default async function SettingsPage() {
         <Card>
           <CardHeader title="Services" />
           <Row
-            state={supabase ? "ok" : "off"}
+            state={!supabase ? "off" : health?.ok ? "ok" : "error"}
             title="Database & storage (Supabase)"
-            detail={supabase ? "Observations, submissions, rewards and models are stored in Postgres; media in the private media bucket." : "Using the built-in synthetic dataset. Changes are kept in server memory until restart."}
-            hint={!supabase && "Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY, then apply supabase/migrations."}
+            detail={
+              !supabase
+                ? "Using the built-in synthetic dataset. Changes are kept in server memory until restart."
+                : health?.ok
+                  ? "Every capture, review, reward, model, builder draft, Droid job and agent conversation is stored in Postgres; media in the private media bucket."
+                  : `Connected, but: ${[...(health?.tables.filter((t) => t.error).map((t) => `${t.name}: ${t.error}`) ?? []), health?.bucket.ok ? null : `bucket: ${health?.bucket.detail}`].filter(Boolean).join("; ")}`
+            }
+            hint={
+              !supabase
+                ? "Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY (docs/DEPLOY.md)."
+                : !health?.ok && "Run supabase/setup.sql in the project's SQL editor (see docs/DATABASE.md)."
+            }
           />
           <Row
             state={cv.ok ? "ok" : cv.configured ? "error" : "off"}
@@ -68,6 +79,22 @@ export default async function SettingsPage() {
             title="Agent callback secret"
             detail={env("CV_CALLBACK_SECRET") ? "/api/cv-callback requires the shared secret." : "/api/cv-callback accepts unauthenticated posts. Set CV_CALLBACK_SECRET before going live."}
           />
+          {health && (
+            <CardBody className="border-t border-slate-100">
+              <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Tables (rows)</div>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+                {health.tables.map((t) => (
+                  <div key={t.name} className="flex justify-between gap-2">
+                    <dt className={t.error ? "font-mono text-xs text-rose-600" : "font-mono text-xs text-slate-600"}>{t.name}</dt>
+                    <dd className="tabular text-slate-900">{t.rows ?? "!"}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="mt-3 text-xs text-slate-500">
+                Storage bucket <span className="font-mono">media</span>: {health.bucket.detail}
+              </div>
+            </CardBody>
+          )}
         </Card>
         <Card>
           <CardHeader title="How analysis is routed" />

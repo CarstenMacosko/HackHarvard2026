@@ -14,19 +14,31 @@ const EXAMPLES = [
 
 export function Builder() {
   const [prompt, setPrompt] = useState(EXAMPLES[0]);
-  const [draft, setDraft] = useState<WorkflowDraft | null>(null);
+  const [draft, setDraft] = useState<(WorkflowDraft & { draft_id?: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [approved, setApproved] = useState(false);
+  const [approved, setApproved] = useState<string | null>(null); // the study created from the draft
   const [pending, start] = useTransition();
+  const [approving, startApprove] = useTransition();
 
   function generate() {
     setError(null);
-    setApproved(false);
+    setApproved(null);
     start(async () => {
       const res = await fetch("/api/builder/draft", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt }) });
       const body = await res.json();
       if (!res.ok) return setError(body.error);
       setDraft(body);
+    });
+  }
+
+  function approve() {
+    if (!draft?.draft_id) return;
+    setError(null);
+    startApprove(async () => {
+      const res = await fetch("/api/builder/approve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ draft_id: draft.draft_id }) });
+      const body = await res.json();
+      if (!res.ok) return setError(body.error ?? "Could not save the protocol.");
+      setApproved(body.study_id);
     });
   }
 
@@ -139,9 +151,15 @@ export function Builder() {
                   ))}
                 </ol>
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <Button variant="success" onClick={() => setApproved(true)} disabled={approved}>
-                    {approved ? "Saved as draft protocol v1" : "Approve as draft protocol"}
-                  </Button>
+                  {approved ? (
+                    <ButtonLink href={`/researcher/studies/${approved}`} variant="success">
+                      Saved as draft protocol v1: open the study
+                    </ButtonLink>
+                  ) : (
+                    <Button variant="success" onClick={approve} disabled={approving || !draft.draft_id}>
+                      {approving ? "Saving…" : "Approve as draft protocol"}
+                    </Button>
+                  )}
                   <ButtonLink href="/researcher/models/new" variant="secondary">
                     Train a model for a new measurement
                   </ButtonLink>

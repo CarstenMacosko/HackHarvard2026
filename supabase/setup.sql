@@ -269,35 +269,225 @@ create policy "members read audit" on audit_log for select using (
 -- web app's code; a row only appears here once someone changes one (e.g. deactivates it).
 alter table cv_models add column provenance jsonb;
 
+-- ===== migrations/0004_backends.sql =====
+-- Every backend persists here: the web app (uploads, reviews, builder, Droid), the messaging
+-- agent (conversations, messages, scheduling) and, through the web app's ingest path, the CV
+-- service's analyses. Server code uses the service role key; nothing is reachable from a browser.
+
+-- ---------- scheduling ----------
+-- ids are opaque strings in the app (seeded ids like 'st_p_001_0'); generated ones stay uuids
+alter table scheduled_tasks alter column id drop default;
+alter table scheduled_tasks alter column id type text using id::text;
+alter table scheduled_tasks alter column id set default gen_random_uuid()::text;
+-- one check-in per task per due time, so scheduling is safe to repeat
+alter table scheduled_tasks add constraint scheduled_tasks_once unique (participant_id, task_id, due_at);
+create index on scheduled_tasks (participant_id, due_at);
+alter table submissions add constraint submissions_scheduled_task_fkey
+  foreign key (scheduled_task_id) references scheduled_tasks (id) on delete set null;
+
+-- invite codes are typed by people: stored upper-case so a typed code matches exactly
+update participants set invite_code = upper(invite_code) where invite_code <> upper(invite_code);
+alter table participants add constraint participants_invite_code_upper check (invite_code = upper(invite_code));
+
+create index on observations (submission_id);
+create index on observations (study_id, captured_at);
+create index on submissions (observation_id);
+create index on audit_log (entity_id);
+create index on audit_log (created_at);
+
+-- ---------- reviews ----------
+-- reviewers are named in the app (no sign-in yet), so record the name rather than an auth id
+alter table reviews drop column reviewer_id;
+alter table reviews add column reviewer text not null default 'unknown';
+alter table reviews add column before_measurements jsonb;
+create index on reviews (observation_id, created_at);
+
+-- ---------- messaging agent ----------
+create table agent_conversations (
+  participant_id text primary key references participants (id) on delete cascade,
+  channel text not null default 'photon',
+  address text not null,                    -- phone number or handle the agent talks to
+  state jsonb not null,                     -- services/agent ConvState
+  last_prompted_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+create index on agent_conversations (address);
+
+alter table messages
+  add column scheduled_task_id text references scheduled_tasks (id) on delete set null,
+  add column submission_id text references submissions (id) on delete set null,
+  add column meta jsonb not null default '{}';
+create index on messages (participant_id, created_at);
+
+-- ---------- researcher toolkit ----------
+-- condition builder drafts; approving one creates a study (status 'draft') and protocol v1
+create table workflow_drafts (
+  id text primary key,
+  condition text not null,
+  draft jsonb not null,                     -- WorkflowDraft
+  source text not null check (source in ('claude', 'template')),
+  status text not null default 'draft' check (status in ('draft', 'approved', 'discarded')),
+  study_id text references studies (id) on delete set null,
+  created_by text not null,
+  approved_by text,
+  approved_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- "Generate with Droid": one row per request, updated from the GitHub Actions run
+create table droid_jobs (
+  id text primary key,
+  study_id text references studies (id) on delete set null,
+  module text not null,
+  request jsonb not null,
+  status text not null default 'requested' check (status in ('requested', 'dispatched', 'running', 'succeeded', 'failed')),
+  run_id bigint,
+  run_url text,
+  pr_url text,
+  error text,
+  created_by text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index on droid_jobs (created_at);
+
+create function touch_updated_at() returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+create trigger touch before update on agent_conversations for each row execute function touch_updated_at();
+create trigger touch before update on droid_jobs for each row execute function touch_updated_at();
+
+alter table agent_conversations enable row level security;
+alter table workflow_drafts enable row level security;
+alter table droid_jobs enable row level security;
+-- (no policies: server-only, through the service role)
+
+-- ---------- one capture, one transaction ----------
+-- The web app's ingest (lib/ingest.ts) decides everything (acceptance, rewards, the next
+-- check-in) and hands the result here, so a capture is recorded completely or not at all.
+-- Safe to repeat: every insert ignores rows that already exist, so a retried request can't
+-- duplicate points or reset a reviewed observation.
+create function record_capture(payload jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  s jsonb := payload -> 'submission';
+  o jsonb := payload -> 'observation';
+  t jsonb := payload -> 'scheduled_task';
+  n jsonb := payload -> 'next_task';
+  a jsonb := payload -> 'audit';
+  obs_inserted boolean := false;
+  task_updated boolean := false;
+  rewards_inserted int := 0;
+begin
+  if o is not null and o <> 'null'::jsonb then
+    insert into observations (id, study_id, participant_id, submission_id, module, task_label, captured_at, media_url,
+      quality, measurements, features, model_version, patient_report, context, review_status)
+    values (o->>'id', o->>'study_id', o->>'participant_id', o->>'submission_id', o->>'module', o->>'task_label',
+      (o->>'captured_at')::timestamptz, o->>'media_url', o->'quality', o->'measurements', coalesce(o->'features', '{}'),
+      o->>'model_version', coalesce(o->'patient_report', '{}'), coalesce(o->'context', '{}'), 'pending')
+    on conflict (id) do nothing;
+    obs_inserted := found;
+  end if;
+
+  insert into submissions (id, participant_id, study_id, task_id, scheduled_task_id, attempt, source, media_type, media_url,
+    analysis_runtime, quality, accepted, observation_id, escalated, created_at)
+  values (s->>'id', s->>'participant_id', s->>'study_id', s->>'task_id', s->>'scheduled_task_id', (s->>'attempt')::int,
+    s->>'source', s->>'media_type', s->>'media_url', s->>'analysis_runtime', s->'quality', (s->>'accepted')::boolean,
+    s->>'observation_id', (s->>'escalated')::boolean, (s->>'created_at')::timestamptz)
+  on conflict (id) do nothing;
+
+  insert into reward_events (id, participant_id, kind, points, reason, created_at)
+  select e->>'id', e->>'participant_id', e->>'kind', (e->>'points')::int, e->>'reason', (e->>'created_at')::timestamptz
+  from jsonb_array_elements(coalesce(payload -> 'reward_events', '[]')) e
+  on conflict (id) do nothing;
+  get diagnostics rewards_inserted = row_count;
+
+  if t is not null and t <> 'null'::jsonb then
+    update scheduled_tasks
+       set status = t->>'status', completed_at = coalesce((t->>'completed_at')::timestamptz, completed_at)
+     where id = t->>'id' and status in ('pending', 'prompted');
+    task_updated := found;
+  end if;
+
+  if n is not null and n <> 'null'::jsonb then
+    insert into scheduled_tasks (id, participant_id, task_id, due_at, window_hours, status)
+    values (coalesce(n->>'id', gen_random_uuid()::text), n->>'participant_id', n->>'task_id', (n->>'due_at')::timestamptz,
+      coalesce((n->>'window_hours')::int, 48), 'pending')
+    on conflict do nothing;
+  end if;
+
+  if a is not null and a <> 'null'::jsonb then
+    insert into audit_log (actor, action, entity, entity_id, detail)
+    values (a->>'actor', a->>'action', a->>'entity', a->>'entity_id', a->'detail');
+  end if;
+
+  return jsonb_build_object('observation_inserted', obs_inserted, 'scheduled_task_updated', task_updated, 'rewards_inserted', rewards_inserted);
+end $$;
+
+revoke all on function record_capture(jsonb) from public, anon, authenticated;
+grant execute on function record_capture(jsonb) to service_role;
+
+-- ---------- storage ----------
+-- Captures (photos, videos, poster frames) in one private bucket, under
+-- studies/<study>/<participant>/<yyyy-mm>/<uuid>.<ext>. Browsers only ever see signed URLs.
+update storage.buckets
+   set file_size_limit = 52428800,
+       allowed_mime_types = array['image/*', 'video/*']
+ where id = 'media';
+-- RLS on storage.objects is on by default; no policy grants anon or signed-in users access to
+-- 'media', so only the service role (server code) and signed URLs can read or write it.
+
 -- ===== seed.sql =====
--- Demo data for `supabase db reset`. All participants are synthetic.
--- The web app's built-in demo mode (apps/web/lib/demo-data.ts) generates 6 weeks of matching history.
+-- Core seed: the three demo studies, their protocols, 16 participants and each active participant's open check-in.
+-- Generated by apps/web/scripts/make-seed.ts from apps/web/lib/demo-data.ts. Do not edit by hand.
+-- All participants and data are synthetic.
+
 
 insert into studies (id, name, condition, status) values
   ('study_pd', 'PD-FOLLOW: post-trial motor follow-up', 'parkinsons', 'active'),
   ('study_ad', 'AD-SKIN: atopic dermatitis extension follow-up', 'eczema', 'active'),
-  ('study_tremor', 'PD-TREMOR: rest tremor home monitoring', 'parkinsons', 'active');
+  ('study_tremor', 'PD-TREMOR: rest tremor home monitoring', 'parkinsons', 'active')
+on conflict do nothing;
 
-insert into participants (id, study_id, display_name, phone, invite_code, status, consented_at, enrolled_at) values
-  ('p_001', 'study_pd', 'Participant 001', '+15550000001', 'PD-7Q2K', 'active', now() - interval '42 days', now() - interval '42 days'),
-  ('p_002', 'study_pd', 'Participant 002', '+15550000003', 'PD-9XMA', 'active', now() - interval '40 days', now() - interval '40 days'),
-  ('p_003', 'study_pd', 'Participant 003', '+15550000004', 'PD-4HBT', 'active', now() - interval '35 days', now() - interval '35 days'),
-  ('p_004', 'study_pd', 'Participant 004', null, 'PD-JOIN', 'invited', null, null),
-  ('p_101', 'study_ad', 'Participant 101', '+15550000002', 'AD-3LWE', 'active', now() - interval '42 days', now() - interval '42 days'),
-  ('p_102', 'study_ad', 'Participant 102', '+15550000005', 'AD-8RNV', 'active', now() - interval '38 days', now() - interval '38 days'),
-  ('p_103', 'study_ad', 'Participant 103', '+15550000006', 'AD-2PZC', 'paused', now() - interval '30 days', now() - interval '30 days'),
-  ('p_104', 'study_ad', 'Participant 104', null, 'AD-JOIN', 'invited', null, null),
-  ('p_201', 'study_tremor', 'Participant 201', '+15550000007', 'TR-6KDP', 'active', now() - interval '42 days', now() - interval '42 days'),
-  ('p_202', 'study_tremor', 'Participant 202', null, 'TR-JOIN', 'invited', null, null);
-
--- Protocol v1 per study (generated from packages/shared/src/catalog.ts).
 insert into protocols (study_id, version, config) values
-  ('study_pd', 1, '{"study_id": "study_pd", "version": 1, "approved_by": "Dr. A. Rivera", "tasks": [{"id": "pd_finger_tap_right", "module": "finger_tapping", "label": "Finger tapping: right hand", "media_type": "video", "cadence": "weekly", "instructions": "Time for your weekly finger-tapping check 👋 Prop your phone up so your whole right hand is in view, then tap your index finger and thumb together as fast and as wide as you can for 10 seconds. Send the video here.", "quality_criteria": {"blur": 20, "exposure_min": 60, "exposure_max": 220, "hand_visible": 0.8, "duration_s": 8, "fps": 20}, "report_questions": [{"key": "medication_state", "prompt": "Are you ON or OFF your medication right now?", "type": "choice", "options": ["ON", "OFF", "Not sure"]}, {"key": "hand", "prompt": "Which hand did you tap with?", "type": "choice", "options": ["Right", "Left"]}], "measurements": [{"name": "tap_rate_hz", "label": "Tap rate", "unit": "Hz", "validation_status": "reusable_needs_validation"}, {"name": "amplitude_norm", "label": "Amplitude", "unit": "× hand size", "validation_status": "reusable_needs_validation"}, {"name": "amplitude_decrement", "label": "Amplitude decrement", "unit": "%", "validation_status": "reusable_needs_validation"}, {"name": "rhythm_cv", "label": "Rhythm variability", "unit": "CV", "validation_status": "reusable_needs_validation"}]}], "rewards": {"base_points": 50, "on_time_bonus": 10, "streak_step": 0.1, "max_multiplier": 2, "tiers": [{"name": "Bronze", "points": 0, "payout_label": "Thank-you card"}, {"name": "Silver", "points": 300, "payout_label": "$10 gift card"}, {"name": "Gold", "points": 800, "payout_label": "$25 gift card"}, {"name": "Platinum", "points": 1500, "payout_label": "$50 gift card"}]}}'::jsonb),
-  ('study_ad', 1, '{"study_id": "study_ad", "version": 1, "approved_by": "Dr. M. Chen", "tasks": [{"id": "ad_photo_left_elbow", "module": "eczema_photo", "label": "Skin photo: left inner elbow", "media_type": "photo", "cadence": "twice_weekly", "instructions": "Skin check time 📸 Stand near a window (no flash), hold your phone about 30 cm (one forearm) from your left inner elbow, and take a straight-on photo with the whole patch in frame.", "quality_criteria": {"blur": 15, "exposure_min": 70, "exposure_max": 210, "skin_coverage": 0.25}, "report_questions": [{"key": "itch", "prompt": "How itchy has it been in the last 24h, 0 (none) to 10 (worst)?", "type": "scale"}, {"key": "treatment_used", "prompt": "Did you use your treatment today?", "type": "choice", "options": ["Yes", "No"]}], "measurements": [{"name": "erythema_index", "label": "Erythema index", "unit": "Δa*", "validation_status": "reusable_needs_validation"}, {"name": "affected_area_pct", "label": "Affected area", "unit": "% of skin", "validation_status": "reusable_needs_validation"}]}], "rewards": {"base_points": 50, "on_time_bonus": 10, "streak_step": 0.1, "max_multiplier": 2, "tiers": [{"name": "Bronze", "points": 0, "payout_label": "Thank-you card"}, {"name": "Silver", "points": 300, "payout_label": "$10 gift card"}, {"name": "Gold", "points": 800, "payout_label": "$25 gift card"}, {"name": "Platinum", "points": 1500, "payout_label": "$50 gift card"}]}}'::jsonb),
-  ('study_tremor', 1, '{"study_id":"study_tremor","version":1,"approved_by":"Dr. A. Rivera","tasks":[{"id":"pd_rest_tremor_right","module":"hand_tremor","label":"Rest tremor: right hand","media_type":"video","cadence":"weekly","instructions":"Weekly tremor check 🤚 Prop your phone up so it can''t move, rest your right forearm on a table with your hand relaxed and in view (wrist included), and keep it still for 15 seconds. Send the video here.","quality_criteria":{"blur":20,"exposure_min":60,"exposure_max":220,"hand_visible":0.8,"duration_s":8,"fps":24},"report_questions":[{"key":"medication_state","prompt":"Are you ON or OFF your medication right now?","type":"choice","options":["ON","OFF","Not sure"]},{"key":"tremor_today","prompt":"How much has tremor bothered you today, 0 (not at all) to 10 (very much)?","type":"scale"}],"measurements":[{"name":"tremor_amplitude","label":"Tremor amplitude","unit":"× hand size","validation_status":"reusable_needs_validation"},{"name":"tremor_freq_hz","label":"Tremor frequency","unit":"Hz","validation_status":"reusable_needs_validation"},{"name":"tremor_power_ratio","label":"Tremor share of movement","unit":"fraction","validation_status":"reusable_needs_validation"}]}],"rewards":{"base_points":50,"on_time_bonus":10,"streak_step":0.1,"max_multiplier":2,"tiers":[{"name":"Bronze","points":0,"payout_label":"Thank-you card"},{"name":"Silver","points":300,"payout_label":"$10 gift card"},{"name":"Gold","points":800,"payout_label":"$25 gift card"},{"name":"Platinum","points":1500,"payout_label":"$50 gift card"}]}}'::jsonb);
+  ('study_pd', 1, '{"study_id":"study_pd","version":1,"approved_by":"Dr. A. Rivera","tasks":[{"id":"pd_finger_tap_right","module":"finger_tapping","label":"Finger tapping: right hand","media_type":"video","cadence":"weekly","instructions":"Time for your weekly finger-tapping check 👋 Prop your phone up so your whole right hand is in view, then tap your index finger and thumb together as fast and as wide as you can for 10 seconds. Send the video here.","quality_criteria":{"blur":20,"exposure_min":60,"exposure_max":220,"hand_visible":0.8,"duration_s":8,"fps":20},"report_questions":[{"key":"medication_state","prompt":"Are you ON or OFF your medication right now?","type":"choice","options":["ON","OFF","Not sure"]},{"key":"hand","prompt":"Which hand did you tap with?","type":"choice","options":["Right","Left"]}],"measurements":[{"name":"tap_rate_hz","label":"Tap rate","unit":"Hz","validation_status":"reusable_needs_validation"},{"name":"amplitude_norm","label":"Amplitude","unit":"× hand size","validation_status":"reusable_needs_validation"},{"name":"amplitude_decrement","label":"Amplitude decrement","unit":"%","validation_status":"reusable_needs_validation"},{"name":"rhythm_cv","label":"Rhythm variability","unit":"CV","validation_status":"reusable_needs_validation"}]}],"rewards":{"base_points":50,"on_time_bonus":10,"streak_step":0.1,"max_multiplier":2,"tiers":[{"name":"Bronze","points":0,"payout_label":"Thank-you card"},{"name":"Silver","points":300,"payout_label":"$10 gift card"},{"name":"Gold","points":800,"payout_label":"$25 gift card"},{"name":"Platinum","points":1500,"payout_label":"$50 gift card"}]},"consent":{"title":"PD-FOLLOW remote motor check-ins","body":"You are being invited to take part in remote follow-up for this study.\n\nWhat you will do\n- Complete short photo or video check-ins from your phone when we remind you.\n- Answer a few questions about how you are feeling or whether you took your medication.\n- You can reply by text or upload from a link we send you.\n\nWhat happens to your data\n- Your phone or our analysis software checks each capture for quality (for example blur or lighting) and then measures it.\n- A clinician on your study team reviews every result before it enters the study record.\n- Only your study team can see your submissions.\n\nYour choice\n- Taking part is voluntary. You can stop at any time by texting STOP or telling your study coordinator.\n- This complements, and does not replace, the visits and tests in your study protocol.\n- Measurements in this prototype are experimental and not a clinical diagnosis."},"reminders":[{"id":"meds_daily","kind":"adherence","every_hours":24,"message":"Did you take your pills today? Reply YES or NO.","task_id":null},{"id":"upload_pd_finger_tap_right","kind":"capture","every_hours":168,"message":"Time to upload your finger tapping: right hand check-in. Send the video here, or open the link from your study team.","task_id":"pd_finger_tap_right"}]}'::jsonb),
+  ('study_ad', 1, '{"study_id":"study_ad","version":1,"approved_by":"Dr. M. Chen","tasks":[{"id":"ad_photo_left_elbow","module":"eczema_photo","label":"Skin photo: left inner elbow","media_type":"photo","cadence":"twice_weekly","instructions":"Skin check time 📸 Stand near a window (no flash), hold your phone about 30 cm (one forearm) from your left inner elbow, and take a straight-on photo with the whole patch in frame.","quality_criteria":{"blur":15,"exposure_min":70,"exposure_max":210,"skin_coverage":0.25},"report_questions":[{"key":"itch","prompt":"How itchy has it been in the last 24h, 0 (none) to 10 (worst)?","type":"scale"},{"key":"treatment_used","prompt":"Did you use your treatment today?","type":"choice","options":["Yes","No"]}],"measurements":[{"name":"erythema_index","label":"Erythema index","unit":"Δa*","validation_status":"reusable_needs_validation"},{"name":"affected_area_pct","label":"Affected area","unit":"% of skin","validation_status":"reusable_needs_validation"}]}],"rewards":{"base_points":50,"on_time_bonus":10,"streak_step":0.1,"max_multiplier":2,"tiers":[{"name":"Bronze","points":0,"payout_label":"Thank-you card"},{"name":"Silver","points":300,"payout_label":"$10 gift card"},{"name":"Gold","points":800,"payout_label":"$25 gift card"},{"name":"Platinum","points":1500,"payout_label":"$50 gift card"}]},"consent":{"title":"AD-SKIN remote photo check-ins","body":"You are being invited to take part in remote follow-up for this study.\n\nWhat you will do\n- Complete short photo or video check-ins from your phone when we remind you.\n- Answer a few questions about how you are feeling or whether you took your medication.\n- You can reply by text or upload from a link we send you.\n\nWhat happens to your data\n- Your phone or our analysis software checks each capture for quality (for example blur or lighting) and then measures it.\n- A clinician on your study team reviews every result before it enters the study record.\n- Only your study team can see your submissions.\n\nYour choice\n- Taking part is voluntary. You can stop at any time by texting STOP or telling your study coordinator.\n- This complements, and does not replace, the visits and tests in your study protocol.\n- Measurements in this prototype are experimental and not a clinical diagnosis."},"reminders":[{"id":"upload_ad_photo_left_elbow","kind":"capture","every_hours":72,"message":"Time to upload your skin photo: left inner elbow check-in. Send the photo here, or open the link from your study team.","task_id":"ad_photo_left_elbow"}]}'::jsonb),
+  ('study_tremor', 1, '{"study_id":"study_tremor","version":1,"approved_by":"Dr. A. Rivera","tasks":[{"id":"pd_rest_tremor_right","module":"hand_tremor","label":"Rest tremor: right hand","media_type":"video","cadence":"weekly","instructions":"Weekly tremor check 🤚 Prop your phone up so it can''t move, rest your right forearm on a table with your hand relaxed and in view (wrist included), and keep it still for 15 seconds. Send the video here.","quality_criteria":{"blur":20,"exposure_min":60,"exposure_max":220,"hand_visible":0.8,"duration_s":8,"fps":24},"report_questions":[{"key":"medication_state","prompt":"Are you ON or OFF your medication right now?","type":"choice","options":["ON","OFF","Not sure"]},{"key":"tremor_today","prompt":"How much has tremor bothered you today, 0 (not at all) to 10 (very much)?","type":"scale"}],"measurements":[{"name":"tremor_amplitude","label":"Tremor amplitude","unit":"× hand size","validation_status":"reusable_needs_validation"},{"name":"tremor_freq_hz","label":"Tremor frequency","unit":"Hz","validation_status":"reusable_needs_validation"},{"name":"tremor_power_ratio","label":"Tremor share of movement","unit":"fraction","validation_status":"reusable_needs_validation"}]}],"rewards":{"base_points":50,"on_time_bonus":10,"streak_step":0.1,"max_multiplier":2,"tiers":[{"name":"Bronze","points":0,"payout_label":"Thank-you card"},{"name":"Silver","points":300,"payout_label":"$10 gift card"},{"name":"Gold","points":800,"payout_label":"$25 gift card"},{"name":"Platinum","points":1500,"payout_label":"$50 gift card"}]},"consent":{"title":"PD-TREMOR remote tremor check-ins","body":"You are being invited to take part in remote follow-up for this study.\n\nWhat you will do\n- Complete short photo or video check-ins from your phone when we remind you.\n- Answer a few questions about how you are feeling or whether you took your medication.\n- You can reply by text or upload from a link we send you.\n\nWhat happens to your data\n- Your phone or our analysis software checks each capture for quality (for example blur or lighting) and then measures it.\n- A clinician on your study team reviews every result before it enters the study record.\n- Only your study team can see your submissions.\n\nYour choice\n- Taking part is voluntary. You can stop at any time by texting STOP or telling your study coordinator.\n- This complements, and does not replace, the visits and tests in your study protocol.\n- Measurements in this prototype are experimental and not a clinical diagnosis."},"reminders":[{"id":"meds_daily","kind":"adherence","every_hours":24,"message":"Did you take your pills today? Reply YES or NO.","task_id":null},{"id":"upload_pd_rest_tremor_right","kind":"capture","every_hours":168,"message":"Time to upload your rest tremor: right hand check-in. Send the video here, or open the link from your study team.","task_id":"pd_rest_tremor_right"}]}'::jsonb)
+on conflict do nothing;
 
--- One open check-in per active participant, due now, so the first usable capture earns points.
--- The messaging agent's scheduler creates later ones from each task's cadence.
-insert into scheduled_tasks (participant_id, task_id, due_at, window_hours, status)
-select p.id, case p.study_id when 'study_pd' then 'pd_finger_tap_right' when 'study_tremor' then 'pd_rest_tremor_right' else 'ad_photo_left_elbow' end, now(), 48, 'pending'
-from participants p where p.status = 'active';
+insert into participants (id, study_id, display_name, phone, invite_code, status, preferred_time, consented_at, enrolled_at) values
+  ('p_001', 'study_pd', 'Participant 001', '+15550000001', 'PD-001X', 'active', '18:00', now() - interval '42 days', now() - interval '42 days'),
+  ('p_002', 'study_pd', 'Participant 002', '+15550000004', 'PD-002X', 'active', '18:00', now() - interval '42 days', now() - interval '42 days'),
+  ('p_003', 'study_pd', 'Participant 003', '+15550000005', 'PD-003X', 'active', '18:00', now() - interval '35 days', now() - interval '35 days'),
+  ('p_004', 'study_pd', 'Participant 004', '+15550000006', 'PD-004X', 'active', '18:00', now() - interval '28 days', now() - interval '28 days'),
+  ('p_005', 'study_pd', 'Participant 005', '+15550000007', 'PD-005X', 'paused', '18:00', now() - interval '42 days', now() - interval '42 days'),
+  ('p_006', 'study_pd', 'Participant 006', null, 'PD-006J', 'invited', null, null, null),
+  ('p_101', 'study_ad', 'Participant 101', '+15550000002', 'AD-101X', 'active', '18:00', now() - interval '42 days', now() - interval '42 days'),
+  ('p_102', 'study_ad', 'Participant 102', '+15550000010', 'AD-102X', 'active', '18:00', now() - interval '42 days', now() - interval '42 days'),
+  ('p_103', 'study_ad', 'Participant 103', '+15550000011', 'AD-103X', 'active', '18:00', now() - interval '30 days', now() - interval '30 days'),
+  ('p_104', 'study_ad', 'Participant 104', '+15550000012', 'AD-104X', 'active', '18:00', now() - interval '21 days', now() - interval '21 days'),
+  ('p_105', 'study_ad', 'Participant 105', '+15550000013', 'AD-105X', 'withdrawn', '18:00', now() - interval '40 days', now() - interval '40 days'),
+  ('p_106', 'study_ad', 'Participant 106', null, 'AD-106J', 'invited', null, null, null),
+  ('p_201', 'study_tremor', 'Participant 201', '+15550000015', 'TR-201X', 'active', '18:00', now() - interval '42 days', now() - interval '42 days'),
+  ('p_202', 'study_tremor', 'Participant 202', '+15550000016', 'TR-202X', 'active', '18:00', now() - interval '35 days', now() - interval '35 days'),
+  ('p_203', 'study_tremor', 'Participant 203', '+15550000017', 'TR-203X', 'active', '18:00', now() - interval '28 days', now() - interval '28 days'),
+  ('p_204', 'study_tremor', 'Participant 204', null, 'TR-204J', 'invited', null, null, null)
+on conflict do nothing;
+
+-- one open check-in per active participant, due now, so the first usable capture earns points
+
+insert into scheduled_tasks (id, participant_id, task_id, due_at, window_hours, status, completed_at) values
+  ('st_p_001_6', 'p_001', 'pd_finger_tap_right', now(), 48, 'pending', null),
+  ('st_p_002_6', 'p_002', 'pd_finger_tap_right', now(), 48, 'pending', null),
+  ('st_p_003_5', 'p_003', 'pd_finger_tap_right', now(), 48, 'pending', null),
+  ('st_p_004_4', 'p_004', 'pd_finger_tap_right', now(), 48, 'pending', null),
+  ('st_p_101_14', 'p_101', 'ad_photo_left_elbow', now(), 48, 'pending', null),
+  ('st_p_102_14', 'p_102', 'ad_photo_left_elbow', now(), 48, 'pending', null),
+  ('st_p_103_10', 'p_103', 'ad_photo_left_elbow', now(), 48, 'pending', null),
+  ('st_p_104_7', 'p_104', 'ad_photo_left_elbow', now(), 48, 'pending', null),
+  ('st_p_201_6', 'p_201', 'pd_rest_tremor_right', now(), 48, 'pending', null),
+  ('st_p_202_5', 'p_202', 'pd_rest_tremor_right', now(), 48, 'pending', null),
+  ('st_p_203_4', 'p_203', 'pd_rest_tremor_right', now(), 48, 'pending', null)
+on conflict do nothing;

@@ -6,8 +6,6 @@ import { backend } from "@/lib/backend";
 import { RESEARCHER_NAME } from "@/lib/session";
 import type { Condition, Study } from "@/lib/types";
 
-const CADENCE_HOURS: Record<Cadence, number> = { daily: 24, twice_weekly: 72, weekly: 168, biweekly: 336 };
-
 export interface CreateStudyInput {
   name: string;
   condition: Condition;
@@ -68,5 +66,3 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
   revalidatePath("/researcher/studies");
   return { ok: true, id };
 }
-
-export { CADENCE_HOURS };

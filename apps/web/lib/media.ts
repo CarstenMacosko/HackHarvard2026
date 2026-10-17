@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { storageClient } from "./backend";
+import { MEDIA_BUCKET, storageClient } from "./backend";
 
 /**
  * Participant media. With Supabase configured, files go to the private `media` bucket and are
@@ -8,7 +8,7 @@ import { storageClient } from "./backend";
  * which is enough for a live demo but not durable.
  */
 
-const BUCKET = "media";
+const BUCKET = MEDIA_BUCKET;
 const MEM_LIMIT_BYTES = 150 * 1024 * 1024;
 
 interface MemEntry {
@@ -21,15 +21,28 @@ const mem = (g.__vfMedia ??= new Map());
 export const MEDIA_PREFIX_MEM = "/api/media/mem/";
 export const MEDIA_PREFIX_STORAGE = "/api/media/s/";
 
-function storagePath(ext: string): string {
-  const month = new Date().toISOString().slice(0, 7);
-  return `uploads/${month}/${randomUUID()}.${ext.replace(/[^a-z0-9]/gi, "").slice(0, 5) || "bin"}`;
+/** Whose capture a file is: objects live under studies/<study>/<participant>/ (services/agent uses the same layout). */
+export interface MediaOwner {
+  id: string;
+  study_id: string;
 }
 
-export async function saveMedia(bytes: Uint8Array, contentType: string, ext: string): Promise<string> {
+const safe = (s: string) => s.replace(/[^\w-]/g, "_");
+
+function storagePath(owner: MediaOwner, ext: string): string {
+  const month = new Date().toISOString().slice(0, 7);
+  return `studies/${safe(owner.study_id)}/${safe(owner.id)}/${month}/${randomUUID()}.${ext.replace(/[^a-z0-9]/gi, "").slice(0, 5) || "bin"}`;
+}
+
+/** A path a browser sent back after a signed upload: it must be this participant's own capture. */
+export function isOwnMediaPath(path: string, owner: MediaOwner): boolean {
+  return path.startsWith(`studies/${safe(owner.study_id)}/${safe(owner.id)}/`) && /^[\w\-./]+$/.test(path) && !path.includes("..");
+}
+
+export async function saveMedia(bytes: Uint8Array, contentType: string, ext: string, owner: MediaOwner): Promise<string> {
   const sb = storageClient();
   if (sb) {
-    const path = storagePath(ext);
+    const path = storagePath(owner, ext);
     const { error } = await sb.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false });
     if (error) throw new Error(`media upload failed: ${error.message}`);
     return MEDIA_PREFIX_STORAGE + path;
@@ -50,10 +63,10 @@ export function readMemMedia(id: string): MemEntry | undefined {
 }
 
 /** Direct-to-storage upload target for files too large to pass through a serverless function. */
-export async function createUploadTarget(ext: string): Promise<{ path: string; token: string; mediaUrl: string } | null> {
+export async function createUploadTarget(ext: string, owner: MediaOwner): Promise<{ path: string; token: string; mediaUrl: string } | null> {
   const sb = storageClient();
   if (!sb) return null;
-  const path = storagePath(ext);
+  const path = storagePath(owner, ext);
   const { data, error } = await sb.storage.from(BUCKET).createSignedUploadUrl(path);
   if (error || !data) throw new Error(`could not create upload URL: ${error?.message}`);
   return { path, token: data.token, mediaUrl: MEDIA_PREFIX_STORAGE + path };

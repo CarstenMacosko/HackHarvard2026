@@ -25,6 +25,7 @@ export const CONDITION_LABEL: Record<string, string> = {
   other: "Other",
 };
 
+/** Studies created in the builder or the New study form can name any condition; show it as written. */
 export const conditionLabel = (condition: string) => CONDITION_LABEL[condition] ?? condition;
 
 export const studyShortName = (name: string) => name.split(":")[0];

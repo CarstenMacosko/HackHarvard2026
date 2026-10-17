@@ -1,7 +1,8 @@
 import "server-only";
-import { badgesEarned, balance, computeStreak, lifetimePoints, tierFor, type Observation, type RewardEvent } from "@vf/shared";
+import { badgesEarned, balance, computeStreak, lifetimePoints, tierFor, type Observation, isOpen, type RewardEvent } from "@vf/shared";
 import { PRETRAINED } from "@vf/shared/pretrained";
 import { backend } from "./backend";
+import { ensureSchedule } from "./schedule";
 import type { Participant, ParticipantSummary, ScheduledTask, Study, StudySummary, Submission } from "./types";
 
 /** Read models for pages. All derived numbers are computed here from raw rows. */
@@ -9,7 +10,7 @@ import type { Participant, ParticipantSummary, ScheduledTask, Study, StudySummar
 const DAY = 86_400_000;
 
 function completion(tasks: ScheduledTask[]): number {
-  const due = tasks.filter((t) => t.status !== "pending");
+  const due = tasks.filter((t) => !isOpen(t));
   return due.length ? due.filter((t) => t.status === "completed").length / due.length : 0;
 }
 
@@ -36,7 +37,7 @@ function weeklyAdherence(tasks: ScheduledTask[], weeks = 6) {
     const start = end - 7 * DAY;
     const due = tasks.filter((t) => {
       const d = new Date(t.due_at).getTime();
-      return d >= start && d < end && t.status !== "pending";
+      return d >= start && d < end && !isOpen(t);
     });
     return {
       week: new Date(end).toISOString(),
@@ -113,7 +114,7 @@ export async function overview() {
       const reasons: string[] = [];
       if (p.escalations) reasons.push(`${p.escalations} escalated check-in${p.escalations > 1 ? "s" : ""}`);
       if (p.completion_rate < 0.75) reasons.push(`completion ${Math.round(p.completion_rate * 100)}%`);
-      const lastDue = tasks.filter((t) => t.participant_id === p.id && t.status !== "pending").sort((a, b) => b.due_at.localeCompare(a.due_at))[0];
+      const lastDue = tasks.filter((t) => t.participant_id === p.id && !isOpen(t)).sort((a, b) => b.due_at.localeCompare(a.due_at))[0];
       if (lastDue && lastDue.status !== "completed") reasons.push("missed the latest check-in");
       return { participant: p, reasons };
     })
@@ -208,6 +209,9 @@ export async function submissionsInbox(f: { studyId?: string; result?: string } 
 }
 
 export async function participantHome(id: string) {
+  // the portal is where a participant sees what's due, so bring their check-ins up to date first
+  const [p] = await backend().participants({ id });
+  if (p) await ensureSchedule(p);
   const detail = await getParticipantDetail(id);
   if (!detail) return undefined;
   const { participant, study, observations, tasks, submissions, rewards: events } = detail;
@@ -217,9 +221,9 @@ export async function participantHome(id: string) {
   const now = Date.now();
   const openTask =
     tasks
-      .filter((t) => t.status === "pending" && new Date(t.due_at).getTime() - DAY <= now && now <= new Date(t.due_at).getTime() + t.window_hours * 3_600_000)
+      .filter((t) => isOpen(t) && new Date(t.due_at).getTime() - DAY <= now && now <= new Date(t.due_at).getTime() + t.window_hours * 3_600_000)
       .sort((a, b) => a.due_at.localeCompare(b.due_at))[0] ?? null;
-  const nextTask = openTask ?? tasks.filter((t) => t.status === "pending").sort((a, b) => a.due_at.localeCompare(b.due_at))[0] ?? null;
+  const nextTask = openTask ?? tasks.filter((t) => isOpen(t)).sort((a, b) => a.due_at.localeCompare(b.due_at))[0] ?? null;
   return {
     participant,
     study,
