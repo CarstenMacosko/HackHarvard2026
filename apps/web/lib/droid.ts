@@ -50,7 +50,8 @@ export function ghCommand(req: DroidRequest): string {
 async function gh(path: string, init: RequestInit = {}) {
   const cfg = githubConfig();
   if (!cfg) throw new Error("GitHub is not configured");
-  const res = await fetch(`https://api.github.com/repos/${cfg.repo}${path}`, {
+  const api = process.env.GITHUB_API_URL || "https://api.github.com"; // GitHub Enterprise, or a test double
+  const res = await fetch(`${api}/repos/${cfg.repo}${path}`, {
     ...init,
     headers: {
       accept: "application/vnd.github+json",
