@@ -17,7 +17,7 @@ The Next.js web app contains both frontend screens and backend APIs. Browser CV 
 | supabase/ | Database migrations/seed | Schema/policies/demo records |
 | training/ | Offline training/evaluation | Specs, metrics, model cards |
 | adroit/ | Optional batch training | Dataset/cluster jobs |
-| .github/ | CI/model generation | Tests/Droid workflows |
+| .github/ | CI | Tests |
 
 Use these existing boundaries rather than moving code into generic frontend/backend folders.
 

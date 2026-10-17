@@ -15,7 +15,7 @@ This takes about 5 minutes and gives the team a shareable URL for both the resea
    - **Environment Variables:** none required. Optional:
      - `ANTHROPIC_API_KEY`: the workflow builder drafts with Claude instead of the offline template.
      - `CV_CALLBACK_SECRET`: shared secret the messaging agent sends to `/api/cv-callback`.
-     - `GITHUB_TOKEN` + `GITHUB_REPOSITORY`: lets **Generate with Droid** start the model-building workflow ([`DROID.md`](DROID.md)). The Factory API key is *not* a Vercel variable; it lives only in the GitHub secret.
+     - `FACTORY_API_KEY` + `DAYTONA_API_KEY` (optional): live Droid + Daytona module generation on Vercel ([`MODULE_GENERATION.md`](MODULE_GENERATION.md)). Without them, generation still runs in demo mode and writes to the database.
 4. Click **Deploy**.
 
 ### Which branch gets deployed

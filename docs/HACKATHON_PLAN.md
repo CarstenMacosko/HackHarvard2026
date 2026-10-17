@@ -22,7 +22,7 @@ The original role split and timeline below remain planning context. Recommendati
 - Training kit (`training/`): study spec → trained, evaluated model with a model card. Five models are shipped: three from SCIN dermatology photos, two from synthetic movement data.
 - Image embeddings on every accepted photo, on-device and on the server.
 - Skin-photo quality gate calibrated against dermatologists' gradability labels.
-- **Droid**: Workflow builder → *Generate with Droid* → GitHub Actions runs Factory Droid with the kit → draft PR. Setup is in `docs/DROID.md`; the `FACTORY_API_KEY` secret is still needed.
+- **Droid**: `/researcher/generate` or builder → *Generate with Droid* → Factory Droid + Daytona in-process → model saved to `cv_models`. Setup: `docs/MODULE_GENERATION.md`.
 
 | Person | Area (files) | Next steps |
 |---|---|---|
@@ -112,7 +112,7 @@ Adding a condition means writing a subclass, decorating it with `@register` and 
 3. **Researcher portal.** The new observation appears in the review queue. The clinician opens it to see the measurements ± uncertainty, the quality checks that passed, the patient report and the model version, then accepts it. The participant timeline shows tap rate over 6 weeks, with OFF-medication points marked. Clicking a point opens its source submission.
 4. **Eczema.** The same loop with a skin photo: erythema and affected area trending down with treatment, plotted alongside itch scores.
 5. **Workflow builder.** Enter *"Psoriasis: track plaque redness and scaling on elbows and knees weekly."* Claude drafts the capture instructions, quality criteria and schedule. Erythema is tagged *reusable, needs validation*; scaling is tagged *needs a new model*, along with a validation plan.
-6. **Droid.** Click *Generate with Droid* next to "Scaling". In the Model registry, the Droid job appears and then a draft pull request with the trained model and its model card, including the per-skin-type table. Merge it, and the model shows up in the registry and runs on the next photo.
+6. **Droid.** Open *Generate module* (or *Generate with Droid* in the builder). Watch Daytona’s experiment grid; when ready, approve — the model appears in the registry (`cv_models`) and can run on the next capture.
 
 ## Reward system (simulated, no real money)
 

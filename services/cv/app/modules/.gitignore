@@ -1,0 +1,3 @@
+# Droid+Daytona approved modules (written at approve time; keep out of git by default)
+gen_*.py
+gen_*.meta.json

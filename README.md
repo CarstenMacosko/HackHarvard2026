@@ -5,7 +5,7 @@ Remote, clinician-verified visual follow-up for longitudinal studies. Built at H
 Participants complete short photo and video check-ins from home **by upload** in the participant portal. The messaging-agent conversation flow is implemented with a local dev adapter; the Photon adapter for live texting is still unfinished.
 - Modular computer vision checks each capture **on the participant's device** and gives specific retake instructions when it isn't usable.
 - Usable captures are measured, and every result is accepted, corrected or rejected by a clinician on a longitudinal timeline that traces each point back to its source media.
-- Researchers can **train and plug in their own measurement models** from labelled captures in the browser, or ask **Factory Droid** to build one for a new study. Droid writes the study spec (or a new CV module), trains and evaluates it on public data with the training kit, and opens a pull request with a model card.
+- Researchers can **train and plug in their own measurement models** from labelled captures in the browser, or ask **Factory Droid + Daytona** to generate a new CV module. The result is saved to the model registry in the database for review and approval.
 - A simulated reward system is designed to encourage participation; its effect on retention has not been measured.
 
 The three built-in modules are:
@@ -21,6 +21,7 @@ Five study models are trained and shipped:
 - 🧠 Next steps toward a generalized CV model: [`docs/GENERALIZED_CV.md`](docs/GENERALIZED_CV.md)
 - 🚀 Deploying to Vercel: [`docs/DEPLOY.md`](docs/DEPLOY.md)
 - 🤖 Droid model generation (setup + flow): [`docs/DROID.md`](docs/DROID.md)
+- 🧪 Droid + Daytona live module generation: [`docs/MODULE_GENERATION.md`](docs/MODULE_GENERATION.md) · `/researcher/generate`
 - 🏋️ Training kit, datasets and model cards: [`training/README.md`](training/README.md), [`training/DATASETS.md`](training/DATASETS.md)
 - 🔬 Background research: [`idea research/`](idea%20research/)
 
@@ -41,9 +42,10 @@ Current boundaries: identities use demo placeholders; hosted persistence and ser
 - **Model registry:**
   - built-in modules with their on-device and server status;
   - every trained model with its training data, label type, out-of-fold metrics and worst skin-type subgroup, plus a page per model with its model card;
-  - **Droid jobs**: runs and the pull requests they opened.
+  - **Droid jobs**: in-process generation runs (progress + Daytona experiments) stored in the database.
+- **Generate module:** `/researcher/generate` — Droid drafts an analyzer, Daytona sweeps parameters, result lands in `cv_models`.
 - **Train a model:** fit a ridge-regression head on a module's feature vector from labelled photos or videos (a synthetic demo dataset is built in). See the cross-validated error against a baseline, register the model, and it runs on every new capture.
-- **Workflow builder:** drafts a protocol for a new condition from catalog components (Claude, with an offline fallback). Next to each measurement that needs a new model, **Generate with Droid** starts the model build in GitHub Actions.
+- **Workflow builder:** drafts a protocol for a new condition from catalog components (Claude, with an offline fallback). Next to each measurement that needs a new model, **Generate with Droid** starts in-process generation.
 - **Audit log** and **System status.**
 
 **Participant portal** (`/participant`), mobile-first with a desktop sidebar:
@@ -68,8 +70,8 @@ services/agent/      Messaging agent: conversation state machine, Photon 2.0 + d
 training/            Training kit: study specs → trained, evaluated models with model cards (SCIN, synthetic, any folder)
 supabase/            Postgres schema (RLS) + migrations + synthetic seed
 adroit/              Princeton Adroit: dataset download + Slurm training jobs
-.github/             CI, and the Droid workflow + playbook that generates study models
-docs/                Plan, deploy guide, Droid setup, generalized-CV roadmap
+.github/             CI
+docs/                Plan, deploy guide, Droid+Daytona generation, generalized-CV roadmap
 ```
 
 ## How a capture flows
@@ -166,7 +168,7 @@ The on-device port in `packages/cv` reproduces OpenCV's integer colour conversio
 2. If it should run on-device, port it to `packages/cv/src/`, add cases to `app/parity.py`, and run `python scripts/export_parity_fixtures.py`.
 3. Add a `TaskConfig` (instructions, quality criteria, report questions, measurements) to the study protocol, and add any reusable components to `packages/shared/src/catalog.ts` so the workflow builder can propose them.
 4. Or skip the code: train a head on an existing module's features in **Train a model**, or write a study spec for the training kit.
-5. Or ask Droid: **Workflow builder → Generate with Droid** does steps 1–4 in GitHub Actions and opens a pull request ([`docs/DROID.md`](docs/DROID.md)).
+5. Or ask Droid: **Generate module** / **Workflow builder → Generate with Droid** runs Factory Droid + Daytona and saves the model to the database ([`docs/MODULE_GENERATION.md`](docs/MODULE_GENERATION.md)).
 
 ## Disclaimer
 
