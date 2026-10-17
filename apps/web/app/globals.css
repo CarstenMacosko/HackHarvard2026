@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9eaff;
+  --color-brand-500: #2f6fde;
+  --color-brand-600: #2459bb;
+  --color-brand-700: #1d4791;
+  --color-ink: #0f172a;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  @apply bg-slate-50 text-ink antialiased;
+}
