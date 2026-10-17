@@ -1,7 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { backend } from "@/lib/backend";
+import { ConflictError, backend } from "@/lib/backend";
+import { ensureSchedule } from "@/lib/schedule";
 import { PARTICIPANT_COOKIE } from "@/lib/session";
 
 export type LookupResult = { ok: true; studyName: string; taskLabel: string; instructions: string; mediaType: string } | { ok: false; error: string };
@@ -24,9 +25,17 @@ export async function enroll(input: { code: string; phone: string; preferredTime
   const db = backend();
   const [p] = await db.participants({ inviteCode: input.code.trim() });
   if (!p || p.status !== "invited") return { ok: false, error: "Invitation not found or already used." };
-  // TODO(B): create a Supabase Auth user (phone OTP) and set participants.user_id + consented_at.
-  await db.updateParticipant(p.id, { status: "active", phone, preferred_time: input.preferredTime, enrolled_at: new Date().toISOString() });
-  await db.insertAudit({ actor: p.id, action: "participant.enrolled", entity: "participant", entity_id: p.id, detail: { consent: true } });
+  const at = new Date().toISOString();
+  const patch = { status: "active" as const, phone, preferred_time: input.preferredTime, enrolled_at: at, consented_at: at };
+  try {
+    await db.updateParticipant(p.id, patch);
+  } catch (e) {
+    if (e instanceof ConflictError) return { ok: false, error: "That mobile number is already enrolled. Use another number or contact your study coordinator." };
+    throw e;
+  }
+  // their first check-in is due now, so the first usable capture earns points
+  await ensureSchedule({ ...p, ...patch });
+  await db.insertAudit({ actor: p.id, action: "participant.enrolled", entity: "participant", entity_id: p.id, detail: { consent: true, consented_at: at } });
   (await cookies()).set(PARTICIPANT_COOKIE, p.id, { path: "/", httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 90 });
   return { ok: true };
 }
