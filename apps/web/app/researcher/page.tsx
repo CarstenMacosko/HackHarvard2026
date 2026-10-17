@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AdherenceChart } from "@/components/charts";
 import { FunnelBars } from "@/components/funnel";
 import { Badge, ButtonLink, Card, CardBody, CardHeader, EmptyState, PageHeader, Stat, Table, Td, Th, THead, Tr } from "@/components/ui";
-import { CHECK_LABEL, CONDITION_LABEL, pct, relTime } from "@/lib/format";
+import { CHECK_LABEL, conditionLabel, pct, relTime } from "@/lib/format";
 import { overview } from "@/lib/queries";
 
 export const metadata = { title: "Overview" };
@@ -87,7 +87,7 @@ export default async function OverviewPage() {
                       {s.name}
                     </Link>
                   </Td>
-                  <Td className="text-slate-600">{CONDITION_LABEL[s.condition]}</Td>
+                  <Td className="text-slate-600">{conditionLabel(s.condition)}</Td>
                   <Td className="tabular text-right">
                     {s.active}/{s.participants}
                   </Td>

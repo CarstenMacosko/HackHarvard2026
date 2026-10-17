@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Badge, Card, PageHeader, Table, Td, Th, THead, Tr } from "@/components/ui";
-import { CONDITION_LABEL, pct } from "@/lib/format";
+import { Badge, ButtonLink, Card, PageHeader, Table, Td, Th, THead, Tr } from "@/components/ui";
+import { conditionLabel, pct } from "@/lib/format";
 import { listStudies } from "@/lib/queries";
 
 export const metadata = { title: "Studies" };
@@ -12,6 +12,7 @@ export default async function StudiesPage() {
       <PageHeader
         title="Studies"
         description="Each study runs a versioned protocol: which CV module, the capture instructions, the quality gate and the reward rules."
+        actions={<ButtonLink href="/researcher/studies/new">New study</ButtonLink>}
       />
       <Card>
         <Table>
@@ -34,7 +35,7 @@ export default async function StudiesPage() {
                   </Link>
                   <div className="text-xs text-slate-400">{s.id}</div>
                 </Td>
-                <Td className="text-slate-600">{CONDITION_LABEL[s.condition]}</Td>
+                <Td className="text-slate-600">{conditionLabel(s.condition)}</Td>
                 <Td className="text-slate-600">
                   v{s.protocol.version} · {s.protocol.approved_by}
                 </Td>

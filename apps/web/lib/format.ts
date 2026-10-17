@@ -19,7 +19,13 @@ export const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-U
 export const dateTime = (iso: string) =>
   new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-export const CONDITION_LABEL = { parkinsons: "Parkinson's disease", eczema: "Atopic dermatitis" } as const;
+export const CONDITION_LABEL: Record<string, string> = {
+  parkinsons: "Parkinson's disease",
+  eczema: "Atopic dermatitis",
+  other: "Other",
+};
+
+export const conditionLabel = (condition: string) => CONDITION_LABEL[condition] ?? condition;
 
 export const studyShortName = (name: string) => name.split(":")[0];
 

@@ -1,4 +1,4 @@
-import type { TaskConfig, ValidationStatus } from "./schemas";
+import type { ConsentForm, ReminderConfig, TaskConfig, ValidationStatus } from "./schemas";
 
 /**
  * Reusable CV components the workflow builder can compose. Mirrors the registry exposed by
@@ -98,3 +98,49 @@ export const ECZEMA_TASK: TaskConfig = {
     { name: "affected_area_pct", label: "Affected area", unit: "% of skin", validation_status: "reusable_needs_validation" },
   ],
 };
+
+export const TASK_LIBRARY: Record<string, TaskConfig> = {
+  finger_tapping: FINGER_TAPPING_TASK,
+  hand_tremor: TREMOR_TASK,
+  eczema_photo: ECZEMA_TASK,
+};
+
+export const DEFAULT_CONSENT: ConsentForm = {
+  title: "Remote visual follow-up",
+  body: `You are being invited to take part in remote follow-up for this study.
+
+What you will do
+- Complete short photo or video check-ins from your phone when we remind you.
+- Answer a few questions about how you are feeling or whether you took your medication.
+- You can reply by text or upload from a link we send you.
+
+What happens to your data
+- Your phone or our analysis software checks each capture for quality (for example blur or lighting) and then measures it.
+- A clinician on your study team reviews every result before it enters the study record.
+- Only your study team can see your submissions.
+
+Your choice
+- Taking part is voluntary. You can stop at any time by texting STOP or telling your study coordinator.
+- This complements, and does not replace, the visits and tests in your study protocol.
+- Measurements in this prototype are experimental and not a clinical diagnosis.`,
+};
+
+export const DEFAULT_REMINDERS: ReminderConfig[] = [
+  {
+    id: "meds_daily",
+    kind: "adherence",
+    every_hours: 24,
+    message: "Did you take your pills today? Reply YES or NO.",
+    task_id: null,
+  },
+];
+
+export function captureReminderFor(task: TaskConfig, everyHours: number): ReminderConfig {
+  return {
+    id: `upload_${task.id}`,
+    kind: "capture",
+    every_hours: everyHours,
+    message: `Time to upload your ${task.label.toLowerCase()} check-in. Send the ${task.media_type} here, or open the link from your study team.`,
+    task_id: task.id,
+  };
+}
