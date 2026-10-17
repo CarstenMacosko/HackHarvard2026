@@ -1,0 +1,26 @@
+# Visible scaling, learned from contributors describing their skin as rough or flaky.
+id: scaling_scin
+name: Rough or flaky skin (SCIN, self-reported)
+description: Probability that the person described the photographed skin as rough or flaky, a self-reported proxy for scaling.
+condition: psoriasis
+module: eczema_photo
+dataset: scin
+target:
+  name: scaling_likelihood
+  label: Rough or flaky skin
+  unit: probability
+  source_label: rough_or_flaky
+  kind: binary
+quality: passed
+subgroup: fitzpatrick
+feature_groups: [embedding]  # 1,024-value MobileNet-V3 image embedding, on-device and on the server
+lambdas: [1000, 3000, 10000, 30000, 100000]
+select_by: rmse
+intended_use: >
+  Exploratory proxy for scaling in psoriasis and eczema studies, where the workflow builder
+  marks scaling as "needs a new model". It shows how far the existing features get before a
+  dedicated scaling model is trained on clinician-graded photos.
+limitations:
+  - "The label is the contributor's own description, not a clinician's assessment of scale."
+  - "Only cases where the contributor described the texture are used."
+  - "Scale is a fine texture; the module's single texture feature (Laplacian variance) also responds to blur and camera noise."

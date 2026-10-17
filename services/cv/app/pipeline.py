@@ -1,17 +1,19 @@
 """Config-driven pipeline: protocol task config → quality gate → module → shared Observation."""
 from __future__ import annotations
 
+import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from . import registry
+from . import embedding, registry
 from .models import AnalyzeRequest, AnalyzeResponse, Measurement, QualityCheck
 from .modules.base import CVModule, MeasureResult, TaskNotCompleted
 from .quality import build_report
 
 
-def run_prepared(module: CVModule, prepared: Any, req: AnalyzeRequest) -> AnalyzeResponse:
+def run_prepared(module: CVModule, prepared: Any, req: AnalyzeRequest, embed: bool = True) -> AnalyzeResponse:
     criteria = {**module.default_criteria, **req.quality_criteria}
     checks = module.quality_checks(prepared, criteria)
     result = MeasureResult(measurements=[])
@@ -20,7 +22,23 @@ def run_prepared(module: CVModule, prepared: Any, req: AnalyzeRequest) -> Analyz
             result = module.measure(prepared, criteria)
         except TaskNotCompleted as e:
             checks.append(task_failed(str(e)))
+        else:
+            if embed:
+                result.features.update(photo_embedding(module, prepared))
     return assemble(module, req, checks, result.measurements, result.features)
+
+
+def photo_embedding(module: CVModule, prepared: Any) -> dict[str, float]:
+    """Image-embedding features for accepted photos, so trained heads that read them apply
+    (the browser adds the same features on-device). Skipped, not fatal, if unavailable."""
+    bgr = getattr(prepared, "bgr", None)
+    if module.media_type != "photo" or bgr is None or os.environ.get("EMBEDDINGS", "1") == "0" or not embedding.available():
+        return {}
+    try:
+        return embedding.embed_bgr(bgr)
+    except Exception as e:  # e.g. model download blocked: measurements still stand
+        logging.getLogger(__name__).warning("image embedding skipped: %s", e)
+        return {}
 
 
 def analyze(req: AnalyzeRequest, media_path: str) -> AnalyzeResponse:

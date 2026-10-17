@@ -1,0 +1,131 @@
+{
+ "study": "scaling_scin",
+ "n_captures": 4396,
+ "n_groups": 2254,
+ "n_labelled": 5517,
+ "n_excluded_quality": 1121,
+ "excluded_reasons": {
+  "skin_coverage": 173,
+  "blur": 901,
+  "exposure": 130,
+  "task_completed": 1
+ },
+ "lambda": 30000,
+ "lambda_scores": [
+  {
+   "lambda": 1000,
+   "mae": 0.3886797669678769,
+   "rmse": 0.46393782197488537
+  },
+  {
+   "lambda": 3000,
+   "mae": 0.385158404437782,
+   "rmse": 0.4500853865673537
+  },
+  {
+   "lambda": 10000,
+   "mae": 0.38704325679921747,
+   "rmse": 0.4428807777340898
+  },
+  {
+   "lambda": 30000,
+   "mae": 0.39007012798371776,
+   "rmse": 0.44152734606953564
+  },
+  {
+   "lambda": 100000,
+   "mae": 0.3932625821550164,
+   "rmse": 0.44255449721930595
+  }
+ ],
+ "ridge_metrics": {
+  "n": 4396,
+  "folds": 5,
+  "mae": 0.39007012798371776,
+  "rmse": 0.44152734606953564,
+  "r": 0.13315409674231488,
+  "baseline_mae": 0.3971848036623924,
+  "label_min": 0.0,
+  "label_max": 1.0
+ },
+ "overall": {
+  "n": 4396,
+  "mae": 0.39007012798371776,
+  "r": 0.133154096742315,
+  "n_positive": 1200,
+  "auc": 0.5842195974134334
+ },
+ "subgroups": {
+  "groups": {
+   "FST1": {
+    "n": 467,
+    "mae": 0.39032698051404197,
+    "r": 0.09736160818276951,
+    "n_positive": 125,
+    "auc": 0.567953216374269,
+    "excluded_by_quality": 153,
+    "exclusion_rate": 0.2468
+   },
+   "FST2": {
+    "n": 1579,
+    "mae": 0.38155924317017154,
+    "r": 0.09226541582438184,
+    "n_positive": 399,
+    "auc": 0.5601163926766067,
+    "excluded_by_quality": 398,
+    "exclusion_rate": 0.2013
+   },
+   "FST3": {
+    "n": 1228,
+    "mae": 0.3843854620275568,
+    "r": 0.1396919287518784,
+    "n_positive": 324,
+    "auc": 0.5828963181470556,
+    "excluded_by_quality": 323,
+    "exclusion_rate": 0.2083
+   },
+   "FST4": {
+    "n": 651,
+    "mae": 0.3952130726298727,
+    "r": 0.08617836616583043,
+    "n_positive": 184,
+    "auc": 0.5583162647798157,
+    "excluded_by_quality": 136,
+    "exclusion_rate": 0.1728
+   },
+   "FST5": {
+    "n": 337,
+    "mae": 0.4184946252259057,
+    "r": 0.2588078101496494,
+    "n_positive": 114,
+    "auc": 0.6577767288175596,
+    "excluded_by_quality": 80,
+    "exclusion_rate": 0.1918
+   },
+   "FST6": {
+    "n": 38,
+    "mae": 0.3932580186004491,
+    "r": 0.07172864770849414,
+    "n_positive": 9,
+    "auc": 0.5402298850574713,
+    "excluded_by_quality": 16,
+    "exclusion_rate": 0.2963
+   },
+   "unknown": {
+    "n": 96,
+    "mae": 0.46560402802948514,
+    "r": 0.3511743135691988,
+    "n_positive": 45,
+    "auc": 0.6984749455337691,
+    "excluded_by_quality": 15,
+    "exclusion_rate": 0.1351
+   }
+  },
+  "worst": {
+   "name": "FST6",
+   "metric": "auc",
+   "value": 0.5402298850574713,
+   "n": 38
+  }
+ }
+}

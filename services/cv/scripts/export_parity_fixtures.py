@@ -19,8 +19,10 @@ def main() -> None:
     images, expected = build_fixtures()
     for name, bgr in images.items():
         cv2.imwrite(str(OUT / name), bgr)
+    tremor = expected.pop("tremor")  # landmark tracks are bulky: compact, in their own file
     (OUT / "expected.json").write_text(json.dumps(expected, indent=1, sort_keys=True) + "\n")
-    print(f"wrote {len(images)} images + expected.json to {OUT}")
+    (OUT / "tremor.json").write_text(json.dumps(tremor, sort_keys=True, separators=(",", ":")) + "\n")
+    print(f"wrote {len(images)} images, expected.json and tremor.json to {OUT}")
 
 
 if __name__ == "__main__":

@@ -21,3 +21,9 @@ media/
 *.safetensors
 *.tsbuildinfo
 next-env.d.ts
+
+# training kit: downloaded datasets and computed features
+training/.cache/
+
+# Droid workflow scratch (request, logs, summary); never committed
+.droid/

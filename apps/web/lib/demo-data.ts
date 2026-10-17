@@ -2,6 +2,7 @@ import {
   DEFAULT_REWARDS,
   ECZEMA_TASK,
   FINGER_TAPPING_TASK,
+  TREMOR_TASK,
   computeStreak,
   rewardsForAcceptedSubmission,
   type Measurement,
@@ -10,6 +11,7 @@ import {
   type RewardEvent,
   type TaskConfig,
 } from "@vf/shared";
+import { PRETRAINED_MODELS } from "@vf/shared/pretrained";
 import type { AuditEntry, CvModel, Participant, Redemption, ScheduledTask, Study, Submission } from "./types";
 
 /**
@@ -62,7 +64,16 @@ const STUDIES: Study[] = [
     status: "active",
     protocol: { study_id: "study_ad", version: 1, approved_by: "Dr. M. Chen", tasks: [ECZEMA_TASK], rewards: DEFAULT_REWARDS },
   },
+  {
+    id: "study_tremor",
+    name: "PD-TREMOR: rest tremor home monitoring",
+    condition: "parkinsons",
+    status: "active",
+    protocol: { study_id: "study_tremor", version: 1, approved_by: "Dr. A. Rivera", tasks: [TREMOR_TASK], rewards: DEFAULT_REWARDS },
+  },
 ];
+
+const INVITE_PREFIX: Record<string, string> = { study_pd: "PD", study_ad: "AD", study_tremor: "TR" };
 
 interface Profile {
   id: string;
@@ -86,6 +97,10 @@ const PROFILES: Profile[] = [
   { id: "p_104", study: "study_ad", status: "active", adherence: 0.95, enrolledDaysAgo: 21, trend: -0.5 },
   { id: "p_105", study: "study_ad", status: "withdrawn", adherence: 0.4, enrolledDaysAgo: 40, trend: 0 },
   { id: "p_106", study: "study_ad", status: "invited", adherence: 0, enrolledDaysAgo: 0, trend: 0 },
+  { id: "p_201", study: "study_tremor", status: "active", adherence: 0.9, enrolledDaysAgo: 42, trend: 0.4 },
+  { id: "p_202", study: "study_tremor", status: "active", adherence: 0.8, enrolledDaysAgo: 35, trend: -0.3 },
+  { id: "p_203", study: "study_tremor", status: "active", adherence: 0.95, enrolledDaysAgo: 28, trend: 0.1 },
+  { id: "p_204", study: "study_tremor", status: "invited", adherence: 0, enrolledDaysAgo: 0, trend: 0 },
 ];
 
 const CADENCE_DAYS = { daily: 1, twice_weekly: 3, weekly: 7, biweekly: 14 } as const;
@@ -102,11 +117,15 @@ function measure(task: TaskConfig, values: Record<string, [number, number | null
 }
 
 /** A plausible failed attempt: what the quality gate would have said. */
+const BLURRY = "The picture is blurry. Rest your phone against something steady and tap the screen to focus first.";
+
 function failedChecks(condition: Study["condition"], r: () => number): QualityCheck[] {
   const dark = r() < 0.5;
   const base: QualityCheck[] = dark
     ? [{ name: "exposure", passed: false, value: 38 + Math.round(r() * 15), threshold: condition === "parkinsons" ? 60 : 70, message: "It's too dark. Turn on a light or face a window (no flash)." }]
-    : [{ name: "blur", passed: false, value: 12 + Math.round(r() * 30), threshold: condition === "parkinsons" ? 60 : 80, message: "The picture is blurry. Rest your phone against something steady and tap the screen to focus first." }];
+    : condition === "parkinsons"
+      ? [{ name: "blur", passed: false, value: 12 + Math.round(r() * 30), threshold: 60, message: BLURRY }]
+      : [{ name: "blur", passed: false, value: 3 + Math.round(r() * 10), threshold: 15, message: BLURRY }];
   if (condition === "parkinsons" && r() < 0.4) {
     base.push({ name: "hand_visible", passed: false, value: 0.4 + Math.round(r() * 30) / 100, threshold: 0.8, message: "I lost sight of your hand. Keep your whole hand, including your wrist, in the frame the entire time." });
   }
@@ -123,7 +142,7 @@ function generate(): DemoState {
     scheduledTasks: [],
     rewardEvents: [],
     redemptions: [],
-    models: [],
+    models: structuredClone(PRETRAINED_MODELS),
     audit: [],
   };
 
@@ -134,7 +153,7 @@ function generate(): DemoState {
       display_name: `Participant ${p.id.slice(2)}`,
       // p_001 / p_101 match the messaging agent's demo participants and supabase/seed.sql
       phone: p.status === "invited" ? null : p.id === "p_001" ? "+15550000001" : p.id === "p_101" ? "+15550000002" : `+1555000${String(i + 3).padStart(4, "0")}`,
-      invite_code: `${p.study === "study_pd" ? "PD" : "AD"}-${p.id.slice(2)}${p.status === "invited" ? "J" : "X"}`,
+      invite_code: `${INVITE_PREFIX[p.study]}-${p.id.slice(2)}${p.status === "invited" ? "J" : "X"}`,
       status: p.status,
       enrolled_at: p.enrolledDaysAgo ? new Date(NOW - p.enrolledDaysAgo * DAY).toISOString() : null,
       preferred_time: p.status === "invited" ? null : "18:00",
@@ -195,7 +214,24 @@ function generate(): DemoState {
       let measurements: Measurement[];
       let report: Observation["patient_report"];
       let checks: QualityCheck[];
-      if (study.condition === "parkinsons") {
+      if (task.module === "hand_tremor") {
+        const off = r() < 0.25;
+        // hand-size units: 0.1 ≈ 1 cm peak-to-peak for a 10 cm hand
+        const amp = Math.max(0.01, 0.14 + p.trend * 0.12 * t + (off ? 0.06 : 0) + (r() - 0.5) * 0.04);
+        measurements = measure(task, {
+          tremor_amplitude: [amp, null],
+          tremor_freq_hz: [4.9 + (r() - 0.5) * 0.6, 0.125],
+          tremor_power_ratio: [Math.min(0.98, 0.55 + amp * 1.5 + (r() - 0.5) * 0.1), null],
+        });
+        report = { medication_state: off ? "OFF" : "ON", tremor_today: Math.max(0, Math.min(10, Math.round(amp * 30 + (r() - 0.5) * 3))) };
+        checks = [
+          { name: "blur", passed: true, value: 90 + Math.round(r() * 80), threshold: 60, message: "" },
+          { name: "exposure", passed: true, value: 110 + Math.round(r() * 40), threshold: 200, message: "" },
+          { name: "duration_s", passed: true, value: 12 + Math.round(r() * 4), threshold: 8, message: "" },
+          { name: "fps", passed: true, value: 30, threshold: 24, message: "" },
+          { name: "hand_visible", passed: true, value: Math.round((0.9 + r() * 0.1) * 1000) / 1000, threshold: 0.8, message: "" },
+        ];
+      } else if (study.condition === "parkinsons") {
         const off = r() < 0.25;
         const rate = 3.6 - p.trend * 1.2 * t - (off ? 0.5 : 0) + (r() - 0.5) * 0.35;
         const amp = 0.95 - p.trend * 0.3 * t - (off ? 0.12 : 0) + (r() - 0.5) * 0.08;
@@ -221,7 +257,7 @@ function generate(): DemoState {
         });
         report = { itch: Math.max(0, Math.min(10, Math.round(sev * 9 + (r() - 0.5) * 2))), treatment_used: r() < 0.8 ? "Yes" : "No" };
         checks = [
-          { name: "blur", passed: true, value: 120 + Math.round(r() * 100), threshold: 80, message: "" },
+          { name: "blur", passed: true, value: 25 + Math.round(r() * 100), threshold: 15, message: "" },
           { name: "exposure", passed: true, value: 120 + Math.round(r() * 40), threshold: 210, message: "" },
           { name: "skin_coverage", passed: true, value: Math.round((0.4 + r() * 0.4) * 1000) / 1000, threshold: 0.25, message: "" },
         ];
@@ -262,7 +298,7 @@ function generate(): DemoState {
         quality: { accepted: true, checks, retry_instructions: null },
         measurements,
         features: {},
-        model_version: `${task.module}@0.2.0`,
+        model_version: `${task.module}@${task.module === "hand_tremor" ? "0.1.0" : "0.2.0"}`,
         patient_report: report,
         context: { attempts, source, analysis_runtime: runtime, device: r() < 0.6 ? "iPhone 14" : "Pixel 7" },
         review_status,

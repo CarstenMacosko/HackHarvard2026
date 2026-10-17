@@ -16,6 +16,7 @@ FIXTURES = Path(__file__).resolve().parents[3] / "packages" / "cv" / "fixtures"
 def test_committed_fixtures_are_current():
     images, expected = build_fixtures()
     committed = json.loads((FIXTURES / "expected.json").read_text())
+    committed["tremor"] = json.loads((FIXTURES / "tremor.json").read_text())
     assert json.loads(json.dumps(expected)) == committed
     for name, bgr in images.items():
         assert np.array_equal(cv2.imread(str(FIXTURES / name)), bgr), name

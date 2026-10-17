@@ -2,11 +2,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
-import { analyzeSkinPhoto, ellipseOffsets, pyRound, tapMetrics, TaskNotCompleted, type RGBAImage } from "../src";
+import { analyzeSkinPhoto, analyzeTapping, analyzeTremor, ellipseOffsets, pyRound, tapMetrics, tappingFromTrack, TaskNotCompleted, tremorMetrics, welch, type RGBAImage } from "../src";
 
 /** Fixtures written by services/cv/scripts/export_parity_fixtures.py from the Python modules. */
 const FIX = join(__dirname, "..", "fixtures");
 const expected = JSON.parse(readFileSync(join(FIX, "expected.json"), "utf8"));
+const tremor = JSON.parse(readFileSync(join(FIX, "tremor.json"), "utf8"));
 
 function loadPng(file: string): RGBAImage {
   const png = PNG.sync.read(readFileSync(join(FIX, file)));
@@ -70,6 +71,44 @@ describe("finger_tapping signal parity with Python", () => {
       for (const [k, v] of Object.entries<number>(c.expected)) close((m as any)[k], v, 1e-9, 1e-9);
     });
   }
+});
+
+describe("hand_tremor signal parity with Python", () => {
+  for (const [name, c] of Object.entries<any>(tremor)) {
+    it(name, () => {
+      const lm: number[][][] = c.landmarks.map((f: (number | null)[][]) => f.map((pt) => pt.map((v) => (v === null ? NaN : v))));
+      if (c.expected_error) {
+        expect(() => tremorMetrics(lm, c.fps)).toThrow(TaskNotCompleted);
+        expect(() => tremorMetrics(lm, c.fps)).toThrow(c.expected_error);
+        return;
+      }
+      const m = tremorMetrics(lm, c.fps);
+      for (const [k, v] of Object.entries<number>(c.expected)) close((m as any)[k], v, 1e-9, 1e-7);
+    });
+  }
+
+  it("welch matches the closed form for a pure sinusoid", () => {
+    const fs = 30, n = 300;
+    const x = Array.from({ length: n }, (_, i) => Math.sin((2 * Math.PI * 6 * i) / fs));
+    const { f, p } = welch(x, fs, 120);
+    const df = f[1] - f[0];
+    expect(f[p.indexOf(Math.max(...p))]).toBeCloseTo(6, 6);
+    close(p.reduce((s, v) => s + v, 0) * df, 0.5, 0.01); // variance of a unit sinusoid
+  });
+
+  it("module pipeline on a landmark track: no frames → no image checks", () => {
+    const c = tremor.clean_5hz;
+    const lm: number[][][] = c.landmarks;
+    const track = { fps: c.fps, duration_s: lm.length / c.fps, gray_samples: [], landmarks: lm, detection_rate: 1 };
+    const res = analyzeTremor(track);
+    expect(res.quality.checks.map((q) => q.name)).toEqual(["duration_s", "fps", "hand_visible"]);
+    expect(res.quality.accepted).toBe(true);
+    close(res.features.tremor_freq_hz, c.expected.freq_hz, 1e-6); // features are stored to 6 decimals
+    expect(res.model_version).toBe("hand_tremor@0.1.0");
+    // the same track drives finger tapping through tappingFromTrack
+    expect(tappingFromTrack(track).distance).toHaveLength(lm.length);
+    expect(analyzeTapping(tappingFromTrack(track)).quality.accepted).toBe(false); // a still hand is not tapping
+  });
 });
 
 describe("pyRound matches Python's round()", () => {

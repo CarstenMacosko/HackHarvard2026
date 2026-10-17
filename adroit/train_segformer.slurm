@@ -10,7 +10,7 @@
 
 module purge
 module load anaconda3/2024.6
-conda activate vf-seg
+conda activate vf-train
 
-cd /scratch/network/$USER/vf
+cd "$SLURM_SUBMIT_DIR"  # submit from adroit/ with data/ next to this script
 python train_segformer.py --data data --out segformer-skin --epochs 15

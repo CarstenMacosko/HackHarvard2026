@@ -15,6 +15,8 @@ from .models import AnalyzeRequest
 from .modules.base import TaskNotCompleted
 from .modules.eczema import EczemaPhotoModule
 from .modules.finger_tapping import tap_metrics
+from .modules.hand_tremor import tremor_metrics
+from .synthetic import tremor_track
 from .pipeline import run_prepared
 
 
@@ -73,7 +75,8 @@ def photo_case(case: dict[str, Any]) -> tuple[np.ndarray, dict[str, Any]]:
     kw = {k: v for k, v in case.items() if k != "name"}
     bgr = skin_photo(**kw)
     m = EczemaPhotoModule()
-    obs = run_prepared(m, m.prepare_array(bgr), AnalyzeRequest(module="eczema_photo"))
+    # the embedding feature group is checked separately (it is a TFLite model, not ported math)
+    obs = run_prepared(m, m.prepare_array(bgr), AnalyzeRequest(module="eczema_photo"), embed=False)
     expected = {
         "accepted": obs.quality.accepted,
         "checks": {c.name: {"passed": c.passed, "value": c.value} for c in obs.quality.checks},
@@ -100,6 +103,33 @@ def tap_case(case: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+TREMOR_CASES: list[dict[str, Any]] = [
+    {"name": "clean_5hz", "freq_hz": 5.0, "amplitude": 0.1, "seconds": 8.0},
+    {"name": "finger_7hz_drift_gaps", "freq_hz": 7.0, "amplitude": 0.02, "finger_amplitude": 0.15, "drift": 0.1, "missing": 0.1, "fps": 24.0, "seconds": 9.0, "seed": 3},
+    {"name": "still", "amplitude": 0.0, "seconds": 8.0, "seed": 4},
+    {"name": "fps60_10hz", "freq_hz": 10.0, "amplitude": 0.05, "fps": 60.0, "seconds": 5.0, "seed": 5},
+    {"name": "no_hand", "seconds": 3.0, "seed": 6, "no_hand": True},
+]
+
+
+def tremor_case(case: dict[str, Any]) -> dict[str, Any]:
+    kw = {k: v for k, v in case.items() if k not in ("name", "no_hand")}
+    track = tremor_track(**kw)
+    lm = np.round(track.landmarks, 4)
+    if case.get("no_hand"):
+        lm[:] = np.nan
+    out: dict[str, Any] = {
+        "fps": track.fps,
+        "landmarks": [[[None if np.isnan(v) else float(v) for v in pt] for pt in frame] for frame in lm],
+    }
+    try:
+        m = tremor_metrics(lm, track.fps)
+        out["expected"] = {k: float(v) for k, v in m.__dict__.items()}
+    except TaskNotCompleted as e:
+        out["expected_error"] = str(e)
+    return out
+
+
 def build_fixtures() -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     images: dict[str, np.ndarray] = {}
     photos = {}
@@ -108,4 +138,5 @@ def build_fixtures() -> tuple[dict[str, np.ndarray], dict[str, Any]]:
         images[f"{case['name']}.png"] = bgr
         photos[case["name"]] = {"file": f"{case['name']}.png", **expected}
     taps = {case["name"]: tap_case(case) for case in TAP_CASES}
-    return images, {"photos": photos, "taps": taps}
+    tremor = {case["name"]: tremor_case(case) for case in TREMOR_CASES}
+    return images, {"photos": photos, "taps": taps, "tremor": tremor}
