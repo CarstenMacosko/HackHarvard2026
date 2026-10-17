@@ -12,6 +12,6 @@ describe("cvModuleDirectory", () => {
   });
 
   it("refuses to create a lookalike package when the CV service is absent", () => {
-    expect(() => cvModuleDirectory("/private/tmp/no-cv-service-here")).toThrow(/shared CV service directory/);
+    expect(() => cvModuleDirectory("/private/tmp/no-cv-service-here")).toThrow(/landmark evaluation requires writing_posture_core.py/);
   });
 });

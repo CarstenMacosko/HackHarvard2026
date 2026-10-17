@@ -1,313 +1,178 @@
+import { readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import path from "node:path";
 import type { DaytonaExperiment } from "./generation-types";
-import { daytonaApiKey, daytonaApiUrl, daytonaConfigured } from "./live-keys";
+import { cvModuleDirectory } from "./cv-module-path";
+import { daytonaApiKey, daytonaApiUrl } from "./live-keys";
 
 export { daytonaConfigured } from "./live-keys";
+export interface ExperimentSpec { id: number; label: string; params: Record<string, number> }
+export interface CandidateModule { moduleId: string; sourceCode: string }
+interface TrackCase { id: string; fps: number; frames: (number | null)[][][]; expected_accept?: boolean; expected_straight?: boolean }
 
-/**
- * Parameter-sweep experiments for a generated analyzer.
- * With DAYTONA_API_KEY: every experiment runs inside a real Daytona sandbox
- * (no local score fallback). Without the key: local parallel scoring for demos.
- */
-
-export interface ExperimentSpec {
-  id: number;
-  label: string;
-  params: Record<string, number>;
+/** These are synthetic software fixtures; a JSON landmark manifest may replace them. */
+function syntheticCases(): TrackCase[] {
+  function frame(straight: boolean): number[][] {
+    const p = Array.from({ length: 21 }, () => [0, 0]);
+    p[5] = [0, 0]; p[6] = [0, 10]; p[7] = straight ? [0, 20] : [10, 10];
+    p[0] = [0, -15]; p[9] = [0, 5];
+    return p;
+  }
+  const make = (id: string, straight: boolean, count: number, missingFrom = count): TrackCase => ({
+    id, fps: 30,
+    frames: Array.from({ length: count }, (_, i) => {
+      const p: (number | null)[][] = frame(straight);
+      if (i >= missingFrom) p[6] = [null, null];
+      return p;
+    }),
+    expected_accept: missingFrom >= count && count >= 180,
+    expected_straight: straight,
+  });
+  return [make("synthetic_straight", true, 240), make("synthetic_bent", false, 240),
+    make("synthetic_short", true, 90), make("synthetic_obscured", true, 240, 90)];
 }
 
-export interface CandidateModule {
-  moduleId: string;
-  sourceCode: string;
+function loadCases(): { cases: TrackCase[]; source: string } {
+  const manifest = process.env.CV_EVAL_TRACK_MANIFEST;
+  if (!manifest) return { cases: syntheticCases(), source: "synthetic" };
+  const parsed: unknown = JSON.parse(readFileSync(path.resolve(manifest), "utf8"));
+  if (!Array.isArray(parsed) || !parsed.length) throw new Error("CV_EVAL_TRACK_MANIFEST must contain a nonempty JSON array");
+  for (const c of parsed as TrackCase[]) {
+    if (!c.id || !Number.isFinite(c.fps) || c.fps <= 0 || !Array.isArray(c.frames) || c.frames.length > 900 ||
+        c.frames.some((f) => !Array.isArray(f) || f.length !== 21)) throw new Error("Invalid landmark track in CV_EVAL_TRACK_MANIFEST");
+  }
+  return { cases: parsed as TrackCase[], source: "provided" };
 }
 
-function scoreParams(params: Record<string, number>, seed: number): {
-  quality_pass_rate: number;
-  feature_stability: number;
-  score: number;
-  ok: boolean;
-  error: string | null;
-} {
-  const bandLo = params.band_lo_hz ?? 3;
-  const bandHi = params.band_hi_hz ?? 12;
-  const blur = params.blur_min ?? 20;
-  const duration = params.duration_s ?? 8;
-  const hand = params.hand_visible ?? 0.8;
-  const width = bandHi - bandLo;
-  const bandScore = width > 0 && bandLo >= 2 && bandHi <= 14 ? 1 - Math.abs(width - 8) / 10 : 0.2;
-  const blurScore = blur >= 15 && blur <= 40 ? 1 : 0.4;
-  const durScore = duration >= 6 && duration <= 12 ? 1 : 0.5;
-  const handScore = hand >= 0.7 && hand <= 0.95 ? 1 : 0.45;
-  const jitter = ((seed * 17) % 100) / 500;
-  const quality_pass_rate = Math.min(0.98, 0.55 + 0.35 * bandScore + jitter);
-  const feature_stability = Math.min(0.99, 0.5 + 0.4 * ((blurScore + durScore + handScore) / 3));
-  const score = 0.55 * quality_pass_rate + 0.45 * feature_stability;
-  const ok = score >= 0.62 && bandHi > bandLo;
-  return {
-    quality_pass_rate: round4(quality_pass_rate),
-    feature_stability: round4(feature_stability),
-    score: round4(score),
-    ok,
-    error: ok ? null : "quality/stability below gate — Droid will adjust params",
-  };
+function experimentPython(spec: ExperimentSpec, candidate: CandidateModule): string {
+  const core = readFileSync(path.join(cvModuleDirectory(), "writing_posture_core.py"), "utf8");
+  const { cases, source } = loadCases();
+  const payload = Buffer.from(JSON.stringify({ spec, candidate, cases, source }), "utf8").toString("base64");
+  const encodedCore = Buffer.from(core, "utf8").toString("base64");
+  return `import ast, base64, json
+payload = json.loads(base64.b64decode(${JSON.stringify(payload)}))
+core = base64.b64decode(${JSON.stringify(encodedCore)}).decode()
+source = payload["candidate"]["sourceCode"]
+module_id = payload["candidate"]["moduleId"]
+try:
+    tree = ast.parse(source)
+    compile(tree, "candidate.py", "exec")
+    valid = False
+    for cls in (n for n in tree.body if isinstance(n, ast.ClassDef)):
+        ids = [s.value.value for s in cls.body if isinstance(s, ast.Assign) and
+               any(isinstance(t, ast.Name) and t.id == "id" for t in s.targets) and
+               isinstance(s.value, ast.Constant) and isinstance(s.value.value, str)]
+        methods = {s.name for s in cls.body if isinstance(s, ast.FunctionDef)}
+        if (module_id in ids and {"prepare", "quality_checks", "measure"} <= methods and
+            any(isinstance(b, ast.Name) and b.id == "CVModule" for b in cls.bases) and
+            any(isinstance(d, ast.Name) and d.id == "register" for d in cls.decorator_list)):
+            valid = True
+    if not valid:
+        raise ValueError("candidate must define a registered CVModule with the requested id")
+    namespace = {}
+    exec(compile(core, "writing_posture_core.py", "exec"), namespace)
+    params = payload["spec"]["params"]
+    cases = payload["cases"]
+    passed = 0
+    accepted = 0
+    for case in cases:
+        track = [[[float("nan") if x is None else x for x in p] for p in frame] for frame in case["frames"]]
+        result = namespace["evaluate_track"](track, case["fps"],
+            hold_s=params.get("hold_s", 2.0), straight_deg=params.get("straight_deg", 160),
+            min_visible=params.get("min_visible", 0.7), min_duration_s=params.get("min_duration_s", 6))
+        accepted += int(result["accepted"])
+        ok = result["accepted"] == case["expected_accept"] if "expected_accept" in case else True
+        if ok and result["accepted"] and "expected_straight" in case:
+            ok = (result["straight_fraction"] >= 0.5) == case["expected_straight"]
+        passed += int(ok)
+    print(json.dumps({"ok": passed == len(cases), "score": passed / len(cases),
+                      "passed_cases": passed, "total_cases": len(cases), "accepted_cases": accepted,
+                      "fixture_source": payload["source"], "error": None if passed == len(cases) else "track assertions failed"}))
+except Exception as exc:
+    print(json.dumps({"ok": False, "score": 0, "passed_cases": 0, "total_cases": 0,
+                      "accepted_cases": 0, "fixture_source": payload["source"], "error": str(exc)}))`;
 }
 
-const round4 = (n: number) => Math.round(n * 10_000) / 10_000;
-
-/** Local parallel experiments (no network). Only when Daytona is not configured. */
-export async function runExperimentsLocal(
-  specs: ExperimentSpec[],
-  onUpdate: (exp: DaytonaExperiment) => Promise<void>,
-  concurrency = 5,
-): Promise<DaytonaExperiment[]> {
-  const results: DaytonaExperiment[] = specs.map((s) => ({
-    id: s.id,
-    label: s.label,
-    params: s.params,
-    status: "queued",
-    sandbox_id: `local-${s.id}`,
-    metrics: null,
-    error: null,
-    ms: null,
-  }));
+type Evaluation = { ok: boolean; score: number; passed_cases: number; total_cases: number; accepted_cases: number; fixture_source: string; error: string | null };
+function parseOutput(out: string): Evaluation {
+  const line = out.trim().split("\n").filter(Boolean).pop();
+  if (!line) throw new Error("Evaluator returned no output");
+  const result = JSON.parse(line) as Evaluation;
+  if (!Number.isFinite(result.score) || !Number.isInteger(result.total_cases)) throw new Error("Invalid evaluator output");
+  return result;
+}
+async function localPython(script: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("python3", ["-c", script], { stdio: ["ignore", "pipe", "pipe"] });
+    let out = "", err = "";
+    proc.stdout.on("data", (b) => { out += b.toString(); });
+    proc.stderr.on("data", (b) => { err += b.toString(); });
+    proc.on("error", reject);
+    proc.on("close", (code) => code === 0 ? resolve(out) : reject(new Error(err || `Python exited ${code}`)));
+  });
+}
+function initial(specs: ExperimentSpec[]): DaytonaExperiment[] {
+  return specs.map((s) => ({ ...s, status: "queued", sandbox_id: null, metrics: null, error: null, ms: null }));
+}
+async function runWithWorkers(specs: ExperimentSpec[], onUpdate: (exp: DaytonaExperiment) => Promise<void>,
+  candidate: CandidateModule, workers: { id: string; run: (script: string) => Promise<string> }[]): Promise<DaytonaExperiment[]> {
+  const results = initial(specs);
   for (const r of results) await onUpdate(r);
-
-  let i = 0;
-  async function worker() {
-    while (i < specs.length) {
-      const idx = i++;
-      const spec = specs[idx];
+  let next = 0;
+  await Promise.all(workers.map(async (worker) => {
+    while (next < specs.length) {
+      const idx = next++;
       const start = Date.now();
-      results[idx] = { ...results[idx], status: "running" };
+      results[idx] = { ...results[idx], status: "running", sandbox_id: worker.id };
       await onUpdate(results[idx]);
-      await sleep(180 + (idx % 5) * 40);
-      const scored = scoreParams(spec.params, spec.id + 7);
-      results[idx] = {
-        ...results[idx],
-        status: scored.ok ? "passed" : "failed",
-        metrics: { quality_pass_rate: scored.quality_pass_rate, feature_stability: scored.feature_stability, score: scored.score },
-        error: scored.error,
-        ms: Date.now() - start,
-      };
+      try {
+        const parsed = parseOutput(await worker.run(experimentPython(specs[idx], candidate)));
+        results[idx] = { ...results[idx], status: parsed.ok ? "passed" : "failed",
+          metrics: { score: parsed.score, passed_cases: parsed.passed_cases, total_cases: parsed.total_cases,
+            accepted_cases: parsed.accepted_cases, fixture_source: parsed.fixture_source },
+          error: parsed.error, ms: Date.now() - start };
+      } catch (e) {
+        results[idx] = { ...results[idx], status: "failed", error: e instanceof Error ? e.message : String(e), ms: Date.now() - start };
+      }
       await onUpdate(results[idx]);
     }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, specs.length) }, () => worker()));
+  }));
   return results;
 }
-
-/**
- * Real Daytona: spin up `concurrency` sandboxes and run every experiment via
- * `process.codeRun` inside them. Failures are recorded as failed experiments —
- * we never invent local scores when the key is set.
- */
-export async function runExperimentsDaytona(
-  specs: ExperimentSpec[],
-  onUpdate: (exp: DaytonaExperiment) => Promise<void>,
-  candidate: CandidateModule,
-  concurrency = 4,
-): Promise<DaytonaExperiment[]> {
+export async function runExperimentsLocal(specs: ExperimentSpec[], onUpdate: (exp: DaytonaExperiment) => Promise<void>,
+  candidate: CandidateModule, concurrency = 4): Promise<DaytonaExperiment[]> {
+  return runWithWorkers(specs, onUpdate, candidate,
+    Array.from({ length: Math.min(concurrency, specs.length) }, (_, i) => ({ id: `local-python-${i}`, run: localPython })));
+}
+export async function runExperimentsDaytona(specs: ExperimentSpec[], onUpdate: (exp: DaytonaExperiment) => Promise<void>,
+  candidate: CandidateModule, concurrency = 4): Promise<DaytonaExperiment[]> {
   const apiKey = daytonaApiKey();
-  if (!apiKey) throw new Error("DAYTONA_API_KEY is required for runExperimentsDaytona");
-
+  if (!apiKey) throw new Error("DAYTONA_API_KEY is required");
   const { Daytona } = await import("@daytonaio/sdk");
   const daytona = new Daytona({ apiKey, apiUrl: daytonaApiUrl() });
-
-  const results: DaytonaExperiment[] = specs.map((s) => ({
-    id: s.id,
-    label: s.label,
-    params: s.params,
-    status: "queued",
-    sandbox_id: null,
-    metrics: null,
-    error: null,
-    ms: null,
-  }));
-  for (const r of results) await onUpdate(r);
-
-  const poolSize = Math.min(concurrency, specs.length);
   type Sandbox = Awaited<ReturnType<typeof daytona.create>>;
-  const pool: Sandbox[] = [];
-
+  const sandboxes: Sandbox[] = [];
   try {
-    // Create worker sandboxes up front (real Daytona VMs).
-    const created = await Promise.allSettled(
-      Array.from({ length: poolSize }, async (_, workerId) => {
-        const sandbox = await daytona.create(
-          {
-            language: "python",
-            labels: { job: "vf-module-gen", worker: String(workerId) },
-            autoStopInterval: 10,
-            ephemeral: true,
-          },
-          { timeout: 180 },
-        );
-        return sandbox;
-      }),
-    );
-    pool.push(...created.filter((r): r is PromiseFulfilledResult<Sandbox> => r.status === "fulfilled").map((r) => r.value));
-    const createFailure = created.find((r): r is PromiseRejectedResult => r.status === "rejected");
-    if (createFailure) throw createFailure.reason;
-
-    let next = 0;
-    async function worker(sandbox: Sandbox) {
-      while (true) {
-        const idx = next++;
-        if (idx >= specs.length) return;
-        const spec = specs[idx];
-        const start = Date.now();
-        results[idx] = { ...results[idx], status: "running", sandbox_id: sandbox.id };
-        await onUpdate(results[idx]);
-        try {
-          const res = await sandbox.process.codeRun(experimentPython(spec.params, spec.id, candidate), undefined, 60);
-          const exit = res.exitCode ?? 0;
-          const out = (res.result ?? res.artifacts?.stdout ?? "").trim();
-          if (exit !== 0) {
-            throw new Error(`codeRun exit ${exit}: ${out.slice(0, 240)}`);
-          }
-          const line = out.split("\n").filter(Boolean).pop() ?? "{}";
-          const parsed = JSON.parse(line) as {
-            quality_pass_rate: number;
-            feature_stability: number;
-            score: number;
-            ok: boolean;
-            error: string | null;
-            host?: string;
-          };
-          results[idx] = {
-            ...results[idx],
-            status: parsed.ok ? "passed" : "failed",
-            sandbox_id: sandbox.id,
-            metrics: {
-              quality_pass_rate: parsed.quality_pass_rate,
-              feature_stability: parsed.feature_stability,
-              score: parsed.score,
-            },
-            error: parsed.error,
-            ms: Date.now() - start,
-          };
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          results[idx] = {
-            ...results[idx],
-            status: "failed",
-            sandbox_id: sandbox.id,
-            metrics: null,
-            error: `Daytona sandbox ${sandbox.id}: ${msg}`,
-            ms: Date.now() - start,
-          };
-        }
-        await onUpdate(results[idx]);
-      }
-    }
-
-    await Promise.all(pool.map((s) => worker(s)));
+    const created = await Promise.allSettled(Array.from({ length: Math.min(concurrency, specs.length) }, (_, i) =>
+      daytona.create({ language: "python", labels: { job: "vf-writing-eval", worker: String(i) },
+        autoStopInterval: 10, ephemeral: true }, { timeout: 180 })));
+    for (const r of created) if (r.status === "fulfilled") sandboxes.push(r.value);
+    const failure = created.find((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failure) throw failure.reason;
+    const workers = sandboxes.map((sandbox) => ({ id: sandbox.id, run: async (script: string) => {
+      const result = await sandbox.process.codeRun(script, undefined, 60);
+      if ((result.exitCode ?? 0) !== 0) throw new Error(`Daytona exit ${result.exitCode}: ${result.result ?? result.artifacts?.stdout ?? ""}`);
+      return result.result ?? result.artifacts?.stdout ?? "";
+    } }));
+    return await runWithWorkers(specs, onUpdate, candidate, workers);
   } finally {
-    await Promise.all(
-      pool.map(async (s) => {
-        try {
-          await s.delete();
-        } catch {
-          /* ignore cleanup */
-        }
-      }),
-    );
+    await Promise.all(sandboxes.map((s) => s.delete().catch(() => undefined)));
     await daytona[Symbol.asyncDispose]?.();
   }
-
-  const ran = results.filter((r) => r.sandbox_id && !r.sandbox_id.startsWith("local-"));
-  if (ran.length === 0) {
-    throw new Error("No experiments ran on Daytona — check DAYTONA_API_KEY and Daytona dashboard");
-  }
-  return results;
 }
-
-/** Python that must execute inside a Daytona sandbox (prints one JSON line). */
-function experimentPython(params: Record<string, number>, seed: number, candidate: CandidateModule): string {
-  const sourceBase64 = Buffer.from(candidate.sourceCode, "utf8").toString("base64");
-  return `
-import ast, base64, json, os, platform, socket
-params = ${JSON.stringify(params)}
-seed = ${seed}
-source = base64.b64decode(${JSON.stringify(sourceBase64)}).decode("utf-8")
-module_id = ${JSON.stringify(candidate.moduleId)}
-if not source:
-    print(json.dumps({"quality_pass_rate": 0, "feature_stability": 0, "score": 0,
-                      "ok": False, "error": "candidate source is empty"}))
-    raise SystemExit(0)
-if source:
-    try:
-        tree = ast.parse(source, filename="generated_module.py")
-        compile(tree, "generated_module.py", "exec")
-        classes = [node for node in tree.body if isinstance(node, ast.ClassDef)
-                   and any(isinstance(base, ast.Name) and base.id == "CVModule" for base in node.bases)]
-        valid = False
-        for cls in classes:
-            ids = [stmt.value.value for stmt in cls.body if isinstance(stmt, ast.Assign)
-                   and any(isinstance(t, ast.Name) and t.id == "id" for t in stmt.targets)
-                   and isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str)]
-            methods = {stmt.name for stmt in cls.body if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))}
-            registered = any(isinstance(dec, ast.Name) and dec.id == "register" for dec in cls.decorator_list)
-            if module_id in ids and registered and {"prepare", "quality_checks", "measure"} <= methods:
-                valid = True
-                break
-        if not valid:
-            raise ValueError("expected @register CVModule with matching id and prepare/quality_checks/measure methods")
-    except (SyntaxError, ValueError) as exc:
-        print(json.dumps({"quality_pass_rate": 0, "feature_stability": 0, "score": 0,
-                          "ok": False, "error": "candidate source invalid: " + str(exc)}))
-        raise SystemExit(0)
-band_lo = float(params.get("band_lo_hz", 3))
-band_hi = float(params.get("band_hi_hz", 12))
-blur = float(params.get("blur_min", 20))
-duration = float(params.get("duration_s", 8))
-hand = float(params.get("hand_visible", 0.8))
-width = band_hi - band_lo
-band_score = 1 - abs(width - 8) / 10 if width > 0 and 2 <= band_lo and band_hi <= 14 else 0.2
-blur_score = 1.0 if 15 <= blur <= 40 else 0.4
-dur_score = 1.0 if 6 <= duration <= 12 else 0.5
-hand_score = 1.0 if 0.7 <= hand <= 0.95 else 0.45
-jitter = ((seed * 17) % 100) / 500
-quality = min(0.98, 0.55 + 0.35 * band_score + jitter)
-stability = min(0.99, 0.5 + 0.4 * ((blur_score + dur_score + hand_score) / 3))
-score = 0.55 * quality + 0.45 * stability
-ok = score >= 0.62 and band_hi > band_lo
-print(json.dumps({
-  "quality_pass_rate": round(quality, 4),
-  "feature_stability": round(stability, 4),
-  "score": round(score, 4),
-  "ok": ok,
-  "error": None if ok else "quality/stability below gate",
-  "host": socket.gethostname(),
-  "platform": platform.platform(),
-  "daytona": True,
-  "pid": os.getpid(),
-}))
-`.trim();
-}
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-export function buildParamGrid(base: Record<string, number>, n = 20): ExperimentSpec[] {
-  const bandLos = [2, 3, 3.5, 4];
-  const bandHis = [8, 10, 12, 14];
-  const blurs = [15, 20, 30, 45];
-  const durations = [6, 8, 10, 12];
-  const hands = [0.65, 0.75, 0.85, 0.95];
-  const specs: ExperimentSpec[] = [];
-  for (let i = 0; i < n; i++) {
-    specs.push({
-      id: i + 1,
-      label: `exp-${String(i + 1).padStart(2, "0")}`,
-      params: {
-        band_lo_hz: bandLos[i % bandLos.length] ?? base.band_lo_hz,
-        band_hi_hz: bandHis[(i * 3) % bandHis.length] ?? base.band_hi_hz,
-        blur_min: blurs[(i * 5) % blurs.length] ?? base.blur_min,
-        duration_s: durations[(i * 7) % durations.length] ?? base.duration_s,
-        hand_visible: hands[(i * 11) % hands.length] ?? base.hand_visible,
-      },
-    });
-  }
-  return specs;
+export function buildParamGrid(_base: Record<string, number>, n = 20): ExperimentSpec[] {
+  const thresholds = [145, 155, 160, 170, 180];
+  const visibility = [0.6, 0.7, 0.8, 0.9];
+  return Array.from({ length: n }, (_, i) => ({ id: i + 1, label: `exp-${String(i + 1).padStart(2, "0")}`,
+    params: { hold_s: 2, straight_deg: thresholds[i % 5], min_visible: visibility[Math.floor(i / 5) % 4], min_duration_s: 6 } }));
 }

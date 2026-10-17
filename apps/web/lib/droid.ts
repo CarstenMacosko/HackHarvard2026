@@ -4,7 +4,7 @@ import { z } from "zod";
 /**
  * Shared request shapes for Droid module generation (DB-backed).
  * GitHub Actions dispatch was removed; generation runs in-process via
- * Factory Droid + Daytona and writes results to droid_jobs / cv_models.
+ * Factory Droid + Daytona and writes candidate results to droid_jobs.
  */
 
 export const DroidRequestInput = z.object({
@@ -19,8 +19,6 @@ export const DroidRequestInput = z.object({
   dataset_hint: z.string().max(300).optional(),
   study_id: z.string().max(60).optional(),
   task: z.unknown().optional(),
-  has_clinical_labels: z.boolean().optional(),
-  example_count: z.number().int().min(0).max(50).optional(),
 });
 export type DroidRequestInput = z.infer<typeof DroidRequestInput>;
 
