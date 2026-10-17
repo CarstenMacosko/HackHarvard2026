@@ -1,3 +1,3 @@
-# Hand-landmark extraction for finger tapping. MediaPipe ships wheels for Python 3.9–3.12,
-# so the deployed image (modal_app.py) uses 3.11.
-mediapipe>=0.10.14
+# Hand-landmark extraction for finger tapping (Tasks API, HandLandmarker). Tested with 1.1.1;
+# needs libEGL + libGLESv2 at runtime (apt: libegl1 libgles2). The model downloads on first use.
+mediapipe>=1.1,<2

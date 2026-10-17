@@ -58,6 +58,8 @@ class AnalyzeResponse(BaseModel):
     media_url: Optional[str]
     quality: QualityReport
     measurements: list[Measurement]
+    # numeric feature vector for researcher-trained models (see packages/shared/src/models.ts)
+    features: dict[str, float] = Field(default_factory=dict)
     model_version: str
     patient_report: dict[str, ReportValue]
     context: dict[str, ReportValue]
