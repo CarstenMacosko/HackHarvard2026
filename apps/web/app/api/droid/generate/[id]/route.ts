@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const job = (await backend().droidJobs(50)).find((j) => j.id === id);
+  // Search a wide window — generate jobs must remain pollable even after many candidates.
+  const job = (await backend().droidJobs(500)).find((j) => j.id === id);
   if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
   const live = liveIntegrationStatus();
   return NextResponse.json({

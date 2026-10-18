@@ -228,15 +228,16 @@ export async function reviewGeneratedCandidate(
   actor: string,
 ): Promise<{ module_id: string; status: "approved"; path: string }> {
   const db = backend();
-  const job = (await db.droidJobs(50)).find((j) => j.id === jobId);
-  if (!job?.progress?.module_id || job.progress.step !== "ready") {
+  const job = (await db.droidJobs(500)).find((j) => j.id === jobId);
+  if (!job) throw new Error("Job not found — start Generate again if this session was refreshed.");
+  if (!job.progress?.module_id || job.progress.step !== "ready") {
     throw new Error("Job is not ready for approval");
   }
   const { module_id, source_code } = job.progress;
   if (!source_code) throw new Error("No generated source code on job");
 
   const { normalizeApprovedSource, writeGeneratedModuleFile } = await import("./created-modules");
-  const deployed = normalizeApprovedSource(source_code, module_id);
+  const deployed = normalizeApprovedSource(source_code, module_id, job.progress.measurements);
   const filePath = writeGeneratedModuleFile(module_id, deployed);
 
   const progress = log(

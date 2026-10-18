@@ -39,40 +39,39 @@ const DEFAULT_CRITERIA = {
 };
 
 function progressMeasurements(p: GenerationProgress): CreatedModule["measurements"] {
-  const fromJob = p.measurements?.length ? p.measurements : [];
-  const hasStraight = fromJob.some((m) => m.name === "index_straight_fraction");
-  const hasPip = fromJob.some((m) => m.name === "index_pip_angle_deg");
-  const out = [...fromJob];
-  if (!hasStraight) {
-    out.unshift({ name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" });
-  }
-  if (!hasPip) {
-    out.push({ name: "index_pip_angle_deg", label: "Mean index PIP angle during writing", unit: "degrees" });
-  }
-  return out;
+  const fromJob = (p.measurements ?? []).filter((m) => m.name && m.label && m.unit);
+  if (fromJob.length) return fromJob;
+  // Fallback only when a legacy job omitted the list — keep the Daytona-required primary metric.
+  return [{ name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" }];
 }
 
 /** Normalize candidate source so the registry loads a deployable module id/version. */
-export function normalizeApprovedSource(source: string, moduleId: string): string {
+export function normalizeApprovedSource(
+  source: string,
+  moduleId: string,
+  measurements?: { name: string; label: string; unit: string }[],
+): string {
   let next = source.replace(/version\s*=\s*["']0\.1\.0-candidate["']/, 'version = "0.1.0"');
   if (!next.includes(`id = "${moduleId}"`) && !next.includes(`id = '${moduleId}'`)) {
     next = next.replace(/id\s*=\s*["'][^"']+["']/, `id = ${JSON.stringify(moduleId)}`);
   }
-  if (!next.includes('MeasurementSpec("index_pip_angle_deg"') && !next.includes("MeasurementSpec('index_pip_angle_deg'")) {
-    next = next.replace(
-      /measurements\s*=\s*\[[^\]]*\]/s,
-      `measurements = [
-        MeasurementSpec("index_straight_fraction", "Index finger straight during writing", "fraction"),
-        MeasurementSpec("index_pip_angle_deg", "Mean index PIP angle during writing", "degrees"),
-    ]`,
-    );
-  }
-  if (!next.includes('self.measurement("index_pip_angle_deg"')) {
-    next = next.replace(
-      /measurements=\[self\.measurement\("index_straight_fraction", result\["straight_fraction"\], None\)\]/,
-      `measurements=[self.measurement("index_straight_fraction", result["straight_fraction"], None),
-                          self.measurement("index_pip_angle_deg", result["writing_angle_deg"], None)]`,
-    );
+  const specs = (
+    measurements?.length
+      ? measurements
+      : [{ name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" }]
+  ).filter((m) => ["index_straight_fraction", "index_pip_angle_deg"].includes(m.name));
+  if (specs.length) {
+    const specLines = specs
+      .map((m) => `        MeasurementSpec(${JSON.stringify(m.name)}, ${JSON.stringify(m.label)}, ${JSON.stringify(m.unit)}),`)
+      .join("\n");
+    next = next.replace(/measurements\s*=\s*\[[^\]]*\]/s, `measurements = [\n${specLines}\n    ]`);
+    const measureCalls = specs
+      .map((m) => {
+        const valueExpr = m.name === "index_pip_angle_deg" ? 'result["writing_angle_deg"]' : 'result["straight_fraction"]';
+        return `self.measurement(${JSON.stringify(m.name)}, ${valueExpr}, None)`;
+      })
+      .join(",\n                          ");
+    next = next.replace(/measurements\s*=\s*\[[^\]]*self\.measurement[^\]]*\]/s, `measurements=[${measureCalls}]`);
   }
   return next;
 }
@@ -150,6 +149,7 @@ export async function taskConfigForModule(moduleId: string, cadence?: TaskConfig
     media_type: created.media_type,
     cadence: cadence ?? WRITING_POSTURE_TASK.cadence,
     instructions: created.description || WRITING_POSTURE_TASK.instructions,
+    guide_steps: [...(WRITING_POSTURE_TASK.guide_steps ?? [])],
     quality_criteria: created.default_criteria,
     report_questions: clinicalQuestionsForModule("writing_posture"),
     measurements: created.measurements.map((m) => ({

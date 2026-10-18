@@ -40,6 +40,23 @@ Shared helpers: services/cv/app/modules/hands.py (HandTracker), quality.py, base
 export function templateModuleSource(input: GenerateModuleInput): string {
   if (input.measurements.some((m) => m.name === "index_straight_fraction")) {
     const c = input.params;
+    const selected = input.measurements.filter((m) => m.name === "index_straight_fraction" || m.name === "index_pip_angle_deg");
+    const specLines = selected
+      .map((m) => `        MeasurementSpec(${JSON.stringify(m.name)}, ${JSON.stringify(m.label)}, ${JSON.stringify(m.unit)}),`)
+      .join("\n");
+    const measureCalls = selected
+      .map((m) => {
+        const expr = m.name === "index_pip_angle_deg" ? 'result["writing_angle_deg"]' : 'result["straight_fraction"]';
+        return `self.measurement(${JSON.stringify(m.name)}, ${expr}, None)`;
+      })
+      .join(",\n                          ");
+    const featureNames = [
+      ...selected.map((m) => m.name),
+      "hold_index_pip_angle_deg",
+      "posture_change_deg",
+      "index_visible_fraction",
+      "example_frame_s",
+    ];
     return `"""Candidate index straightening module; requires clinician validation before deployment."""
 from __future__ import annotations
 from .. import quality as q
@@ -58,10 +75,9 @@ class GeneratedWritingPostureModule(CVModule):
     conditions = ["focal_hand_dystonia"]
     components = ["hand_landmarks", "index_joint_angle"]
     measurements = [
-        MeasurementSpec("index_straight_fraction", ${JSON.stringify(input.measurements.find((m) => m.name === "index_straight_fraction")?.label ?? "Index finger straight during writing")}, ${JSON.stringify(input.measurements.find((m) => m.name === "index_straight_fraction")?.unit ?? "fraction")}),
-        MeasurementSpec("index_pip_angle_deg", ${JSON.stringify(input.measurements.find((m) => m.name === "index_pip_angle_deg")?.label ?? "Mean index PIP angle during writing")}, ${JSON.stringify(input.measurements.find((m) => m.name === "index_pip_angle_deg")?.unit ?? "degrees")}),
+${specLines}
     ]
-    feature_names = ["index_straight_fraction", "index_pip_angle_deg", "hold_index_pip_angle_deg", "posture_change_deg", "index_visible_fraction", "example_frame_s"]
+    feature_names = ${JSON.stringify(featureNames)}
     default_criteria = {"blur": 20, "exposure_min": 60, "exposure_max": 220, "hand_visible": 0.8,
                         "fps": 20, "duration_s": ${c.min_duration_s ?? 6}, "index_visible": ${c.min_visible ?? 0.7},
                         "hold_s": ${c.hold_s ?? 2}, "straight_deg": ${c.straight_deg ?? 160}}
@@ -90,8 +106,7 @@ class GeneratedWritingPostureModule(CVModule):
         if not result["accepted"]:
             raise TaskNotCompleted("Keep the index finger visible during writing.")
         return MeasureResult(
-            measurements=[self.measurement("index_straight_fraction", result["straight_fraction"], None),
-                          self.measurement("index_pip_angle_deg", result["writing_angle_deg"], None)],
+            measurements=[${measureCalls}],
             features={"index_straight_fraction": result["straight_fraction"],
                       "index_pip_angle_deg": result["writing_angle_deg"],
                       "hold_index_pip_angle_deg": result["hold_angle_deg"],
