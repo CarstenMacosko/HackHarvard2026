@@ -4,7 +4,6 @@ import { buildParamGrid, runExperimentsDaytona, runExperimentsLocal } from "./da
 import { draftModuleWithDroid, pickComponents, templateModuleSource } from "./droid-generate";
 import { emptyProgress, type GenerationLog, type GenerationProgress } from "./generation-types";
 import { daytonaConfigured, droidConfigured, liveIntegrationStatus } from "./live-keys";
-import { RESEARCHER_NAME } from "./session";
 import type { DroidJob } from "./types";
 
 const EXPERIMENT_COUNT = 20;
@@ -13,6 +12,8 @@ const MAX_ITERATIONS = 2;
 
 export interface StartGenerateInput {
   condition: string;
+  /** Short display name for Created Modules / study picker. */
+  name: string;
   description: string;
   measurements: { name: string; label: string; unit: string }[];
   media_type: "photo" | "video";
@@ -49,6 +50,7 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
   const status = liveIntegrationStatus();
   const mode = status.mode;
   let progress = emptyProgress({
+    name: input.name,
     description: input.description,
     measurements: input.measurements,
     media_type: input.media_type,
@@ -57,8 +59,11 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
   });
 
   try {
-    if (input.media_type !== "video" || !input.measurements.some((m) => m.name === "index_straight_fraction")) {
-      throw new Error("Track evaluation currently supports the index_straight_fraction video measurement only. Other candidate modules need task-specific fixtures before evaluation.");
+    if (input.media_type !== "video") {
+      throw new Error("Video modules only for this generator.");
+    }
+    if (!input.measurements.length) {
+      throw new Error("Accept a measurement plan with at least one metric before generating.");
     }
     progress = log(
       { ...progress, step: "inspecting" },
@@ -201,8 +206,9 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
         "Candidate ready for researcher review in this job record; no trained model was created.",
       );
       await patch(jobId, progress, "succeeded");
+      const [jobRow] = (await db.droidJobs(50)).filter((j) => j.id === jobId);
       await db.insertAudit({
-        actor: RESEARCHER_NAME,
+        actor: jobRow?.created_by ?? "system",
         action: "droid.module_ready",
         entity: "droid_job",
         entity_id: jobId,
@@ -220,28 +226,42 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
   }
 }
 
-export async function reviewGeneratedCandidate(jobId: string): Promise<{ module_id: string; status: "reviewed_candidate" }> {
+export async function reviewGeneratedCandidate(
+  jobId: string,
+  actor: string,
+): Promise<{ module_id: string; status: "approved"; path: string }> {
   const db = backend();
-  const job = (await db.droidJobs(50)).find((j) => j.id === jobId);
-  if (!job?.progress?.module_id || job.progress.step !== "ready") {
+  const job = (await db.droidJobs(500)).find((j) => j.id === jobId);
+  if (!job) throw new Error("Job not found — start Generate again if this session was refreshed.");
+  if (!job.progress?.module_id || job.progress.step !== "ready") {
     throw new Error("Job is not ready for approval");
   }
   const { module_id, source_code } = job.progress;
   if (!source_code) throw new Error("No generated source code on job");
 
-  const progress = log({ ...job.progress, step: "approved" }, `Reviewed candidate ${module_id}; no model activation or CV-service deployment`);
+  const { normalizeApprovedSource, writeGeneratedModuleFile } = await import("./created-modules");
+  const deployed = normalizeApprovedSource(source_code, module_id, job.progress.measurements);
+  const filePath = writeGeneratedModuleFile(module_id, deployed);
+
+  const progress = log(
+    { ...job.progress, step: "approved", source_code: deployed },
+    `Approved ${module_id} — wrote ${filePath}; module is live for studies and captures`,
+  );
   await db.updateDroidJob(jobId, { progress });
   await db.insertAudit({
-    actor: RESEARCHER_NAME,
-    action: "droid.candidate_reviewed",
+    actor,
+    action: "droid.module_approved",
     entity: "droid_job",
     entity_id: jobId,
-    detail: { module_id, job_id: jobId },
+    detail: { module_id, job_id: jobId, path: filePath },
   });
-  return { module_id, status: "reviewed_candidate" };
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/researcher/models");
+  revalidatePath("/researcher/studies/new");
+  return { module_id, status: "approved", path: filePath };
 }
 
-export async function startModuleGeneration(input: StartGenerateInput): Promise<DroidJob> {
+export async function startModuleGeneration(input: StartGenerateInput, actor: string): Promise<DroidJob> {
   const id = `gen-${slugify(input.measurements[0]?.name ?? "module")}-${Date.now().toString(36)}`.slice(0, 41);
   const at = new Date().toISOString();
   const mode = liveIntegrationStatus().mode;
@@ -255,11 +275,12 @@ export async function startModuleGeneration(input: StartGenerateInput): Promise<
     run_url: null,
     pr_url: null,
     error: null,
-    created_by: RESEARCHER_NAME,
+    created_by: actor,
     created_at: at,
     updated_at: at,
     kind: "module_generate",
     progress: emptyProgress({
+      name: input.name,
       description: input.description,
       measurements: input.measurements,
       media_type: input.media_type,

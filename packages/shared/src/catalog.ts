@@ -1,3 +1,4 @@
+import { clinicalQuestionsForModule } from "./clinical-forms";
 import type { ConsentForm, ReminderConfig, TaskConfig, ValidationStatus } from "./schemas";
 
 /**
@@ -17,19 +18,20 @@ export interface CvComponent {
 export const CV_COMPONENTS: CvComponent[] = [
   { id: "blur", kind: "quality_check", label: "Blur (Laplacian variance)", media: ["photo", "video"], description: "Rejects out-of-focus or shaky captures.", validated_for: ["*"] },
   { id: "exposure", kind: "quality_check", label: "Exposure", media: ["photo", "video"], description: "Rejects too dark or blown-out captures.", validated_for: ["*"] },
-  { id: "hand_visible", kind: "quality_check", label: "Hand visible", media: ["video"], description: "MediaPipe hand detected in most frames.", validated_for: ["parkinsons"] },
+  { id: "hand_visible", kind: "quality_check", label: "Hand visible", media: ["video"], description: "MediaPipe hand detected in most frames.", validated_for: ["parkinsons", "focal_hand_dystonia"] },
   { id: "duration", kind: "quality_check", label: "Duration / frame rate", media: ["video"], description: "Video long enough and at a usable fps.", validated_for: ["*"] },
   { id: "skin_coverage", kind: "quality_check", label: "Skin fills frame", media: ["photo"], description: "Enough skin pixels to analyze the region.", validated_for: ["eczema"] },
-  { id: "hand_landmarks", kind: "extractor", label: "Hand landmarks (MediaPipe)", media: ["video"], description: "21 hand keypoints per frame.", validated_for: ["parkinsons"] },
+  { id: "hand_landmarks", kind: "extractor", label: "Hand landmarks (MediaPipe)", media: ["video"], description: "21 hand keypoints per frame.", validated_for: ["parkinsons", "focal_hand_dystonia"] },
   { id: "pose_landmarks", kind: "extractor", label: "Body pose (MediaPipe)", media: ["video"], description: "33 body keypoints per frame (gait, tremor, posture).", validated_for: [] },
   { id: "skin_mask", kind: "extractor", label: "Skin segmentation", media: ["photo"], description: "Separates skin from background.", validated_for: ["eczema"] },
   { id: "tap_kinematics", kind: "measurement", label: "Finger-tap kinematics", media: ["video"], description: "Tap rate, amplitude, decrement, rhythm variability.", validated_for: ["parkinsons"] },
   { id: "erythema_index", kind: "measurement", label: "Erythema index", media: ["photo"], description: "Redness within skin (CIELAB a*).", validated_for: ["eczema"] },
   { id: "lesion_area", kind: "measurement", label: "Affected area fraction", media: ["photo"], description: "Share of visible skin with elevated redness.", validated_for: ["eczema"] },
-  { id: "color_texture_features", kind: "extractor", label: "Skin colour & texture features", media: ["photo"], description: "16-value feature vector (CIELAB statistics, redness bands, texture) that researcher-trained models read.", validated_for: [] },
-  { id: "tremor_spectrum", kind: "measurement", label: "Tremor spectrum", media: ["video"], description: "Dominant 3–12 Hz frequency, peak-to-peak amplitude and tremor share of hand movement (Welch spectrum of hand landmarks).", validated_for: [] },
-  { id: "image_embedding", kind: "extractor", label: "Image embedding (MobileNet-V3)", media: ["photo"], description: "1,024-value general-purpose embedding, on-device and on the server; trained heads (e.g. SCIN condition likelihoods) read it.", validated_for: [] },
-  { id: "tap_features", kind: "extractor", label: "Tapping kinematics features", media: ["video"], description: "10-value feature vector (rate, amplitude, fatigue, rhythm) that researcher-trained models read.", validated_for: [] },
+  { id: "color_texture_features", kind: "extractor", label: "Skin colour & texture features", media: ["photo"], description: "16-value feature vector (CIELAB statistics, redness bands, texture) that researcher-trained models read.", validated_for: ["eczema"] },
+  { id: "tremor_spectrum", kind: "measurement", label: "Tremor spectrum", media: ["video"], description: "Dominant 3–12 Hz frequency, peak-to-peak amplitude and tremor share of hand movement (Welch spectrum of hand landmarks).", validated_for: ["parkinsons"] },
+  { id: "writing_posture", kind: "measurement", label: "Index writing posture", media: ["video"], description: "Index PIP straightening during writing from hand landmarks (focal hand dystonia).", validated_for: ["focal_hand_dystonia"] },
+  { id: "image_embedding", kind: "extractor", label: "Image embedding (MobileNet-V3)", media: ["photo"], description: "1,024-value general-purpose embedding, on-device and on the server; trained heads (e.g. SCIN condition likelihoods) read it.", validated_for: ["eczema"] },
+  { id: "tap_features", kind: "extractor", label: "Tapping kinematics features", media: ["video"], description: "10-value feature vector (rate, amplitude, fatigue, rhythm) that researcher-trained models read.", validated_for: ["parkinsons"] },
 ];
 
 export function validationStatusFor(componentId: string, condition: string): ValidationStatus {
@@ -37,6 +39,52 @@ export function validationStatusFor(componentId: string, condition: string): Val
   if (!c) return "new_model_required";
   if (c.validated_for.includes("*") || c.validated_for.includes(condition)) return "validated";
   return "reusable_needs_validation";
+}
+
+/** Default numbered capture steps for the participant check-in UI (overridable per study). */
+export const DEFAULT_GUIDE_STEPS: Record<string, string[]> = {
+  finger_tapping: [
+    "Prop the phone up so your whole hand and wrist are in view.",
+    "Use normal video mode (not slow-motion or time-lapse) in good light.",
+    "Tap your index finger and thumb together as fast and as wide as you can.",
+    "Keep tapping for at least 10 seconds.",
+  ],
+  hand_tremor: [
+    "Prop the phone up so it stays completely still. A hand-held phone adds its own shake.",
+    "Rest your forearm on a table or your lap with your hand relaxed and in view, wrist included.",
+    "Use normal video mode (not slow-motion or time-lapse) in good light.",
+    "Keep your hand still and relaxed for at least 10 seconds.",
+  ],
+  eczema_photo: [
+    "Stand near a window or under a bright light. Turn the flash off.",
+    "Hold the phone about a forearm's length (30 cm) away, straight on.",
+    "Fit the whole patch in the frame, with some normal skin around it.",
+    "Tap the screen to focus before taking the photo.",
+  ],
+  writing_posture: [
+    "Prop the phone for a clear side view of your writing hand and wrist.",
+    "Hold the pen still for about two seconds with your index finger visible.",
+    "Then write the same short phrase once — keep the index finger in view.",
+    "Use normal video mode in good light; record at least six seconds total.",
+  ],
+  photo: [
+    "Stand near a window or under a bright light. Turn the flash off.",
+    "Hold the phone about a forearm's length (30 cm) away, straight on.",
+    "Fit the whole patch in the frame, with some normal skin around it.",
+    "Tap the screen to focus before taking the photo.",
+  ],
+  video: [
+    "Prop the phone up so your whole hand and wrist are in view.",
+    "Use normal video mode (not slow-motion or time-lapse) in good light.",
+    "Follow the on-screen guidance for this study's task.",
+    "Keep the camera still until recording finishes.",
+  ],
+};
+
+export function guideStepsForModule(module: string, mediaType: "photo" | "video" = "video"): string[] {
+  if (DEFAULT_GUIDE_STEPS[module]) return [...DEFAULT_GUIDE_STEPS[module]];
+  if (module.startsWith("gen_")) return [...DEFAULT_GUIDE_STEPS.writing_posture];
+  return [...(DEFAULT_GUIDE_STEPS[mediaType] ?? DEFAULT_GUIDE_STEPS.video)];
 }
 
 export const FINGER_TAPPING_TASK: TaskConfig = {
@@ -47,11 +95,9 @@ export const FINGER_TAPPING_TASK: TaskConfig = {
   cadence: "weekly",
   instructions:
     "Time for your weekly finger-tapping check 👋 Prop your phone up so your whole right hand is in view, then tap your index finger and thumb together as fast and as wide as you can for 10 seconds. Send the video here.",
+  guide_steps: [...DEFAULT_GUIDE_STEPS.finger_tapping],
   quality_criteria: { blur: 20, exposure_min: 60, exposure_max: 220, hand_visible: 0.8, duration_s: 8, fps: 20 },
-  report_questions: [
-    { key: "medication_state", prompt: "Are you ON or OFF your medication right now?", type: "choice", options: ["ON", "OFF", "Not sure"] },
-    { key: "hand", prompt: "Which hand did you tap with?", type: "choice", options: ["Right", "Left"] },
-  ],
+  report_questions: clinicalQuestionsForModule("finger_tapping"),
   measurements: [
     { name: "tap_rate_hz", label: "Tap rate", unit: "Hz", validation_status: "reusable_needs_validation" },
     { name: "amplitude_norm", label: "Amplitude", unit: "× hand size", validation_status: "reusable_needs_validation" },
@@ -68,11 +114,9 @@ export const TREMOR_TASK: TaskConfig = {
   cadence: "weekly",
   instructions:
     "Weekly tremor check 🤚 Prop your phone up so it can't move, rest your right forearm on a table with your hand relaxed and in view (wrist included), and keep it still for 15 seconds. Send the video here.",
+  guide_steps: [...DEFAULT_GUIDE_STEPS.hand_tremor],
   quality_criteria: { blur: 20, exposure_min: 60, exposure_max: 220, hand_visible: 0.8, duration_s: 8, fps: 24 },
-  report_questions: [
-    { key: "medication_state", prompt: "Are you ON or OFF your medication right now?", type: "choice", options: ["ON", "OFF", "Not sure"] },
-    { key: "tremor_today", prompt: "How much has tremor bothered you today, 0 (not at all) to 10 (very much)?", type: "scale" },
-  ],
+  report_questions: clinicalQuestionsForModule("hand_tremor"),
   measurements: [
     { name: "tremor_amplitude", label: "Tremor amplitude", unit: "× hand size", validation_status: "reusable_needs_validation" },
     { name: "tremor_freq_hz", label: "Tremor frequency", unit: "Hz", validation_status: "reusable_needs_validation" },
@@ -88,14 +132,39 @@ export const ECZEMA_TASK: TaskConfig = {
   cadence: "twice_weekly",
   instructions:
     "Skin check time 📸 Stand near a window (no flash), hold your phone about 30 cm (one forearm) from your left inner elbow, and take a straight-on photo with the whole patch in frame.",
+  guide_steps: [...DEFAULT_GUIDE_STEPS.eczema_photo],
   quality_criteria: { blur: 15, exposure_min: 70, exposure_max: 210, skin_coverage: 0.25 },
-  report_questions: [
-    { key: "itch", prompt: "How itchy has it been in the last 24h, 0 (none) to 10 (worst)?", type: "scale" },
-    { key: "treatment_used", prompt: "Did you use your treatment today?", type: "choice", options: ["Yes", "No"] },
-  ],
+  report_questions: clinicalQuestionsForModule("eczema_photo"),
   measurements: [
     { name: "erythema_index", label: "Erythema index", unit: "Δa*", validation_status: "reusable_needs_validation" },
     { name: "affected_area_pct", label: "Affected area", unit: "% of skin", validation_status: "reusable_needs_validation" },
+  ],
+};
+
+export const WRITING_POSTURE_TASK: TaskConfig = {
+  id: "fhd_writing_posture",
+  module: "writing_posture",
+  label: "Writing posture: index-finger straightening",
+  media_type: "video",
+  cadence: "weekly",
+  instructions:
+    "Writing check ✍️ Prop your phone for a clear side view of your writing hand. Hold the pen still for 2 seconds, then write the same short phrase once. Keep your index finger visible the whole time.",
+  guide_steps: [...DEFAULT_GUIDE_STEPS.writing_posture],
+  quality_criteria: {
+    blur: 20,
+    exposure_min: 60,
+    exposure_max: 220,
+    hand_visible: 0.8,
+    index_visible: 0.7,
+    duration_s: 6,
+    fps: 20,
+    hold_s: 2,
+    straight_deg: 160,
+  },
+  report_questions: clinicalQuestionsForModule("writing_posture"),
+  measurements: [
+    { name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction", validation_status: "reusable_needs_validation" },
+    { name: "index_pip_angle_deg", label: "Mean index PIP angle during writing", unit: "degrees", validation_status: "reusable_needs_validation" },
   ],
 };
 
@@ -103,6 +172,7 @@ export const TASK_LIBRARY: Record<string, TaskConfig> = {
   finger_tapping: FINGER_TAPPING_TASK,
   hand_tremor: TREMOR_TASK,
   eczema_photo: ECZEMA_TASK,
+  writing_posture: WRITING_POSTURE_TASK,
 };
 
 export const DEFAULT_CONSENT: ConsentForm = {

@@ -11,7 +11,7 @@ export default async function StudiesPage() {
     <>
       <PageHeader
         title="Studies"
-        description="Each study runs a versioned protocol: which CV module, the capture instructions, the quality gate and the reward rules."
+        description="Each study runs a versioned protocol: which CV module, the capture instructions and the quality gate."
         actions={<ButtonLink href="/researcher/studies/new">New study</ButtonLink>}
       />
       <Card>

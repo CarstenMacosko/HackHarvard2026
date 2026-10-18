@@ -1,5 +1,5 @@
 import "server-only";
-import { SCORE_NAME, badgesEarned, balance, computeStreak, lifetimePoints, tierFor, type Observation, isOpen, type RewardEvent } from "@vf/shared";
+import { badgesEarned, balance, computeStreak, lifetimePoints, tierFor, type Observation, isOpen, type RewardEvent } from "@vf/shared";
 import { PRETRAINED } from "@vf/shared/pretrained";
 import { backend } from "./backend";
 import { ensureSchedule } from "./schedule";
@@ -9,9 +9,9 @@ import type { Participant, ParticipantSummary, ScheduledTask, Study, StudySummar
 
 const DAY = 86_400_000;
 
-function completion(tasks: ScheduledTask[]): number {
+function completion(tasks: ScheduledTask[]): number | null {
   const due = tasks.filter((t) => !isOpen(t));
-  return due.length ? due.filter((t) => t.status === "completed").length / due.length : 0;
+  return due.length ? due.filter((t) => t.status === "completed").length / due.length : null;
 }
 
 function summarize(p: Participant, study: Study | undefined, tasks: ScheduledTask[], obs: Observation[], rewards: RewardEvent[]): ParticipantSummary {
@@ -26,7 +26,6 @@ function summarize(p: Participant, study: Study | undefined, tasks: ScheduledTas
     pending_reviews: mine.filter((o) => o.review_status === "pending").length,
     points: balance(rewards.filter((e) => e.participant_id === p.id)),
     escalations: myTasks.filter((t) => t.status === "escalated" && Date.now() - new Date(t.due_at).getTime() < 14 * DAY).length,
-    latest_score: mine.at(-1)?.measurements.find((m) => m.name === SCORE_NAME)?.value ?? null,
   };
 }
 
@@ -84,7 +83,7 @@ export async function listStudies(): Promise<StudySummary[]> {
       active: ps.filter((p) => p.status === "active").length,
       completion_rate: completion(tasks.filter((t) => ids.has(t.participant_id))),
       pending_reviews: so.filter((o) => o.review_status === "pending").length,
-      first_try_usable_rate: so.length ? so.filter((o) => Number(o.context.attempts ?? 1) === 1).length / so.length : 0,
+      first_try_usable_rate: so.length ? so.filter((o) => Number(o.context.attempts ?? 1) === 1).length / so.length : null,
     };
   });
 }
@@ -109,18 +108,6 @@ export async function overview() {
   const summaries = participants.map((p) =>
     summarize(p, studies.find((s) => s.id === p.study_id), tasks, obs, rewards),
   );
-  const attention = summaries
-    .filter((p) => p.status === "active")
-    .map((p) => {
-      const reasons: string[] = [];
-      if (p.escalations) reasons.push(`${p.escalations} escalated check-in${p.escalations > 1 ? "s" : ""}`);
-      if (p.completion_rate < 0.75) reasons.push(`completion ${Math.round(p.completion_rate * 100)}%`);
-      const lastDue = tasks.filter((t) => t.participant_id === p.id && !isOpen(t)).sort((a, b) => b.due_at.localeCompare(a.due_at))[0];
-      if (lastDue && lastDue.status !== "completed") reasons.push("missed the latest check-in");
-      return { participant: p, reasons };
-    })
-    .filter((x) => x.reasons.length)
-    .sort((a, b) => b.reasons.length - a.reasons.length || a.participant.completion_rate - b.participant.completion_rate);
   const names = new Map(participants.map((p) => [p.id, p.display_name]));
 
   return {
@@ -129,8 +116,11 @@ export async function overview() {
       active: participants.filter((p) => p.status === "active").length,
       enrolled: participants.filter((p) => p.status !== "invited").length,
       checkins7d: subs.filter((s) => s.accepted && now - new Date(s.created_at).getTime() < 7 * DAY).length,
-      completion30d: completion(tasks.filter((t) => last30(t.due_at))),
-      firstTry30d: recentObs.length ? recentObs.filter((o) => Number(o.context.attempts ?? 1) === 1).length / recentObs.length : 0,
+      completion30d: (() => {
+        const due = tasks.filter((t) => last30(t.due_at) && !isOpen(t));
+        return due.length ? due.filter((t) => t.status === "completed").length / due.length : null;
+      })(),
+      firstTry30d: recentObs.length ? recentObs.filter((o) => Number(o.context.attempts ?? 1) === 1).length / recentObs.length : null,
       pendingReviews: obs.filter((o) => o.review_status === "pending").length,
       escalations: summaries.reduce((s, p) => s + p.escalations, 0),
     },
@@ -138,7 +128,6 @@ export async function overview() {
       const ids = new Set(participants.filter((p) => p.study_id === s.id).map((p) => p.id));
       return { study: s, weeks: weeklyAdherence(tasks.filter((t) => ids.has(t.participant_id))) };
     }),
-    attention: attention.slice(0, 6),
     recent: [...subs]
       .reverse()
       .slice(0, 8)
@@ -199,8 +188,7 @@ export async function reviewQueue(studyId?: string) {
 
 export async function submissionsInbox(f: { studyId?: string; result?: string } = {}) {
   const db = backend();
-  const [subs, participants, studies, obs] = await Promise.all([db.submissions({ studyId: f.studyId }), db.participants(), db.studies(), db.observations({ studyId: f.studyId })]);
-  const scores = new Map(obs.map((o) => [o.id, o.measurements.find((m) => m.name === SCORE_NAME)?.value ?? null]));
+  const [subs, participants, studies] = await Promise.all([db.submissions({ studyId: f.studyId }), db.participants(), db.studies()]);
   const names = new Map(participants.map((p) => [p.id, p.display_name]));
   const taskLabels = new Map(studies.flatMap((s) => s.protocol.tasks.map((t) => [t.id, t.label] as const)));
   const rows = [...subs]
@@ -210,7 +198,6 @@ export async function submissionsInbox(f: { studyId?: string; result?: string } 
       ...s,
       participant_name: names.get(s.participant_id) ?? s.participant_id,
       task_label: taskLabels.get(s.task_id) ?? s.task_id,
-      score: s.observation_id ? (scores.get(s.observation_id) ?? null) : null,
     }));
   return { rows, funnel: submissionFunnel(subs) };
 }
@@ -226,11 +213,33 @@ export async function participantHome(id: string) {
   const rewards = study?.protocol.rewards;
   const lifetime = lifetimePoints(events);
   const now = Date.now();
-  const openTask =
-    tasks
-      .filter((t) => isOpen(t) && new Date(t.due_at).getTime() - DAY <= now && now <= new Date(t.due_at).getTime() + t.window_hours * 3_600_000)
-      .sort((a, b) => a.due_at.localeCompare(b.due_at))[0] ?? null;
-  const nextTask = openTask ?? tasks.filter((t) => isOpen(t)).sort((a, b) => a.due_at.localeCompare(b.due_at))[0] ?? null;
+  const enabled = participant.enabled_task_ids;
+  const protocolTasks =
+    study && enabled?.length
+      ? study.protocol.tasks.filter((t) => enabled.includes(t.id))
+      : study?.protocol.tasks ?? [];
+  const openScheduled = tasks
+    .filter((t) => isOpen(t))
+    .filter((t) => !enabled?.length || enabled.includes(t.task_id))
+    .sort((a, b) => a.due_at.localeCompare(b.due_at));
+  const dueScheduled = openScheduled.filter(
+    (t) => new Date(t.due_at).getTime() - DAY <= now && now <= new Date(t.due_at).getTime() + t.window_hours * 3_600_000,
+  );
+  const openTask = dueScheduled[0] ?? null;
+  const nextTask = openTask ?? openScheduled[0] ?? null;
+  const availableTasks = protocolTasks.map((task) => {
+    const custom = participant.task_instructions?.[task.id]?.trim();
+    const scheduled = openScheduled.find((s) => s.task_id === task.id) ?? null;
+    const due =
+      scheduled &&
+      new Date(scheduled.due_at).getTime() - DAY <= now &&
+      now <= new Date(scheduled.due_at).getTime() + scheduled.window_hours * 3_600_000;
+    return {
+      task: custom ? { ...task, instructions: custom } : task,
+      scheduled,
+      dueNow: Boolean(due),
+    };
+  });
   return {
     participant,
     study,
@@ -238,6 +247,7 @@ export async function participantHome(id: string) {
     submissions,
     nextTask,
     dueNow: Boolean(openTask),
+    availableTasks,
     events: [...events].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     redemptions,
     balance: balance(events),

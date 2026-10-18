@@ -18,6 +18,7 @@ function loadRootEnvOnce() {
     path.resolve(process.cwd(), ".env.local"),
     path.resolve(process.cwd(), "..", ".env.local"),
     path.resolve(process.cwd(), "../..", ".env.local"),
+    path.resolve(__dirname, "../../../.env.local"),
   ];
   for (const file of candidates) {
     if (!existsSync(file)) continue;

@@ -4,6 +4,7 @@ import {
   analyzeSkinPhoto,
   analyzeTapping,
   analyzeTremor,
+  analyzeWritingPosture,
   embeddingFeatures,
   HAND_CROP_MARGIN,
   HAND_CROP_SIDE,
@@ -15,10 +16,29 @@ import {
   type ModuleResult,
   type PreparedHandTrack,
 } from "@vf/cv";
-import { loadHandLandmarker, loadImageEmbedder } from "./mediapipe";
+import { allocVideoTimestamps, loadHandLandmarker, loadImageEmbedder } from "./mediapipe";
 
-/** Video modules that run on-device; both work from the same hand track. */
-export type VideoModuleId = "finger_tapping" | "hand_tremor";
+/** Video modules that run on-device from the same hand track (gen_* uses writing-posture metrics). */
+export type VideoModuleId = "finger_tapping" | "hand_tremor" | "writing_posture" | (string & {});
+
+/** True when the browser can fully measure this module (not quality-only). */
+export function isOnDeviceVideoModule(module: string): boolean {
+  // Every approved gen_* module uses the on-device hand-landmark pipeline; custom
+  // measurement names are mapped from writing-posture features at check-in time.
+  return (
+    module === "finger_tapping" ||
+    module === "hand_tremor" ||
+    module === "writing_posture" ||
+    module.startsWith("gen_")
+  );
+}
+
+function analyzeHandTrack(module: string, track: PreparedHandTrack, criteria: Record<string, number>): ModuleResult {
+  if (module === "hand_tremor") return analyzeTremor(track, criteria);
+  if (module === "finger_tapping") return analyzeTapping(tappingFromTrack(track), criteria);
+  if (module === "writing_posture" || module.startsWith("gen_")) return analyzeWritingPosture(track, criteria, module);
+  throw new Error(`Unsupported on-device video module: ${module}`);
+}
 
 /**
  * On-device analysis: runs the same CV modules as services/cv (ported in @vf/cv) in the
@@ -29,9 +49,6 @@ export const ANALYSIS_MAX_SIDE = 1024; // matches services/cv load_photo()
 const UPLOAD_MAX_SIDE = 1600;
 const VIDEO_SAMPLE_FPS = 30;
 const VIDEO_MAX_SECONDS = 30;
-// The landmarker is shared for the whole page, and VIDEO mode requires timestamps that keep
-// increasing across calls, so each new clip continues from where the previous one stopped.
-let nextTimestampMs = 0;
 
 export interface PhotoAnalysis {
   result: ModuleResult;
@@ -194,8 +211,7 @@ export async function analyzeVideoFile(
     let prev: Uint8ClampedArray | null = null;
     let duplicates = 0;
 
-    const tsBase = nextTimestampMs;
-    nextTimestampMs = tsBase + Math.ceil((n * 1000) / VIDEO_SAMPLE_FPS) + 1000;
+    const { startMs: tsBase } = allocVideoTimestamps(Math.ceil((n * 1000) / VIDEO_SAMPLE_FPS) + 1);
     for (let i = 0; i < n; i++) {
       // the middle of each frame interval: seeking to a frame boundary can decode the previous frame
       await seek(video, start + (i + 0.5) / VIDEO_SAMPLE_FPS);
@@ -226,7 +242,7 @@ export async function analyzeVideoFile(
       landmarks,
       detection_rate: detected / n,
     };
-    const result = module === "hand_tremor" ? analyzeTremor(track, criteria) : analyzeTapping(tappingFromTrack(track), criteria);
+    const result = analyzeHandTrack(module, track, criteria);
     await seek(video, start + Math.min(duration / 2, duration - 0.05));
     const p = fit(W, H, 960);
     const poster = canvas(p.w, p.h);

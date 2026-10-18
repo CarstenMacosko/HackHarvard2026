@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { lifetimePoints, Observation, tierFor } from "@vf/shared";
+import { Observation } from "@vf/shared";
 import { z } from "zod";
 import { backend } from "@/lib/backend";
 import { ingest } from "@/lib/ingest";
@@ -11,7 +11,7 @@ const Body = z.union([
 
 /**
  * The messaging agent posts every analysed attempt here (CV ran in services/cv). This route
- * owns the database writes and the reward ledger, and returns the confirmation text to send.
+ * owns the database writes and returns the confirmation text to send.
  */
 export async function POST(req: Request) {
   const secret = process.env.CV_CALLBACK_SECRET;
@@ -43,17 +43,13 @@ export async function POST(req: Request) {
       attempt,
       observationId: o.id,
     });
-    const tier = tierFor(study.protocol.rewards, lifetimePoints(await db.rewardEvents(participant.id)));
     return NextResponse.json({
       accepted: result.submission.accepted,
       submission_id: result.submission.id,
       observation_id: result.observation?.id ?? null,
-      reward_events: result.reward_events,
+      reward_events: [],
       streak: result.streak,
-      points_balance: result.points_balance,
-      tier: tier.current.name,
-      next_tier: tier.next ? { name: tier.next.name, points: tier.next.points } : null,
-      lifetime_points: lifetimePoints(await db.rewardEvents(participant.id)),
+      points_balance: 0,
       message: result.submission.accepted ? result.message.replace(/^Usable capture ✅ /, "") : null,
     });
   } catch (e) {

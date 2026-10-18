@@ -1,31 +1,72 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { DEFAULT_CONSENT, DEFAULT_REWARDS, Protocol, TASK_LIBRARY, captureReminderFor, type Cadence, type ReminderConfig, type TaskConfig } from "@vf/shared";
+import {
+  DEFAULT_CONSENT,
+  DEFAULT_REWARDS,
+  Protocol,
+  captureReminderFor,
+  clinicalQuestionsForModule,
+  type Cadence,
+  type ReminderConfig,
+  type ReportQuestion,
+  type TaskConfig,
+} from "@vf/shared";
 import { backend } from "@/lib/backend";
-import { RESEARCHER_NAME } from "@/lib/session";
+import { taskConfigForModule } from "@/lib/created-modules";
+import { researcherName } from "@/lib/session";
 import type { Condition, Study } from "@/lib/types";
 
 export interface CreateStudyInput {
   name: string;
   condition: Condition;
-  consentTitle: string;
-  consentBody: string;
-  evals: { module: string; cadence: Cadence }[];
+  evals: {
+    module: string;
+    cadence: Cadence;
+    report_questions?: ReportQuestion[];
+    instructions?: string;
+    guide_steps?: string[];
+  }[];
   reminders: { kind: ReminderConfig["kind"]; every_hours: number; message: string; task_module?: string }[];
 }
 
 export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  try {
+    await researcherName();
+  } catch {
+    return { ok: false, error: "Sign in as a researcher to create a study." };
+  }
   const name = input.name.trim();
   if (name.length < 3) return { ok: false, error: "Give the study a name." };
   if (!input.evals.length) return { ok: false, error: "Choose at least one required evaluation." };
-  if (!input.consentBody.trim()) return { ok: false, error: "Consent form text is required." };
 
   const tasks: TaskConfig[] = [];
   for (const ev of input.evals) {
-    const base = TASK_LIBRARY[ev.module];
-    if (!base) return { ok: false, error: `Unknown evaluation ${ev.module}` };
-    tasks.push({ ...structuredClone(base), cadence: ev.cadence });
+    const base = await taskConfigForModule(ev.module, ev.cadence);
+    if (!base) {
+      return {
+        ok: false,
+        error:
+          ev.module.startsWith("gen_") || input.condition === "focal_hand_dystonia"
+            ? `Unknown evaluation ${ev.module}. Approve a generated module under Generate module first.`
+            : `Unknown evaluation ${ev.module}`,
+      };
+    }
+    const questions = (ev.report_questions?.length ? ev.report_questions : clinicalQuestionsForModule(ev.module)).map((q, i) => ({
+      key: q.key.trim() || `q_${i}`,
+      prompt: q.prompt.trim(),
+      type: q.type,
+      options: q.type === "choice" ? (q.options?.length ? q.options : ["Yes", "No"]) : undefined,
+    }));
+    if (questions.some((q) => !q.prompt)) return { ok: false, error: "Every clinical-form question needs a prompt." };
+    const instructions = (ev.instructions ?? base.instructions).trim();
+    if (!instructions) return { ok: false, error: "Each evaluation needs capture instructions." };
+    const guide_steps = (ev.guide_steps ?? base.guide_steps ?? [])
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+    if (!guide_steps.length) return { ok: false, error: "Add at least one numbered capture step for each evaluation." };
+    tasks.push({ ...base, cadence: ev.cadence, report_questions: questions, instructions, guide_steps });
   }
 
   const reminders: ReminderConfig[] = input.reminders
@@ -50,19 +91,20 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
     .replace(/^_|_$/g, "")
     .slice(0, 24);
   const id = `study_${slug}_${Date.now().toString(36).slice(-4)}`;
+  const by = await researcherName();
   const protocol = Protocol.parse({
     study_id: id,
     version: 1,
-    approved_by: RESEARCHER_NAME,
+    approved_by: by,
     tasks,
     rewards: DEFAULT_REWARDS,
-    consent: { title: input.consentTitle.trim() || DEFAULT_CONSENT.title, body: input.consentBody.trim() },
+    consent: DEFAULT_CONSENT,
     reminders,
   });
   const study: Study = { id, name, condition: input.condition, status: "active", protocol };
   const db = backend();
   await db.insertStudy(study);
-  await db.insertAudit({ actor: RESEARCHER_NAME, action: "study.created", entity: "study", entity_id: id, detail: { evals: tasks.map((t) => t.id) } });
+  await db.insertAudit({ actor: by, action: "study.created", entity: "study", entity_id: id, detail: { evals: tasks.map((t) => t.id) } });
   revalidatePath("/researcher/studies");
   return { ok: true, id };
 }
