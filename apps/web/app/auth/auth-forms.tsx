@@ -6,7 +6,7 @@ import { signInAction, signUpAction } from "./actions";
 
 const input = "mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm";
 
-export function SignInForm({ defaultRole }: { defaultRole: "researcher" | "participant" }) {
+export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   return (
@@ -19,7 +19,6 @@ export function SignInForm({ defaultRole }: { defaultRole: "researcher" | "parti
         });
       }}
     >
-      <RoleHint role={defaultRole} />
       <label className="block text-sm font-medium text-slate-900">
         Email
         <input className={input} name="email" type="email" autoComplete="email" required />
@@ -101,13 +100,5 @@ export function SignUpForm({
         {pending ? "Creating…" : "Create account"}
       </Button>
     </form>
-  );
-}
-
-function RoleHint({ role }: { role: string }) {
-  return (
-    <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
-      {role === "researcher" ? "Signing in as a study team member." : "Signing in as a participant."}
-    </p>
   );
 }

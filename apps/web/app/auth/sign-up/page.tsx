@@ -9,9 +9,9 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white px-6 py-16">
       <div className="mx-auto w-full max-w-md">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs font-bold text-white">VF</span>
-          Visual Follow-Up
+        <Link href="/" className="inline-flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/streamcare-logo.png" alt="StreamCare" className="h-7 w-auto" />
         </Link>
         <h1 className="mt-8 text-2xl font-semibold tracking-tight text-slate-900">Create an account</h1>
         <p className="mt-2 text-sm text-slate-600">

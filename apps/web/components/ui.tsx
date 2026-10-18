@@ -104,6 +104,7 @@ const VALIDATION: Record<ValidationStatus, { label: string; tone: Tone }> = {
 };
 
 export function ValidationBadge({ status }: { status: ValidationStatus }) {
+  if (status === "reusable_needs_validation") return null;
   const v = VALIDATION[status];
   return <Badge tone={v.tone}>{v.label}</Badge>;
 }
