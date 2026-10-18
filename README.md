@@ -4,7 +4,7 @@ Remote, clinician-verified visual follow-up for longitudinal studies. Built at H
 
 Participants complete short photo and video check-ins from home. Modular computer vision scores each capture, and clinicians verify every result on a longitudinal timeline.
 
-### AI-Powered CV Module Generation with Factory Droid
+### AI-Powered CV Module Generation and Iteration with Factory Droid
 
 StreamCare uses **Factory Droid** to automatically generate custom computer vision assessment modules from researcher-defined clinical protocols. Droid analyzes the requested measurements and existing CV infrastructure to produce assessment-specific Python code, eliminating the need for researchers to manually develop each test. 
 Factory Droid acts as the AI software engineering agent, creating tests in real time..
@@ -68,7 +68,8 @@ docs/              Deploy, Droid, architecture, product notes
 
 - **Node.js 20+**
 - **npm** (workspaces)
-- Optional: **Python 3.12** (CV service / training), **Supabase** project (durable data)
+- **Python 3.12** (CV service / training)
+- **Supabase** project (durable data)
 
 ## Quick start
 
@@ -112,13 +113,11 @@ Copy `.env.example` → `.env.local` at the **repo root**. Symlink or copy into 
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser uploads via signed URLs |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server writes (secret — never expose client-side) |
 | `CV_SERVICE_URL` | Server-side CV re-analysis |
-| `FACTORY_API_KEY` / `DAYTONA_API_KEY` | Live module generation on `/researcher/generate` |
-| `ANTHROPIC_API_KEY` | Optional LLM assists (offline fallback without it) |
-| `CV_CALLBACK_SECRET` | Agent → web callbacks |
+| `FACTORY_API_KEY` and `DAYTONA_API_KEY` | Live module generation on `/researcher/generate` |
 
 See [`.env.example`](.env.example) for the full list.
 
-## Optional: Supabase
+## Supabase
 
 For durable studies, participants, and media:
 
@@ -130,47 +129,4 @@ For durable studies, participants, and media:
 
 Details: [`docs/DATABASE.md`](docs/DATABASE.md).
 
-## Optional: CV service
-
-Uploads already run CV **in the browser**. The Python service is the reference re-analysis path for production.
-
-```bash
-cd services/cv
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt -r requirements-mediapipe.txt
-uvicorn app.main:app --reload   # http://localhost:8000/docs
-```
-
-Then set `CV_SERVICE_URL=http://localhost:8000` in `.env.local`.
-
-## Optional: messaging agent
-
-```bash
-cd services/agent
-MOCK_CV=1 WEB_URL=http://localhost:3000 npm run dev
-```
-
-## Deploy
-
-| Piece | Where |
-|---|---|
-| Web | **Vercel**, root directory `apps/web` — see [`docs/DEPLOY.md`](docs/DEPLOY.md) |
-| CV | Modal (`modal deploy modal_app.py`) or Docker; set `CV_SERVICE_URL` on Vercel |
-| Agent | Railway / similar; point `WEB_URL` at the Vercel URL |
-
-## Further reading
-
-| Doc | Topic |
-|---|---|
-| [`docs/README.md`](docs/README.md) | Documentation hub |
-| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Vercel deploy |
-| [`docs/DROID.md`](docs/DROID.md) | Droid setup |
-| [`docs/MODULE_GENERATION.md`](docs/MODULE_GENERATION.md) | Generate module flow |
-| [`docs/DATABASE.md`](docs/DATABASE.md) | Schema and storage |
-| [`training/README.md`](training/README.md) | Offline training kit |
-
-## Disclaimer
-
-Hackathon prototype. Measurements are **not clinically validated**. Demo data is synthetic or from consenting team members. Not for use with real patients without proper consent, security, and validation work.
-
-MIT licensed.
+MIT Licensed.
