@@ -32,3 +32,5 @@ training/.cache/
 
 # Local demo persistence (`npm run dev` keeps; `npm run dev:refresh` wipes)
 .data/
+
+.pnpm-store/
