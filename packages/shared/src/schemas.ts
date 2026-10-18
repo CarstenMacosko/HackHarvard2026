@@ -76,7 +76,7 @@ export const ReportQuestion = z.object({
 });
 export type ReportQuestion = z.infer<typeof ReportQuestion>;
 
-export const Cadence = z.enum(["daily", "twice_weekly", "weekly", "biweekly"]);
+export const Cadence = z.enum(["twice_daily", "daily", "twice_weekly", "weekly", "biweekly"]);
 export type Cadence = z.infer<typeof Cadence>;
 
 /** One task in a protocol: which CV module runs, how the agent asks for it, what counts as usable. */

@@ -26,7 +26,6 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
               { href: q({ result: undefined }), label: "All", active: !f.result },
               { href: q({ result: "accepted" }), label: "Usable", active: f.result === "accepted" },
               { href: q({ result: "rejected" }), label: "Unusable", active: f.result === "rejected" },
-              { href: q({ result: "escalated" }), label: "Escalated", active: f.result === "escalated", count: funnel.escalated },
             ]}
           />
           <div className="mb-3 flex flex-wrap gap-1.5 text-xs">
@@ -65,7 +64,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
                       </Td>
                       <Td className="text-slate-600">{s.task_label}</Td>
                       <Td className="tabular">{s.attempt}</Td>
-                      <Td>{s.accepted ? <Badge tone="green">usable</Badge> : s.escalated ? <Badge tone="red">escalated</Badge> : <Badge tone="amber">retry</Badge>}</Td>
+                      <Td>{s.accepted ? <Badge tone="green">usable</Badge> : <Badge tone="amber">retry</Badge>}</Td>
                       <Td>
                         <div className="flex flex-wrap gap-1">
                           {s.quality.checks
@@ -78,7 +77,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
                             ))}
                         </div>
                       </Td>
-                      <Td className="text-slate-600">{s.source === "web" ? "Web" : "Messaging"}</Td>
+                      <Td className="text-slate-600">Web</Td>
                       <Td className="text-slate-600">{s.analysis_runtime === "on-device" ? "On-device" : "CV service"}</Td>
                     </Tr>
                   ))}

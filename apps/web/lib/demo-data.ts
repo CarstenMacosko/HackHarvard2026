@@ -10,7 +10,21 @@ import {
   type RewardEvent,
 } from "@vf/shared";
 import { PRETRAINED_MODELS } from "@vf/shared/pretrained";
-import type { AuditEntry, CvModel, DraftRecord, DroidJob, Message, Participant, Redemption, Review, ScheduledTask, Study, Submission } from "./types";
+import type {
+  AuditEntry,
+  CvModel,
+  DraftRecord,
+  DroidJob,
+  Message,
+  ObservationNote,
+  Participant,
+  PortalUser,
+  Redemption,
+  Review,
+  ScheduledTask,
+  Study,
+  Submission,
+} from "./types";
 
 /**
  * Starting state for running without Supabase, and the source of supabase/seed.sql: the three
@@ -37,6 +51,8 @@ export interface DemoState {
   messages: Message[];
   drafts: DraftRecord[];
   droidJobs: DroidJob[];
+  portalUsers: PortalUser[];
+  observationNotes: ObservationNote[];
 }
 
 
@@ -119,6 +135,8 @@ export function generate(NOW = Date.now()): DemoState {
     messages: [],
     drafts: [],
     droidJobs: [],
+    portalUsers: [],
+    observationNotes: [],
   };
   for (const a of ACCOUNTS) {
     const active = a.status === "active";

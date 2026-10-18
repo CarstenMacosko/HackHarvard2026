@@ -2,7 +2,7 @@
 
 import type { ModuleResult } from "@vf/cv";
 import type { QualityCheck, RewardEvent, TaskConfig } from "@vf/shared";
-import { AlertTriangle, Camera, CheckCircle2, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Dropzone } from "@/components/dropzone";
@@ -31,6 +31,12 @@ const GUIDE: Record<string, string[]> = {
     "Rest your forearm on a table or your lap with your hand relaxed and in view, wrist included.",
     "Use normal video mode (not slow-motion or time-lapse) in good light.",
     "Keep your hand still and relaxed for at least 10 seconds.",
+  ],
+  writing_posture: [
+    "Prop the phone for a clear side view of your writing hand and wrist.",
+    "Hold the pen still for about two seconds with your index finger visible.",
+    "Then write the same short phrase once — keep the index finger in view.",
+    "Use normal video mode in good light; record at least six seconds total.",
   ],
 };
 
@@ -122,9 +128,23 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         up = { photo: a.upload };
       } else {
         if (!isMediaKind(f, "video")) throw new Error("Please choose a video.");
-        const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
-        r = a.result;
-        up = { poster: a.poster };
+        const onDevice = task.module === "finger_tapping" || task.module === "hand_tremor";
+        if (onDevice) {
+          const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
+          r = a.result;
+          up = { poster: a.poster };
+        } else {
+          // writing_posture / generated modules: capture on-device, measure on the CV service
+          setProgress({ fraction: 0.6, stage: "Preparing your video…" });
+          const a = await analyzeVideoFile(f, "finger_tapping", task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
+          r = {
+            ...a.result,
+            model_version: `${task.module}@0.1.0`,
+            measurements: [],
+            features: {},
+          };
+          up = { poster: a.poster };
+        }
       }
       setResult(r);
       setUpload(up);
@@ -192,7 +212,6 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
   const accept = task.media_type === "photo" ? "image/*" : "video/*";
 
   if (phase === "done" && outcome) {
-    const pts = outcome.reward_events.reduce((s, e) => s + e.points, 0);
     return (
       <Card className="mx-auto max-w-2xl">
         <CardBody className="flex flex-col items-center py-10 text-center">
@@ -201,23 +220,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
             {sent.filter((x) => x.ok).length > 1 ? `Thank you, ${sent.filter((x) => x.ok).length} ${task.media_type}s sent` : "Thank you, that\u2019s a usable check-in"}
           </h2>
           <p className="mt-1 max-w-md text-sm text-slate-600">It has been sent to your study team for review.</p>
-          {pts > 0 ? (
-            <div className="mt-5 rounded-lg bg-brand-50 px-5 py-3 text-sm text-brand-800">
-              <div className="flex items-center justify-center gap-1.5 text-base font-semibold">
-                <Sparkles className="h-4 w-4" /> +{pts} points
-              </div>
-              <ul className="mt-1 text-xs text-brand-700">
-                {outcome.reward_events.map((e) => (
-                  <li key={e.id}>
-                    {e.reason}: +{e.points}
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-1 text-xs">Balance: {outcome.points_balance} pts</div>
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-slate-500">{outcome.message.replace(/^Usable capture ✅ /, "")}</p>
-          )}
+          <p className="mt-4 text-sm text-slate-500">{outcome.message.replace(/^Usable capture ✅ /, "")}</p>
           {sent.length > 1 && (
             <ul className="mt-4 w-full max-w-sm space-y-1 text-left text-sm" data-testid="sent-list">
               {sent.map((x, i) => (
@@ -234,9 +237,6 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
             </Button>
             <ButtonLink href="/participant" variant="secondary">
               Back to home
-            </ButtonLink>
-            <ButtonLink href="/participant/rewards" variant="ghost">
-              See rewards
             </ButtonLink>
           </div>
         </CardBody>
@@ -368,7 +368,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                   {attempts > 0 && (
                     <span className="text-xs text-amber-800">
                       Attempt {attempts}
-                      {outcome?.escalated ? ": your study coordinator has been told and will reach out to help." : ". Retakes never cost you points."}
+                      .
                     </span>
                   )}
                 </div>
@@ -428,7 +428,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                 {phase === "submitting" && <Loader2 className="h-4 w-4 animate-spin" />}
                 Send check-in
               </Button>
-              {!dueNow && <span className="text-xs text-slate-500">No check-in is due, so this one won&apos;t earn points.</span>}
+              {!dueNow && <span className="text-xs text-slate-500">No check-in is due — this will still be saved as an extra capture.</span>}
               <Link href="/participant" className="ml-auto text-sm text-slate-500 hover:text-slate-900">
                 Cancel
               </Link>

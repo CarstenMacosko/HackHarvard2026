@@ -99,10 +99,40 @@ export const ECZEMA_TASK: TaskConfig = {
   ],
 };
 
+export const WRITING_POSTURE_TASK: TaskConfig = {
+  id: "fhd_writing_posture",
+  module: "writing_posture",
+  label: "Writing posture: index-finger straightening",
+  media_type: "video",
+  cadence: "weekly",
+  instructions:
+    "Writing check ✍️ Prop your phone for a clear side view of your writing hand. Hold the pen still for 2 seconds, then write the same short phrase once. Keep your index finger visible the whole time.",
+  quality_criteria: {
+    blur: 20,
+    exposure_min: 60,
+    exposure_max: 220,
+    hand_visible: 0.8,
+    index_visible: 0.7,
+    duration_s: 6,
+    fps: 20,
+    hold_s: 2,
+    straight_deg: 160,
+  },
+  report_questions: [
+    { key: "hand", prompt: "Which hand did you write with?", type: "choice", options: ["Right", "Left"] },
+    { key: "symptom_today", prompt: "How much did hand dystonia bother your writing today, 0–10?", type: "scale" },
+  ],
+  measurements: [
+    { name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction", validation_status: "reusable_needs_validation" },
+    { name: "index_pip_angle_deg", label: "Mean index PIP angle during writing", unit: "degrees", validation_status: "reusable_needs_validation" },
+  ],
+};
+
 export const TASK_LIBRARY: Record<string, TaskConfig> = {
   finger_tapping: FINGER_TAPPING_TASK,
   hand_tremor: TREMOR_TASK,
   eczema_photo: ECZEMA_TASK,
+  writing_posture: WRITING_POSTURE_TASK,
 };
 
 export const DEFAULT_CONSENT: ConsentForm = {

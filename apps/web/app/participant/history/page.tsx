@@ -1,19 +1,15 @@
 import { Badge, ButtonLink, Card, EmptyState, PageHeader, Table, Td, Th, THead, Tr } from "@/components/ui";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
 import { participantHome } from "@/lib/queries";
-import { currentParticipantId } from "@/lib/session";
+import { requireParticipant } from "@/lib/require-participant";
 
 export const metadata = { title: "History" };
 
 export default async function HistoryPage() {
-  const home = await participantHome(await currentParticipantId());
+  const participant = await requireParticipant();
+  const home = await participantHome(participant.id);
   if (!home) return <Card><EmptyState title="Join a study first" action={<ButtonLink href="/participant/join">Join</ButtonLink>} /></Card>;
   const review = new Map(home.observations.map((o) => [o.id, o.review_status]));
-  const points = new Map<string, number>();
-  for (const e of home.events) {
-    const sub = e.id.split(":")[0];
-    points.set(sub, (points.get(sub) ?? 0) + e.points);
-  }
   const rows = [...home.submissions].reverse();
   return (
     <>
@@ -28,7 +24,6 @@ export default async function HistoryPage() {
               <Th>Result</Th>
               <Th>Details</Th>
               <Th>Review</Th>
-              <Th className="text-right">Points</Th>
             </THead>
             <tbody>
               {rows.map((s) => {
@@ -47,7 +42,6 @@ export default async function HistoryPage() {
                         <span className="text-slate-400">—</span>
                       )}
                     </Td>
-                    <Td className="tabular text-right">{points.get(s.id) ? `+${points.get(s.id)}` : "—"}</Td>
                   </Tr>
                 );
               })}

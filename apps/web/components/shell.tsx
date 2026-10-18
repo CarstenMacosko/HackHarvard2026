@@ -65,28 +65,6 @@ function isActive(pathname: string, item: NavItem) {
   return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + "/");
 }
 
-function PortalToggle({ pathname }: { pathname: string }) {
-  const researcher = pathname.startsWith("/researcher");
-  return (
-    <nav aria-label="Switch portal view" className="flex rounded-md bg-slate-100 p-1 text-xs font-medium">
-      <Link
-        href="/participant"
-        aria-current={researcher ? undefined : "page"}
-        className={cn("flex-1 rounded px-2 py-1.5 text-center", researcher ? "text-slate-600 hover:text-slate-900" : "bg-white text-slate-900 shadow-sm")}
-      >
-        Participant
-      </Link>
-      <Link
-        href="/researcher"
-        aria-current={researcher ? "page" : undefined}
-        className={cn("flex-1 rounded px-2 py-1.5 text-center", researcher ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900")}
-      >
-        Researcher
-      </Link>
-    </nav>
-  );
-}
-
 /** Full-height app frame: fixed sidebar on desktop, slide-over drawer on mobile. */
 export function AppShell({
   brand,
@@ -140,7 +118,6 @@ export function AppShell({
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="flex h-14 shrink-0 items-center border-b border-slate-200 px-4">{brand}</div>
-      <div className="border-b border-slate-100 px-3 py-3"><PortalToggle pathname={pathname} /></div>
       {nav}
       {footer && <div className="shrink-0 border-t border-slate-200 p-3">{footer}</div>}
     </div>
@@ -163,7 +140,6 @@ export function AppShell({
             </button>
           )}
           {brand}
-          <div className="ml-auto"><PortalToggle pathname={pathname} /></div>
         </header>
         <main className={cn("px-4 py-6 sm:px-6 lg:px-8 lg:py-8", mobileTabs && "pb-24 lg:pb-8")}>{children}</main>
       </div>

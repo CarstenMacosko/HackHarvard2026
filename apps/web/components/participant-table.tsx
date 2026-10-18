@@ -15,7 +15,6 @@ export function ParticipantTable({ rows, showStudy = false }: { rows: (Participa
         <Th className="text-right">Streak</Th>
         <Th>Last check-in</Th>
         <Th>Flags</Th>
-        <Th className="text-right">Points</Th>
       </THead>
       <tbody>
         {rows.map((p) => (
@@ -40,10 +39,8 @@ export function ParticipantTable({ rows, showStudy = false }: { rows: (Participa
             <Td>
               <div className="flex gap-1">
                 {p.pending_reviews > 0 && <Badge tone="amber">{p.pending_reviews} to review</Badge>}
-                {p.escalations > 0 && <Badge tone="red">{p.escalations} escalated</Badge>}
               </div>
             </Td>
-            <Td className="tabular text-right">{p.points}</Td>
           </Tr>
         ))}
       </tbody>
