@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell, Brand, type NavSection } from "@/components/shell";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { buttonClass, cardClass, cn } from "@/components/ui";
 import { currentResearcher } from "@/lib/auth";
 import { backend } from "@/lib/backend";
 import { navCounts } from "@/lib/queries";
@@ -19,16 +19,16 @@ export default async function ResearcherLayout({ children }: { children: React.R
     }
     return (
       <main className="surface-mesh flex min-h-screen items-center justify-center px-6">
-        <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white/90 p-8 text-center shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/70">
+        <div className={cn(cardClass, "w-full max-w-md p-8 text-center")}>
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Researcher sign-in required</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
             Sign in or create a study team account. Studies, participants and reviews are stored in your Supabase database.
           </p>
           <div className="mt-6 flex flex-col gap-2">
-            <Link href="/auth/sign-in?role=researcher" className="inline-flex h-10 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400">
+            <Link href="/auth/sign-in?role=researcher" className={buttonClass({ size: "lg" })}>
               Sign in
             </Link>
-            <Link href="/auth/sign-up?role=researcher" className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+            <Link href="/auth/sign-up?role=researcher" className={buttonClass({ variant: "secondary", size: "lg" })}>
               Create researcher account
             </Link>
           </div>
@@ -51,6 +51,8 @@ export default async function ResearcherLayout({ children }: { children: React.R
       items: [
         { href: "/researcher/review", label: "Review queue", icon: "review", badge: counts.pendingReviews },
         { href: "/researcher/submissions", label: "Submissions", icon: "submissions" },
+        { href: "/researcher/audit", label: "Audit log", icon: "audit" },
+        // { href: "/researcher/settings", label: "System status", icon: "settings" },
       ],
     },
     {
@@ -60,21 +62,13 @@ export default async function ResearcherLayout({ children }: { children: React.R
         { href: "/researcher/generate", label: "Generate module", icon: "generate" },
       ],
     },
-    {
-      title: "Governance",
-      items: [
-        { href: "/researcher/audit", label: "Audit log", icon: "audit" },
-        { href: "/researcher/settings", label: "System status", icon: "settings" },
-      ],
-    },
   ];
   return (
     <AppShell
-      brand={<Brand suffix="Research workspace" />}
+      brand={<Brand />}
       sections={sections}
       footer={
         <div className="space-y-2.5 px-1 text-xs text-slate-500 dark:text-slate-400">
-          <ThemeToggle />
           <div className="flex items-center justify-between gap-2">
             <span className="truncate font-medium text-slate-700 dark:text-slate-200">{researcher.display_name}</span>
             <form action={signOutAction}>

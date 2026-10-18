@@ -20,7 +20,7 @@ export function ParticipantTable({ rows, showStudy = false }: { rows: (Participa
         {rows.map((p) => (
           <Tr key={p.id}>
             <Td>
-              <Link href={`/researcher/participants/${p.id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100">
+              <Link href={`/researcher/participants/${p.id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100 dark:hover:text-brand-300">
                 {p.display_name}
               </Link>
               {p.status === "invited" && (

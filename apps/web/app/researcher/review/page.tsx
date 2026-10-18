@@ -54,7 +54,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
           <Card>
             <CardHeader
               title={
-                <Link href={`/researcher/participants/${selected.participant_id}`} className="hover:text-brand-700">
+                <Link href={`/researcher/participants/${selected.participant_id}`} className="hover:text-brand-700 dark:hover:text-brand-300">
                   {selected.participant_name}
                 </Link>
               }

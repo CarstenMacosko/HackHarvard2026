@@ -3,12 +3,13 @@
 import type { Observation } from "@vf/shared";
 import { useMemo, useState } from "react";
 import { CartesianGrid, ErrorBar, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CHART } from "./charts";
 import { ObservationDetail } from "./observation-detail";
 import { ReviewActions } from "./review-actions";
 import { cn } from "./ui";
 
 /** Review state colours (status palette; also named in the legend, never colour alone). */
-const STATUS_COLOR: Record<string, string> = { accepted: "#0f8a5f", corrected: "#2a78d6", pending: "#c98500", rejected: "#94a3b8" };
+const STATUS_COLOR: Record<string, string> = { accepted: "#0f8a5f", corrected: "#2a78d6", pending: "#c98500", rejected: CHART.muted };
 
 interface Point {
   t: number;
@@ -60,18 +61,18 @@ export function Timeline({ observations }: { observations: Observation[] }) {
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
-              <CartesianGrid stroke="#e2e8f0" vertical={false} />
+              <CartesianGrid stroke={CHART.grid} vertical={false} />
               <XAxis
                 dataKey="t"
                 type="number"
                 scale="time"
                 domain={["dataMin", "dataMax"]}
                 tickFormatter={(t) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                tick={{ fontSize: 11, fill: "#64748b" }}
+                tick={{ fontSize: 11, fill: CHART.tick }}
                 axisLine={false}
                 tickLine={false}
               />
-              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} domain={["auto", "auto"]} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: CHART.tick }} domain={["auto", "auto"]} axisLine={false} tickLine={false} />
               <Tooltip
                 labelFormatter={(t) => new Date(Number(t)).toLocaleDateString()}
                 formatter={(v: number, _n, item) => {
@@ -79,12 +80,12 @@ export function Timeline({ observations }: { observations: Observation[] }) {
                   const extra = reportKey ? ` · ${reportKey.replace(/_/g, " ")}: ${p.obs.patient_report[reportKey]}` : "";
                   return [`${v?.toFixed(2)} ${unit}${extra}`, p.obs.review_status];
                 }}
-                contentStyle={{ fontSize: 12, borderRadius: 6, borderColor: "#e2e8f0" }}
+                contentStyle={{ fontSize: 12, borderRadius: 6, borderColor: CHART.grid }}
               />
               <Line
                 type="linear"
                 dataKey="value"
-                stroke="#64748b"
+                stroke={CHART.tick}
                 strokeWidth={2}
                 connectNulls
                 isAnimationActive={false}
@@ -97,12 +98,12 @@ export function Timeline({ observations }: { observations: Observation[] }) {
                   return (
                     <g key={index} style={{ cursor: "pointer" }} onClick={() => setSelectedId(payload.obs.id)}>
                       <circle cx={cx} cy={cy} r={12} fill="transparent" />
-                      <circle cx={cx} cy={cy} r={isSel ? 6.5 : 5} fill={off ? "#fff" : color} stroke={isSel ? "#0f172a" : off ? color : "#fff"} strokeWidth={2} />
+                      <circle cx={cx} cy={cy} r={isSel ? 6.5 : 5} fill={off ? "#fff" : color} stroke={isSel ? "#1a1918" : off ? color : "#fff"} strokeWidth={2} />
                     </g>
                   );
                 }}
               >
-                <ErrorBar dataKey="err" width={4} stroke="#cbd5e1" />
+                <ErrorBar dataKey="err" width={4} stroke={CHART.muted} />
               </Line>
             </LineChart>
           </ResponsiveContainer>

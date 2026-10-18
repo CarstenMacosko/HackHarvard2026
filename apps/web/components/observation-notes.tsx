@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Button, SectionLabel } from "./ui";
+import { Button, cn, fieldClass, SectionLabel } from "./ui";
 
 interface Note {
   id: string;
@@ -44,7 +44,7 @@ export function ObservationNotes({ observationId }: { observationId: string }) {
         ))}
       </ul>
       <textarea
-        className="min-h-[80px] w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        className={cn(fieldClass, "min-h-[80px] w-full py-2")}
         placeholder="Write a note about this capture…"
         value={body}
         onChange={(e) => setBody(e.target.value)}
