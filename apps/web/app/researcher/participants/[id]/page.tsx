@@ -1,7 +1,6 @@
 import { isOpen } from "@vf/shared";
 import { notFound } from "next/navigation";
 import { backend } from "@/lib/backend";
-import { ScoreBadge, scoreOf } from "@/components/score";
 import { Timeline } from "@/components/timeline";
 import { Badge, Card, CardBody, CardHeader, PageHeader, STATUS_TONE, Stat, Table, Td, Th, THead, Tr } from "@/components/ui";
 import { CHECK_LABEL, dateTime, pct, relTime, shortDate } from "@/lib/format";
@@ -56,7 +55,6 @@ export default async function ParticipantPage({ params }: { params: Promise<{ id
               <Th>When</Th>
               <Th>Attempt</Th>
               <Th>Result</Th>
-              <Th>Score</Th>
               <Th>Failed checks</Th>
               <Th>Channel</Th>
               <Th>Analysed</Th>
@@ -67,9 +65,6 @@ export default async function ParticipantPage({ params }: { params: Promise<{ id
                   <Td className="whitespace-nowrap text-slate-600">{dateTime(s.created_at)}</Td>
                   <Td className="tabular">{s.attempt}</Td>
                   <Td>{s.accepted ? <Badge tone="green">usable</Badge> : s.escalated ? <Badge tone="red">escalated</Badge> : <Badge tone="amber">retry</Badge>}</Td>
-                  <Td>
-                    <ScoreBadge value={(() => { const o = observations.find((x) => x.id === s.observation_id); return o ? scoreOf(o) : null; })()} />
-                  </Td>
                   <Td className="text-slate-600">{s.quality.checks.filter((c) => !c.passed && !c.advisory).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ") || "—"}</Td>
                   <Td className="text-slate-600">{s.source === "web" ? "Web upload" : "Messaging"}</Td>
                   <Td className="text-slate-600">{s.analysis_runtime === "on-device" ? "On-device" : "CV service"}</Td>
