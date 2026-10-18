@@ -82,11 +82,6 @@ export default async function OverviewPage() {
         <Card className="xl:col-span-3">
           <CardHeader
             title="Recent submissions"
-            actions={
-              <Link href="/researcher/submissions" className="text-xs font-medium text-brand-700 hover:underline">
-                Open inbox
-              </Link>
-            }
           />
           <Table>
             <THead>
