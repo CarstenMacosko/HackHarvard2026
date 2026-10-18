@@ -70,7 +70,7 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
   // a retried request (e.g. the agent re-posting an analysis) returns the original outcome
   if (input.observationId) {
     const [existing] = await db.observations({ id: input.observationId });
-    if (existing) return replay(existing, p.id);
+    if (existing) return replay(existing);
   }
   const nowIso = input.capturedAt ?? new Date().toISOString();
   const now = new Date(nowIso).getTime();
@@ -102,7 +102,7 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
   };
 
   let observation: Observation | null = null;
-  let events: RewardEvent[] = [];
+  const events: RewardEvent[] = [];
   let streak = 0;
   let message = analysis.quality.retry_instructions ?? "That one wasn't usable. Please try again.";
   let close: CaptureRecord["scheduled_task"] = null;
@@ -177,7 +177,7 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
 }
 
 /** The outcome of a capture that was already recorded. */
-async function replay(o: Observation, participantId: string): Promise<IngestResult> {
+async function replay(o: Observation): Promise<IngestResult> {
   const db = backend();
   const [submission] = await db.submissions({ id: o.submission_id });
   return {

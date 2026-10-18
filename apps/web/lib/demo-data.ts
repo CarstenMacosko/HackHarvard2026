@@ -57,7 +57,7 @@ export interface DemoState {
 }
 
 /** Empty starting state — also the template for optional seed regeneration. */
-export function generate(_NOW = Date.now()): DemoState {
+export function generate(): DemoState {
   return {
     studies: [],
     participants: [],

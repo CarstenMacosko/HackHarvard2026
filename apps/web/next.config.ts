@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -10,7 +11,10 @@ const configDir = path.dirname(fileURLToPath(import.meta.url));
 // apps/web → repo root (not apps/)
 const repoRoot = path.resolve(configDir, "../..");
 loadEnvConfig(repoRoot);
-loadEnvConfig(configDir);
+// Only load apps/web env if a real file exists (skip broken symlinks / missing files).
+if (existsSync(path.join(configDir, ".env.local")) || existsSync(path.join(configDir, ".env"))) {
+  loadEnvConfig(configDir);
+}
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@vf/shared", "@vf/cv", "geist"],

@@ -14,7 +14,8 @@ export const maxDuration = 300;
 function summarizeJob(job: Awaited<ReturnType<ReturnType<typeof backend>["droidJobs"]>>[number]) {
   const progress = job.progress;
   if (!progress || typeof progress !== "object") return job;
-  const { source_code: _src, logs, ...rest } = progress;
+  const { logs, source_code: _unusedSource, ...rest } = progress;
+  void _unusedSource;
   return {
     ...job,
     progress: {

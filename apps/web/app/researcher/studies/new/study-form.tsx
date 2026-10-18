@@ -86,9 +86,9 @@ function defaultEval(condition: Condition, created: CreatedModuleOption[]): Eval
     const first = matched[0];
     return { module: first.id, ...defaultsForModule(first.id, created) };
   }
-  const module = defaultModuleForCondition(condition);
-  if (!module) return null;
-  return { module, ...defaultsForModule(module, created) };
+  const moduleId = defaultModuleForCondition(condition);
+  if (!moduleId) return null;
+  return { module: moduleId, ...defaultsForModule(moduleId, created) };
 }
 
 export function StudyForm({ createdModules = [] }: { createdModules?: CreatedModuleOption[] }) {
@@ -236,8 +236,8 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                     className={cn(input, "max-w-xs")}
                     value={ev.module}
                     onChange={(e) => {
-                      const module = e.target.value;
-                      setEvals((xs) => xs.map((x, j) => (j === i ? { module, ...defaultsForModule(module, createdModules) } : x)));
+                      const moduleId = e.target.value;
+                      setEvals((xs) => xs.map((x, j) => (j === i ? { module: moduleId, ...defaultsForModule(moduleId, createdModules) } : x)));
                     }}
                   >
                     {availableEvals.map((opt) => (
