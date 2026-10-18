@@ -28,7 +28,7 @@ export function Timeline({ observations }: { observations: Observation[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(observations.at(-1)?.id ?? null);
   const selected = observations.find((o) => o.id === selectedId) ?? null;
 
-  if (!observations.length) return <p className="py-8 text-center text-sm text-slate-500">No observations yet.</p>;
+  if (!observations.length) return <p className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No observations yet.</p>;
 
   const data: Point[] = observations
     .filter((o) => o.measurements.some((m) => m.name === metric))
@@ -50,7 +50,7 @@ export function Timeline({ observations }: { observations: Observation[] }) {
               onClick={() => setMetric(n.name)}
               className={cn(
                 "rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset",
-                metric === n.name ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
+                metric === n.name ? "bg-slate-900 text-white ring-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:ring-slate-100" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-600 dark:hover:bg-slate-800",
               )}
             >
               {n.label}
@@ -107,7 +107,7 @@ export function Timeline({ observations }: { observations: Observation[] }) {
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
           {Object.entries(STATUS_COLOR).map(([k, c]) => (
             <span key={k} className="flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: c }} />
@@ -116,7 +116,7 @@ export function Timeline({ observations }: { observations: Observation[] }) {
           ))}
           {hasMedState && (
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-500 bg-white" />
+              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-slate-500 bg-white dark:border-slate-400 dark:bg-slate-900" />
               medication OFF
             </span>
           )}
@@ -134,7 +134,7 @@ export function Timeline({ observations }: { observations: Observation[] }) {
             )}
           </>
         ) : (
-          <p className="text-sm text-slate-500">Click a point to see its source submission.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Click a point to see its source submission.</p>
         )}
       </div>
     </div>

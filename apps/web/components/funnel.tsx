@@ -24,12 +24,12 @@ export function FunnelBars({ funnel: f }: { funnel: Funnel }) {
       {rows.map((r) => (
         <div key={r.label}>
           <div className="mb-1 flex justify-between text-xs">
-            <span className="text-slate-600">{r.label}</span>
-            <span className="tabular font-medium text-slate-900">
+            <span className="text-slate-600 dark:text-slate-400">{r.label}</span>
+            <span className="tabular font-medium text-slate-900 dark:text-slate-100">
               {r.n} <span className="font-normal text-slate-400">{pct(r.n / max)}</span>
             </span>
           </div>
-          <div className="h-2 rounded-full bg-slate-100">
+          <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800">
             <div className="h-2 rounded-full" style={{ width: `${(r.n / max) * 100}%`, background: r.color }} />
           </div>
         </div>

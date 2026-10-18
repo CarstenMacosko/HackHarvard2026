@@ -35,11 +35,11 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
         ]}
       />
       <div className="mb-3 flex flex-wrap gap-1.5 text-xs">
-        <Link href={q({ study: undefined })} className={`rounded-md px-2 py-1 ring-1 ring-inset ${!f.study ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-600 ring-slate-200"}`}>
+        <Link href={q({ study: undefined })} className={`rounded-md px-2 py-1 ring-1 ring-inset ${!f.study ? "bg-slate-900 text-white ring-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:ring-slate-100" : "bg-white text-slate-600 ring-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-600"}`}>
           All studies
         </Link>
         {studies.map((s) => (
-          <Link key={s.id} href={q({ study: s.id })} className={`rounded-md px-2 py-1 ring-1 ring-inset ${f.study === s.id ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-600 ring-slate-200"}`}>
+          <Link key={s.id} href={q({ study: s.id })} className={`rounded-md px-2 py-1 ring-1 ring-inset ${f.study === s.id ? "bg-slate-900 text-white ring-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:ring-slate-100" : "bg-white text-slate-600 ring-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-600"}`}>
             {s.name.split(":")[0]}
           </Link>
         ))}
@@ -62,13 +62,13 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
             <tbody>
               {rows.slice(0, 200).map((s) => (
                 <Tr key={s.id}>
-                  <Td className="whitespace-nowrap text-slate-600">{dateTime(s.created_at)}</Td>
+                  <Td className="whitespace-nowrap text-slate-600 dark:text-slate-400">{dateTime(s.created_at)}</Td>
                   <Td>
-                    <Link href={`/researcher/participants/${s.participant_id}`} className="font-medium text-slate-900 hover:text-brand-700">
+                    <Link href={`/researcher/participants/${s.participant_id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100">
                       {s.participant_name}
                     </Link>
                   </Td>
-                  <Td className="text-slate-600">{s.task_label}</Td>
+                  <Td className="text-slate-600 dark:text-slate-400">{s.task_label}</Td>
                   <Td className="tabular">{s.attempt}</Td>
                   <Td>{s.accepted ? <Badge tone="green">usable</Badge> : <Badge tone="amber">retry</Badge>}</Td>
                   <Td>
@@ -83,8 +83,8 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
                         ))}
                     </div>
                   </Td>
-                  <Td className="text-slate-600">Web</Td>
-                  <Td className="text-slate-600">{s.analysis_runtime === "on-device" ? "On-device" : "CV service"}</Td>
+                  <Td className="text-slate-600 dark:text-slate-400">Web</Td>
+                  <Td className="text-slate-600 dark:text-slate-400">{s.analysis_runtime === "on-device" ? "On-device" : "CV service"}</Td>
                 </Tr>
               ))}
             </tbody>

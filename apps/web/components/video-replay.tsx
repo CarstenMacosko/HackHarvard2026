@@ -228,7 +228,7 @@ export function VideoReplay({
             aria-pressed={mode === m.id}
             className={cn(
               "rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset transition",
-              mode === m.id ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
+              mode === m.id ? "bg-slate-900 text-white ring-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:ring-slate-100" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-600 dark:hover:bg-slate-800",
             )}
           >
             {m.label}
@@ -246,8 +246,8 @@ export function VideoReplay({
         {error && <div className="absolute bottom-2 left-2 right-2 rounded bg-rose-600/90 px-2 py-1 text-xs text-white">{error}</div>}
       </div>
       {mode === "landmarks_graphs" && tracker && (
-        <div className="rounded-md border border-slate-200 bg-white p-2">
-          <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500">
+        <div className="rounded-md border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/60">
+          <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
             <span>
               {tracker.label}
               {tracker.unit ? ` (${tracker.unit})` : ""}

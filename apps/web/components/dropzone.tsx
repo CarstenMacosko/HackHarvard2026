@@ -58,13 +58,13 @@ export function Dropzone({
       className={cn(
         "flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
         compact ? "px-4 py-6" : "px-6 py-10",
-        over ? "border-brand-500 bg-brand-50" : "border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50",
+        over ? "border-brand-500 bg-brand-50 dark:bg-brand-900/40" : "border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900/60 dark:hover:border-slate-500 dark:hover:bg-slate-800",
         disabled && "cursor-not-allowed opacity-60",
       )}
     >
       <UploadCloud className={cn("mb-2 text-slate-400", compact ? "h-6 w-6" : "h-8 w-8")} strokeWidth={1.5} />
-      <div className="text-sm font-medium text-slate-900">{title}</div>
-      {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
+      <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{title}</div>
+      {hint && <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</div>}
       <input
         ref={input}
         type="file"

@@ -9,7 +9,7 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
     <>
       <PageHeader title="Join your study" description="Use the invite code from your study team. It takes about a minute." />
       {reset && (
-        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-600/20">
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-400/20">
           We couldn&apos;t find the account this browser was signed in with, so you&apos;ve been signed out. Join again with your invite code.
         </p>
       )}

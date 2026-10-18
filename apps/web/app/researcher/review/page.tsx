@@ -35,17 +35,17 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
         <div className="grid gap-6 lg:grid-cols-[minmax(260px,340px)_1fr]">
           <Card className="h-fit lg:sticky lg:top-6">
             <CardHeader title={`${queue.length} awaiting review`} description="Oldest first" />
-            <ul className="max-h-[70vh] divide-y divide-slate-100 overflow-y-auto">
+            <ul className="max-h-[70vh] divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
               {queue.map((o) => (
                 <li key={o.id}>
-                  <Link href={href(o.id)} className={cn("block px-5 py-2.5 hover:bg-slate-50", o.id === selected.id && "bg-brand-50/70 hover:bg-brand-50")}>
+                  <Link href={href(o.id)} className={cn("block px-5 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800", o.id === selected.id && "bg-brand-50/70 hover:bg-brand-50 dark:bg-brand-900/30 dark:hover:bg-brand-900/40")}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                      <span className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-slate-100">
                         {o.participant_name}
                       </span>
                       <span className="text-xs text-slate-400">{relTime(o.captured_at)}</span>
                     </div>
-                    <div className="mt-0.5 text-xs text-slate-500">{o.study_name}</div>
+                    <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{o.study_name}</div>
                   </Link>
                 </li>
               ))}

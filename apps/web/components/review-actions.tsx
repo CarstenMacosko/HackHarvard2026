@@ -36,7 +36,7 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
   }
 
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50/60 p-3">
+    <div className="rounded-md border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-900/60">
       {mode === "idle" && (
         <div className="flex flex-wrap gap-2">
           <Button variant="success" size="sm" disabled={pending} onClick={() => submit("accepted")}>
@@ -55,7 +55,7 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
           {mode === "correct" &&
             observation.measurements.map((m) => (
               <label key={m.name} className="flex items-center justify-between gap-2">
-                <span className="text-slate-600">
+                <span className="text-slate-600 dark:text-slate-400">
                   {m.label} <span className="text-slate-400">({m.unit})</span>
                 </span>
                 <input
@@ -64,7 +64,7 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
                   placeholder={m.value.toFixed(2)}
                   value={values[m.name] ?? ""}
                   onChange={(e) => setValues({ ...values, [m.name]: e.target.value })}
-                  className="tabular w-28 rounded-md border border-slate-300 bg-white px-2 py-1 text-right"
+                  className="tabular w-28 rounded-md border border-slate-300 bg-white px-2 py-1 text-right dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 />
               </label>
             ))}
@@ -72,7 +72,7 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={mode === "reject" ? "Why is this result unusable? (required)" : "What did you correct and why? (required)"}
-            className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5"
+            className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
             rows={2}
           />
           <div className="flex gap-2">
@@ -85,7 +85,7 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
           </div>
         </div>
       )}
-      {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
     </div>
   );
 }

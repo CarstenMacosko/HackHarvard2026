@@ -1,17 +1,51 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --color-brand-50: #eff4ff;
-  --color-brand-100: #dbe5fe;
-  --color-brand-200: #bfd0fd;
-  --color-brand-300: #93b0fa;
-  --color-brand-500: #3d6ee8;
-  --color-brand-600: #2b59c3;
-  --color-brand-700: #23489f;
-  --color-brand-800: #1e3a7e;
+  /* Warmer clinical teal-blue — less cold than pure indigo */
+  --color-brand-50: #eef7f8;
+  --color-brand-100: #d5ebef;
+  --color-brand-200: #add7df;
+  --color-brand-300: #78b9c6;
+  --color-brand-400: #4a96a8;
+  --color-brand-500: #2f7a8c;
+  --color-brand-600: #266577;
+  --color-brand-700: #215262;
+  --color-brand-800: #1f4552;
   --color-ink: #0f172a;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  --surface: #f4f6f8;
+  --surface-raised: #ffffff;
+  --surface-muted: #eef1f4;
+  --border: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --glow: rgba(47, 122, 140, 0.12);
+  --mesh-a: rgba(47, 122, 140, 0.08);
+  --mesh-b: rgba(180, 140, 90, 0.06);
+}
+
+.dark {
+  color-scheme: dark;
+  --color-ink: #e8eaed;
+  --surface: #14161b;
+  --surface-raised: #1a1d24;
+  --surface-muted: #22262e;
+  --border: #2c313a;
+  --border-subtle: #23272f;
+  --text: #e8eaed;
+  --text-muted: #9aa3b2;
+  --text-faint: #6b7380;
+  --glow: rgba(78, 168, 184, 0.14);
+  --mesh-a: rgba(78, 168, 184, 0.07);
+  --mesh-b: rgba(200, 150, 90, 0.05);
 }
 
 html,
@@ -20,12 +54,72 @@ body {
 }
 
 body {
-  background: var(--color-slate-50);
-  color: var(--color-ink);
+  background: var(--surface);
+  color: var(--text);
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Soft atmosphere for marketing / auth shells */
+.surface-mesh {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, var(--mesh-a), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 90% 0%, var(--mesh-b), transparent 45%),
+    var(--surface);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.55s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out both;
+}
+
+.animate-delay-1 {
+  animation-delay: 0.08s;
+}
+.animate-delay-2 {
+  animation-delay: 0.16s;
+}
+.animate-delay-3 {
+  animation-delay: 0.24s;
+}
+.animate-delay-4 {
+  animation-delay: 0.32s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in {
+    animation: none;
+  }
+  body {
+    transition: none;
+  }
 }
