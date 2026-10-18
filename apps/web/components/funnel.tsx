@@ -17,7 +17,6 @@ export function FunnelBars({ funnel: f }: { funnel: Funnel }) {
     { label: "Usable on first try", n: f.firstTry, color: "#0f8a5f" },
     { label: "Usable after a guided retry", n: f.afterRetry, color: "#2a78d6" },
     { label: "Unusable (retry requested)", n: f.unusable, color: "#c98500" },
-    { label: "Escalated to coordinator", n: f.escalated, color: "#d0453f" },
   ];
   const max = Math.max(1, f.attempts);
   return (

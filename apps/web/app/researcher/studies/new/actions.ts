@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { DEFAULT_CONSENT, DEFAULT_REWARDS, Protocol, TASK_LIBRARY, captureReminderFor, type Cadence, type ReminderConfig, type TaskConfig } from "@vf/shared";
 import { backend } from "@/lib/backend";
-import { RESEARCHER_NAME } from "@/lib/session";
+import { researcherName } from "@/lib/session";
 import type { Condition, Study } from "@/lib/types";
 
 export interface CreateStudyInput {
@@ -50,10 +50,11 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
     .replace(/^_|_$/g, "")
     .slice(0, 24);
   const id = `study_${slug}_${Date.now().toString(36).slice(-4)}`;
+  const by = await researcherName();
   const protocol = Protocol.parse({
     study_id: id,
     version: 1,
-    approved_by: RESEARCHER_NAME,
+    approved_by: by,
     tasks,
     rewards: DEFAULT_REWARDS,
     consent: { title: input.consentTitle.trim() || DEFAULT_CONSENT.title, body: input.consentBody.trim() },
@@ -62,7 +63,7 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
   const study: Study = { id, name, condition: input.condition, status: "active", protocol };
   const db = backend();
   await db.insertStudy(study);
-  await db.insertAudit({ actor: RESEARCHER_NAME, action: "study.created", entity: "study", entity_id: id, detail: { evals: tasks.map((t) => t.id) } });
+  await db.insertAudit({ actor: by, action: "study.created", entity: "study", entity_id: id, detail: { evals: tasks.map((t) => t.id) } });
   revalidatePath("/researcher/studies");
   return { ok: true, id };
 }

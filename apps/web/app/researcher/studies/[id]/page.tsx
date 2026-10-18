@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { AdherenceChart } from "@/components/charts";
 import { FunnelBars } from "@/components/funnel";
 import { ParticipantTable } from "@/components/participant-table";
-import { Badge, ButtonLink, Card, CardBody, CardHeader, EmptyState, KeyValues, PageHeader, SectionLabel, Stat, Tabs, ValidationBadge } from "@/components/ui";
+import { ButtonLink, Card, CardBody, CardHeader, KeyValues, PageHeader, SectionLabel, Stat, Tabs, ValidationBadge } from "@/components/ui";
 import { CHECK_LABEL, conditionLabel, pct } from "@/lib/format";
 import { studyDetail } from "@/lib/queries";
 import { InviteButton } from "./invite-button";
@@ -83,7 +83,7 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                 <CardHeader title={t.label} description={`${t.media_type} · ${t.cadence.replace("_", " ")} · CV module ${t.module}`} />
                 <CardBody className="space-y-5">
                   <div>
-                    <SectionLabel>Message the participant receives</SectionLabel>
+                    <SectionLabel>Instructions shown to the participant</SectionLabel>
                     <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{t.instructions}</p>
                   </div>
                   <div className="grid gap-6 md:grid-cols-2">
@@ -98,16 +98,6 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                             <ValidationBadge status={m.validation_status} />
                           </li>
                         ))}
-                        {d.models
-                          .filter((m) => m.module === t.module && m.active)
-                          .map((m) => (
-                            <li key={m.id} className="flex items-center justify-between gap-2">
-                              <span>
-                                {m.target.label} <span className="text-slate-400">(custom model v{m.version})</span>
-                              </span>
-                              <ValidationBadge status={m.status} />
-                            </li>
-                          ))}
                       </ul>
                     </div>
                     <div>
@@ -128,38 +118,6 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                 </CardBody>
               </Card>
             ))}
-          </div>
-          <div className="space-y-6">
-            <Card>
-              <CardHeader title="Rewards (simulated)" />
-              <CardBody>
-                <KeyValues
-                  items={[
-                    ["Per usable check-in", `${study.protocol.rewards.base_points} pts`],
-                    ["On-schedule bonus", `+${study.protocol.rewards.on_time_bonus} pts`],
-                    ["Streak multiplier", `+${study.protocol.rewards.streak_step}× per period, max ×${study.protocol.rewards.max_multiplier}`],
-                    ...study.protocol.rewards.tiers.map((tier) => [`${tier.name} tier`, `${tier.points} pts · ${tier.payout_label}`] as [string, string]),
-                  ]}
-                />
-              </CardBody>
-            </Card>
-            <Card>
-              <CardHeader title="Custom models" description="Researcher-trained heads applied to this study's captures" />
-              {d.models.length ? (
-                <ul className="divide-y divide-slate-100 text-sm">
-                  {d.models.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between gap-2 px-5 py-2.5">
-                      <span>
-                        {m.name} <span className="text-slate-400">v{m.version}</span>
-                      </span>
-                      {m.active ? <ValidationBadge status={m.status} /> : <Badge>inactive</Badge>}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <EmptyState title="No custom models yet" action={<ButtonLink href="/researcher/generate" size="sm" variant="secondary">Generate a candidate</ButtonLink>} />
-              )}
-            </Card>
           </div>
         </div>
       )}

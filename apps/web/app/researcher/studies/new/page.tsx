@@ -9,7 +9,7 @@ export default function NewStudyPage() {
       <PageHeader
         breadcrumbs={[{ label: "Studies", href: "/researcher/studies" }, { label: "New" }]}
         title="Create a study"
-        description="Consent form, required evaluations, and the message intervals Photon will send after the participant texts you."
+        description="Consent form, required evaluations, and how often each test should be completed."
       />
       <StudyForm />
     </>

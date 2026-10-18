@@ -22,6 +22,30 @@ export interface Participant {
   enrolled_at: string | null;
   preferred_time: string | null;
   consented_at?: string | null;
+  /** null / undefined = all protocol tasks; otherwise only these task ids */
+  enabled_task_ids?: string[] | null;
+  /** task_id → custom capture instructions for this participant */
+  task_instructions?: Record<string, string>;
+}
+
+export type PortalUserRole = "researcher" | "participant";
+
+export interface PortalUser {
+  id: string;
+  email: string;
+  password_hash: string;
+  role: PortalUserRole;
+  display_name: string;
+  participant_id: string | null;
+  created_at: string;
+}
+
+export interface ObservationNote {
+  id: string;
+  observation_id: string;
+  author: string;
+  body: string;
+  created_at: string;
 }
 
 /** One scheduled check-in and what happened to it (packages/shared/src/schedule.ts). */

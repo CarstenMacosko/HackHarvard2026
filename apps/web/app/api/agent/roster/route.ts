@@ -27,7 +27,6 @@ export async function GET(req: Request) {
         preferredTime: p.preferred_time,
         tasks: study?.protocol.tasks ?? [],
         reminders: study?.protocol.reminders ?? [],
-        rewards: study?.protocol.rewards ?? null,
       };
     });
   return NextResponse.json({

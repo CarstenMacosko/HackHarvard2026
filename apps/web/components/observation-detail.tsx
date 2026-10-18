@@ -1,14 +1,16 @@
 import type { Observation } from "@vf/shared";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
+import { ObservationNotes } from "./observation-notes";
 import { Badge, KeyValues, REVIEW_TONE, SectionLabel, ValidationBadge } from "./ui";
 
 const trimmed = (url: string, start: unknown) => (typeof start === "number" && start > 0 ? `${url}#t=${start}` : url);
+const VIDEO_MODULES = new Set(["finger_tapping", "hand_tremor", "writing_posture"]);
 
 /** Everything behind one graphed value: source media, quality checks, measurements, report, provenance. */
 export function ObservationDetail({ o, compact = false }: { o: Observation; compact?: boolean }) {
   const runtime = String(o.context.analysis_runtime ?? "server");
   const attempts = Number(o.context.attempts ?? 1);
-  const isVideo = (o.module === "finger_tapping" || o.module === "hand_tremor") && o.context.media_kind !== "poster";
+  const isVideo = VIDEO_MODULES.has(o.module) && o.context.media_kind !== "poster";
   return (
     <div className="space-y-5 text-sm">
       <div className="flex flex-wrap items-center gap-2">
@@ -85,13 +87,14 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
             items={[
               ["Model", <span key="m" className="font-mono text-xs">{o.model_version}</span>],
               ["Analysed", runtime === "on-device" ? "On-device (browser)" : "CV service"],
-              ["Source", o.context.source === "web" ? "Web upload" : "Messaging (Photon)"],
+              ["Source", o.context.source === "web" ? "Web upload" : "Upload"],
               ...(o.reviewer ? ([["Reviewer", o.reviewer]] as [string, string][]) : []),
             ]}
           />
         </div>
       </div>
       {o.review_note && <p className="rounded-md bg-slate-50 px-3 py-2 text-slate-600">Review note: {o.review_note}</p>}
+      {!compact && <ObservationNotes observationId={o.id} />}
     </div>
   );
 }

@@ -108,18 +108,6 @@ export async function overview() {
   const summaries = participants.map((p) =>
     summarize(p, studies.find((s) => s.id === p.study_id), tasks, obs, rewards),
   );
-  const attention = summaries
-    .filter((p) => p.status === "active")
-    .map((p) => {
-      const reasons: string[] = [];
-      if (p.escalations) reasons.push(`${p.escalations} escalated check-in${p.escalations > 1 ? "s" : ""}`);
-      if (p.completion_rate < 0.75) reasons.push(`completion ${Math.round(p.completion_rate * 100)}%`);
-      const lastDue = tasks.filter((t) => t.participant_id === p.id && !isOpen(t)).sort((a, b) => b.due_at.localeCompare(a.due_at))[0];
-      if (lastDue && lastDue.status !== "completed") reasons.push("missed the latest check-in");
-      return { participant: p, reasons };
-    })
-    .filter((x) => x.reasons.length)
-    .sort((a, b) => b.reasons.length - a.reasons.length || a.participant.completion_rate - b.participant.completion_rate);
   const names = new Map(participants.map((p) => [p.id, p.display_name]));
 
   return {
@@ -137,7 +125,6 @@ export async function overview() {
       const ids = new Set(participants.filter((p) => p.study_id === s.id).map((p) => p.id));
       return { study: s, weeks: weeklyAdherence(tasks.filter((t) => ids.has(t.participant_id))) };
     }),
-    attention: attention.slice(0, 6),
     recent: [...subs]
       .reverse()
       .slice(0, 8)
@@ -223,11 +210,33 @@ export async function participantHome(id: string) {
   const rewards = study?.protocol.rewards;
   const lifetime = lifetimePoints(events);
   const now = Date.now();
-  const openTask =
-    tasks
-      .filter((t) => isOpen(t) && new Date(t.due_at).getTime() - DAY <= now && now <= new Date(t.due_at).getTime() + t.window_hours * 3_600_000)
-      .sort((a, b) => a.due_at.localeCompare(b.due_at))[0] ?? null;
-  const nextTask = openTask ?? tasks.filter((t) => isOpen(t)).sort((a, b) => a.due_at.localeCompare(b.due_at))[0] ?? null;
+  const enabled = participant.enabled_task_ids;
+  const protocolTasks =
+    study && enabled?.length
+      ? study.protocol.tasks.filter((t) => enabled.includes(t.id))
+      : study?.protocol.tasks ?? [];
+  const openScheduled = tasks
+    .filter((t) => isOpen(t))
+    .filter((t) => !enabled?.length || enabled.includes(t.task_id))
+    .sort((a, b) => a.due_at.localeCompare(b.due_at));
+  const dueScheduled = openScheduled.filter(
+    (t) => new Date(t.due_at).getTime() - DAY <= now && now <= new Date(t.due_at).getTime() + t.window_hours * 3_600_000,
+  );
+  const openTask = dueScheduled[0] ?? null;
+  const nextTask = openTask ?? openScheduled[0] ?? null;
+  const availableTasks = protocolTasks.map((task) => {
+    const custom = participant.task_instructions?.[task.id]?.trim();
+    const scheduled = openScheduled.find((s) => s.task_id === task.id) ?? null;
+    const due =
+      scheduled &&
+      new Date(scheduled.due_at).getTime() - DAY <= now &&
+      now <= new Date(scheduled.due_at).getTime() + scheduled.window_hours * 3_600_000;
+    return {
+      task: custom ? { ...task, instructions: custom } : task,
+      scheduled,
+      dueNow: Boolean(due),
+    };
+  });
   return {
     participant,
     study,
@@ -235,6 +244,7 @@ export async function participantHome(id: string) {
     submissions,
     nextTask,
     dueNow: Boolean(openTask),
+    availableTasks,
     events: [...events].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     redemptions,
     balance: balance(events),

@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { CvModel as CvModelSchema, Protocol, isOpen, type Observation, type RewardEvent, type SchedulePlan } from "@vf/shared";
-import { BUILTIN_MODELS, demoState } from "./demo-data";
+import { demoState } from "./demo-data";
 import type {
   AuditEntry,
   CaptureRecord,
@@ -10,7 +10,9 @@ import type {
   DraftRecord,
   DroidJob,
   Message,
+  ObservationNote,
   Participant,
+  PortalUser,
   Redemption,
   Review,
   ScheduledTask,
@@ -62,6 +64,10 @@ export interface Backend {
   insertModel(m: CvModel): Promise<void>;
   updateModel(id: string, patch: Partial<CvModel>): Promise<void>;
   insertAudit(a: Omit<AuditEntry, "id" | "created_at">): Promise<void>;
+  portalUsers(f?: { id?: string; email?: string }): Promise<PortalUser[]>;
+  insertPortalUser(u: PortalUser): Promise<void>;
+  observationNotes(observationId: string): Promise<ObservationNote[]>;
+  insertObservationNote(n: ObservationNote): Promise<void>;
   health(): Promise<Health>;
 }
 
@@ -76,17 +82,25 @@ export class ConflictError extends Error {}
 
 export const TABLES = [
   "studies", "protocols", "participants", "scheduled_tasks", "submissions", "observations", "reviews", "reward_events", "redemptions",
-  "cv_models", "workflow_drafts", "droid_jobs", "agent_conversations", "messages", "audit_log",
+  "cv_models", "workflow_drafts", "droid_jobs", "agent_conversations", "messages", "audit_log", "portal_users", "observation_notes",
 ] as const;
 export const MEDIA_BUCKET = "media";
 
 const byTime = <T extends { created_at: string }>(a: T, b: T) => a.created_at.localeCompare(b.created_at);
 const now = () => new Date().toISOString();
 const sameCode = (a: string, b: string) => a.trim().toUpperCase() === b.trim().toUpperCase();
-// Older observations may contain the retired heuristic score. Keep it out of reviews and exports.
-const withoutSeverityScore = (o: Observation): Observation => ({
+/** Non-objective / trained-head outputs we no longer show in reviews, charts or exports. */
+const HIDDEN_MEASUREMENTS = new Set([
+  "severity_score",
+  "eczema_likelihood",
+  "psoriasis_likelihood",
+  "scaling_likelihood",
+  "tapping_score",
+  "rest_tremor_score",
+]);
+const withoutHiddenMeasurements = (o: Observation): Observation => ({
   ...o,
-  measurements: o.measurements.filter((m) => m.name !== "severity_score"),
+  measurements: o.measurements.filter((m) => !HIDDEN_MEASUREMENTS.has(m.name)),
 });
 
 const demoBackend: Backend = {
@@ -106,7 +120,7 @@ const demoBackend: Backend = {
           (!f.id || o.id === f.id),
       )
       .sort((a, b) => a.captured_at.localeCompare(b.captured_at))
-      .map(withoutSeverityScore),
+      .map(withoutHiddenMeasurements),
   submissions: async (f = {}) =>
     demoState()
       .submissions.filter((s) => (!f.participantId || s.participant_id === f.participantId) && (!f.studyId || s.study_id === f.studyId) && (!f.id || s.id === f.id))
@@ -212,6 +226,20 @@ const demoBackend: Backend = {
     const s = demoState();
     s.audit.push({ ...a, id: `aud_${Date.now().toString(36)}_${s.audit.length}`, created_at: now() });
   },
+  portalUsers: async (f = {}) =>
+    demoState().portalUsers.filter(
+      (u) => (!f.id || u.id === f.id) && (!f.email || u.email.toLowerCase() === f.email.toLowerCase()),
+    ),
+  insertPortalUser: async (u) => {
+    const s = demoState();
+    if (s.portalUsers.some((x) => x.email.toLowerCase() === u.email.toLowerCase())) throw new ConflictError("Email already registered.");
+    s.portalUsers.push(u);
+  },
+  observationNotes: async (observationId) =>
+    demoState().observationNotes.filter((n) => n.observation_id === observationId).sort(byTime),
+  insertObservationNote: async (n) => {
+    demoState().observationNotes.push(n);
+  },
   health: async () => ({ ok: true, tables: [], bucket: { ok: true, detail: "in-memory (demo mode)" } }),
 };
 
@@ -276,7 +304,7 @@ function supabaseBackend(db: SupabaseClient): Backend {
         if (f.status) q = q.eq("review_status", f.status);
         if (f.id) q = q.eq("id", f.id);
         return q;
-      })).map(withoutSeverityScore);
+      })).map(withoutHiddenMeasurements);
     },
     async submissions(f = {}) {
       return all<Submission>(() => {
@@ -317,9 +345,9 @@ function supabaseBackend(db: SupabaseClient): Backend {
           return q;
         })
       ).map((m) => CvModelSchema.parse(m));
-      // bundled models (training kit / Droid) are listed unless a row overrides them, e.g. after deactivation
-      const builtins = BUILTIN_MODELS.filter((m) => (!f.id || m.id === f.id) && !rows.some((r) => r.id === m.id));
-      return [...builtins, ...rows];
+      // Trained-head / pretrained registry listings are no longer surfaced; keep DB rows
+      // (e.g. Droid-generated module metadata) only.
+      return rows;
     },
     async audit(f = {}) {
       const query = () => {
@@ -404,13 +432,29 @@ function supabaseBackend(db: SupabaseClient): Backend {
       must(await db.from("cv_models").insert(m));
     },
     async updateModel(id, patch) {
-      const builtin = BUILTIN_MODELS.find((m) => m.id === id);
-      const existing = builtin ? must<unknown[]>(await db.from("cv_models").select("id").eq("id", id)) : [1];
-      if (builtin && !existing.length) must(await db.from("cv_models").insert({ ...builtin, ...patch }));
-      else must(await db.from("cv_models").update(patch).eq("id", id));
+      must(await db.from("cv_models").update(patch).eq("id", id));
     },
     async insertAudit(a) {
       must(await db.from("audit_log").insert(a));
+    },
+    async portalUsers(f = {}) {
+      return all<PortalUser>(() => {
+        let q = db.from("portal_users").select("*").order("created_at").order("id");
+        if (f.id) q = q.eq("id", f.id);
+        if (f.email) q = q.eq("email", f.email.toLowerCase());
+        return q;
+      });
+    },
+    async insertPortalUser(u) {
+      must(await db.from("portal_users").insert({ ...u, email: u.email.toLowerCase() }));
+    },
+    async observationNotes(observationId) {
+      return all<ObservationNote>(() =>
+        db.from("observation_notes").select("*").eq("observation_id", observationId).order("created_at").order("id"),
+      );
+    },
+    async insertObservationNote(n) {
+      must(await db.from("observation_notes").insert(n));
     },
     async health() {
       const tables = await Promise.all(
@@ -428,9 +472,44 @@ function supabaseBackend(db: SupabaseClient): Backend {
   };
 }
 
+function loadRootEnvOnce() {
+  // Same pattern as live-keys: Next may not have loaded repo-root .env.local yet.
+  const g = globalThis as typeof globalThis & { __vfRootEnvLoaded?: boolean };
+  if (g.__vfRootEnvLoaded) return;
+  g.__vfRootEnvLoaded = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { existsSync, readFileSync } = require("node:fs") as typeof import("node:fs");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require("node:path") as typeof import("node:path");
+    const candidates = [
+      path.resolve(process.cwd(), ".env.local"),
+      path.resolve(process.cwd(), "..", ".env.local"),
+      path.resolve(process.cwd(), "../..", ".env.local"),
+    ];
+    for (const file of candidates) {
+      if (!existsSync(file)) continue;
+      for (const raw of readFileSync(file, "utf8").split("\n")) {
+        const line = raw.trim();
+        if (!line || line.startsWith("#")) continue;
+        const eq = line.indexOf("=");
+        if (eq <= 0) continue;
+        const key = line.slice(0, eq).trim();
+        let val = line.slice(eq + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
+        if (process.env[key] === undefined || process.env[key] === "") process.env[key] = val;
+      }
+      break;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function supabaseEnv(): { url: string; key: string } | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  loadRootEnvOnce();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   return url && key ? { url, key } : null;
 }
 
@@ -439,6 +518,9 @@ export function backend(): Backend {
   if (cached) return cached;
   const env = supabaseEnv();
   cached = env ? supabaseBackend(createClient(env.url, env.key, { auth: { persistSession: false } })) : demoBackend;
+  if (process.env.NODE_ENV !== "production") {
+    console.info(`[backend] mode=${cached.mode}${env ? ` url=${env.url}` : ""}`);
+  }
   return cached;
 }
 

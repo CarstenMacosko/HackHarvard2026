@@ -1,14 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  balance,
-  computeStreak,
-  lifetimePoints,
-  rewardMessage,
-  rewardsForAcceptedSubmission,
-  tierFor,
-  type Observation,
-  type RewardEvent,
-} from "@vf/shared";
+import { type Observation } from "@vf/shared";
 import { DevAdapter } from "./adapters/dev";
 import { PhotonAdapter } from "./adapters/photon";
 import type { ChannelAdapter, InboundMessage } from "./adapters/types";
@@ -60,61 +51,25 @@ async function runEffect(p: ParticipantRecord, e: Effect): Promise<void> {
       }
       return;
     case "complete": {
-      const now = new Date();
-      p.acceptedAt.push(now.toISOString());
-      // the web app owns the reward ledger; fall back to a local estimate if it is unreachable
+      p.acceptedAt.push(new Date().toISOString());
       const ingested = await postObservation(e.observation, e.attempts, e.task.id);
-      if (ingested) {
-        p.rewardEvents.push(...ingested.reward_events);
-        p.ledger = { balance: ingested.points_balance, tier: ingested.tier, lifetime: ingested.lifetime_points, nextTier: ingested.next_tier };
-        await store.save(p);
-        await say(p, ingested.message ?? rewardMessage(ingested.reward_events, ingested.streak));
-        return;
-      }
-      const streak = computeStreak(p.acceptedAt, e.task.cadence, now);
-      const events = rewardsForAcceptedSubmission(p.rewards, {
-        participantId: p.id,
-        submissionId: e.observation.submission_id,
-        onTime: true,
-        streak,
-        totalAccepted: p.acceptedAt.length,
-        at: now,
-      });
-      p.rewardEvents.push(...events);
       await store.save(p);
-      await say(p, rewardMessage(events, streak));
+      await say(p, ingested?.message ?? "Perfect, that's a usable capture — sent to your study team for review.");
       return;
     }
     case "escalate":
       await store.escalate(p, e.task.id, e.reason); // the check-in shows as escalated in the researcher dashboard
       return;
-    case "show_points": {
-      if (p.ledger) {
-        const { balance: bal, tier, lifetime, nextTier } = p.ledger;
-        const toNext = nextTier ? ` · ${nextTier.points - lifetime} pts to ${nextTier.name}` : "";
-        await say(p, `You have ${bal} pts (${tier} tier${toNext}).`);
-        return;
-      }
-      const { current, next } = tierFor(p.rewards, lifetimePoints(p.rewardEvents));
-      const toNext = next ? ` · ${next.points - lifetimePoints(p.rewardEvents)} pts to ${next.name}` : "";
-      await say(p, `You have ${balance(p.rewardEvents)} pts (${current.name} tier${toNext}).`);
-      return;
-    }
   }
 }
 
 interface IngestResponse {
   accepted: boolean;
-  reward_events: RewardEvent[];
   streak: number;
   message: string | null;
-  points_balance: number;
-  tier: string;
-  lifetime_points: number;
-  next_tier: { name: string; points: number } | null;
 }
 
-/** Hand every analysed attempt to the web app, which owns database writes and the reward ledger. */
+/** Hand every analysed attempt to the web app, which owns database writes. */
 async function postObservation(observation: Observation, attempt: number, taskId: string): Promise<IngestResponse | null> {
   try {
     const res = await fetch(`${WEB_URL}/api/cv-callback`, {
