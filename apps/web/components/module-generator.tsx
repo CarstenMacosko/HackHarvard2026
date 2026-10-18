@@ -20,7 +20,7 @@ const STEPS: { id: GenerationStep; label: string }[] = [
 
 type Meas = { name: string; label: string; unit: string };
 
-/** Placeholder metrics for the FHD writing demo — used when the row is left blank. */
+/** Starting metrics for the FHD writing demo. */
 const SUGGESTED: (Meas & { hint: string })[] = [
   {
     name: "index_straight_fraction",
@@ -36,20 +36,19 @@ const SUGGESTED: (Meas & { hint: string })[] = [
   },
 ];
 
-type PlanRow = Meas & { placeholder?: (typeof SUGGESTED)[number] };
+type PlanRow = Meas & { hint?: string };
 
-function blankPlanRows(): PlanRow[] {
-  return SUGGESTED.map((s) => ({ name: "", label: "", unit: "", placeholder: s }));
+function initialPlanRows(): PlanRow[] {
+  return SUGGESTED.map((s) => ({ ...s }));
 }
 
 function resolveRow(row: PlanRow): Meas | null {
-  const p = row.placeholder;
-  const label = row.label.trim() || p?.label || "";
+  const label = row.label.trim();
   if (!label) return null;
   return {
     label,
-    name: row.name.trim() || (row.label.trim() ? slugify(row.label) : p?.name ?? slugify(label)),
-    unit: row.unit.trim() || p?.unit || "fraction",
+    name: row.name.trim() || slugify(label),
+    unit: row.unit.trim() || "fraction",
   };
 }
 
@@ -130,12 +129,12 @@ function Pipeline({ progress }: { progress: GenerationProgress }) {
 
 export function ModuleGenerator() {
   const router = useRouter();
-  const [conditionInput, setCondition] = useState("");
-  const [moduleName, setModuleName] = useState("");
-  const [descriptionInput, setDescription] = useState("");
-  const [rows, setMeasurements] = useState<PlanRow[]>(blankPlanRows);
-  const condition = conditionInput.trim() || DEMO_PRESET.condition;
-  const description = descriptionInput.trim() || DEMO_PRESET.description;
+  const [conditionInput, setCondition] = useState(DEMO_PRESET.condition);
+  const [moduleName, setModuleName] = useState(DEMO_PRESET.moduleName);
+  const [descriptionInput, setDescription] = useState(DEMO_PRESET.description);
+  const [rows, setMeasurements] = useState<PlanRow[]>(initialPlanRows);
+  const condition = conditionInput.trim();
+  const description = descriptionInput.trim();
   const measurements = useMemo(() => rows.map(resolveRow).filter((m): m is Meas => m !== null), [rows]);
   const [customLabel, setCustomLabel] = useState("");
   const [customUnit, setCustomUnit] = useState("fraction");
@@ -157,10 +156,10 @@ export function ModuleGenerator() {
   }
 
   function resetForm() {
-    setCondition("");
-    setModuleName("");
-    setDescription("");
-    setMeasurements(blankPlanRows());
+    setCondition(DEMO_PRESET.condition);
+    setModuleName(DEMO_PRESET.moduleName);
+    setDescription(DEMO_PRESET.description);
+    setMeasurements(initialPlanRows());
     setCustomLabel("");
     setCustomUnit("fraction");
     setDesignNote("");
@@ -283,7 +282,7 @@ export function ModuleGenerator() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           condition,
-          name: moduleName.trim() || DEMO_PRESET.moduleName,
+          name: moduleName.trim(),
           description,
           measurements,
           media_type: "video",
@@ -322,7 +321,7 @@ export function ModuleGenerator() {
       <Card className="h-fit">
         <CardHeader
           title="Design a CV module"
-          description="Propose measurements, get Droid’s feasibility advice, accept a plan, then generate. Blank fields use the gray example values."
+          description="Edit the example values, get Droid’s feasibility advice, accept a plan, then generate."
         />
         <CardBody className="space-y-4">
           <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -334,7 +333,7 @@ export function ModuleGenerator() {
                 invalidatePlan();
                 setCondition(e.target.value);
               }}
-              placeholder={DEMO_PRESET.condition}
+              placeholder="Condition"
             />
           </label>
           <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -346,7 +345,7 @@ export function ModuleGenerator() {
                 invalidatePlan();
                 setModuleName(e.target.value);
               }}
-              placeholder={DEMO_PRESET.moduleName}
+              placeholder="Module name"
             />
           </label>
           <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -358,7 +357,7 @@ export function ModuleGenerator() {
                 invalidatePlan();
                 setDescription(e.target.value);
               }}
-              placeholder={DEMO_PRESET.description}
+              placeholder="Describe the assessment"
             />
             <span className="mt-1 block text-xs font-normal text-slate-500 dark:text-slate-400">Becomes capture instructions in the study. Tell Droid about camera view and task timing.</span>
           </label>
@@ -372,8 +371,8 @@ export function ModuleGenerator() {
                     <input
                       className={input}
                       value={m.label}
-                      placeholder={m.placeholder?.label ?? "Measurement label"}
-                      title={m.placeholder?.hint}
+                      placeholder="Measurement label"
+                      title={m.hint}
                       onChange={(e) => {
                         invalidatePlan();
                         setMeasurements((xs) => xs.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)));
@@ -383,7 +382,7 @@ export function ModuleGenerator() {
                       <input
                         className={cn(input, "font-mono text-xs")}
                         value={m.name}
-                        placeholder={m.placeholder?.name ?? "metric_name"}
+                        placeholder="metric_name"
                         onChange={(e) => {
                           invalidatePlan();
                           setMeasurements((xs) =>
@@ -394,7 +393,7 @@ export function ModuleGenerator() {
                       <input
                         className={cn(input, "w-28")}
                         value={m.unit}
-                        placeholder={m.placeholder?.unit ?? "unit"}
+                        placeholder="unit"
                         onChange={(e) => {
                           invalidatePlan();
                           setMeasurements((xs) => xs.map((x, j) => (j === i ? { ...x, unit: e.target.value } : x)));
