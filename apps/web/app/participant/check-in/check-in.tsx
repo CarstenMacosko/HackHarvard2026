@@ -2,12 +2,12 @@
 
 import type { ModuleResult } from "@vf/cv";
 import type { QualityCheck, RewardEvent, TaskConfig } from "@vf/shared";
-import { AlertTriangle, Camera, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
+import { Camera, CircleCheck, Loader2, RotateCcw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Dropzone } from "@/components/dropzone";
 import { LiveCapture, liveCaptureSupported, type LiveCaptureModule } from "@/components/live-capture";
-import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ProgressBar, SectionLabel, cn } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, Input, ProgressBar, SectionLabel, cn } from "@/components/ui";
 import { guideStepsForModule } from "@vf/shared";
 import { analyzePhotoFile, analyzeVideoFile, isOnDeviceVideoModule, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { planVideoUpload, type UploadPlan } from "@/lib/cv-client/upload";
@@ -220,25 +220,25 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
     return (
       <Card className="mx-auto max-w-2xl">
         <CardBody className="flex flex-col items-center py-10 text-center">
-          <CheckCircle2 className="h-12 w-12 text-emerald-600" strokeWidth={1.5} />
-          <h2 className="mt-3 text-lg font-semibold text-slate-900">
+          <CircleCheck className="h-12 w-12 stroke-[1.5] text-emerald-600" />
+          <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
             {sent.filter((x) => x.ok).length > 1 ? `Thank you, ${sent.filter((x) => x.ok).length} ${task.media_type}s sent` : "Thank you, that\u2019s a usable check-in"}
           </h2>
-          <p className="mt-1 max-w-md text-sm text-slate-600">It has been sent to your study team for review.</p>
-          <p className="mt-4 text-sm text-slate-500">{outcome.message.replace(/^Usable capture ✅ /, "")}</p>
+          <p className="mt-1 max-w-md text-sm text-slate-600 dark:text-slate-400">It has been sent to your study team for review.</p>
+          <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">{outcome.message.replace(/^Usable capture ✅ /, "")}</p>
           {sent.length > 1 && (
             <ul className="mt-4 w-full max-w-sm space-y-1 text-left text-sm" data-testid="sent-list">
               {sent.map((x, i) => (
-                <li key={`${x.name}-${i}`} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-1.5">
-                  <span className="truncate text-slate-700">{x.name}</span>
-                  <span className={x.ok ? "text-emerald-700" : "text-amber-700"}>{x.note}</span>
+                <li key={`${x.name}-${i}`} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-1.5 dark:bg-slate-900">
+                  <span className="truncate text-slate-700 dark:text-slate-200">{x.name}</span>
+                  <span className={x.ok ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}>{x.note}</span>
                 </li>
               ))}
             </ul>
           )}
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Button onClick={another}>
-              <RotateCcw className="h-3.5 w-3.5" /> Submit another {task.media_type}
+              <RotateCcw /> Submit another {task.media_type}
             </Button>
             <ButtonLink href="/participant" variant="secondary">
               Back to home
@@ -254,11 +254,11 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
       <Card className="order-2 h-fit xl:order-1">
         <CardHeader title={`How to record your ${task.media_type}`} />
         <CardBody className="space-y-4">
-          <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{task.instructions}</p>
-          <ol className="space-y-2 text-sm text-slate-700">
+          <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">{task.instructions}</p>
+          <ol className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
             {captureGuide(task).map((g, i) => (
               <li key={`${i}-${g}`} className="flex gap-2.5">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{i + 1}</span>
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">{i + 1}</span>
                 {g}
               </li>
             ))}
@@ -273,7 +273,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                   <Badge key={k}>{CHECK_LABEL[k] ?? k}</Badge>
                 ))}
             </div>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
               Your {task.media_type} is checked on this device first, so you know right away if it needs a retake.{serverAnalysis ? " It is then analysed again by the study's server." : ""}
             </p>
           </div>
@@ -282,7 +282,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
 
       <div className="order-1 space-y-6 xl:order-2">
         <Card>
-          <CardHeader title={queue.length || sent.length ? `1 · Add your capture (${sent.length + 1} of ${sent.length + 1 + queue.length})` : "1 · Add your capture"} actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw className="h-3.5 w-3.5" /> Start over</Button> : undefined} />
+          <CardHeader title={queue.length || sent.length ? `1 · Add your capture (${sent.length + 1} of ${sent.length + 1 + queue.length})` : "1 · Add your capture"} actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw /> Start over</Button> : undefined} />
           <CardBody>
             {!file && live ? (
               <LiveCapture module={task.module as LiveCaptureModule} onCapture={(f, trim) => void onFile(f, trim)} onCancel={() => setLive(false)} />
@@ -299,7 +299,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                 />
                 {canLive && (
                   <Button size="sm" variant="secondary" onClick={() => setLive(true)}>
-                    <Camera className="h-3.5 w-3.5" /> Record with live guidance
+                    <Camera /> Record with live guidance
                   </Button>
                 )}
               </div>
@@ -323,7 +323,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                 </div>
                 <div className="space-y-3">
                   {phase === "analyzing" && (
-                    <div className="space-y-2 text-sm text-slate-600">
+                    <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                       <div className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" /> {progress.stage || "Checking…"}
                       </div>
@@ -334,19 +334,19 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                     <ul className="space-y-1.5 text-sm">
                       {result.quality.checks.map((c) => (
                         <li key={c.name} className="flex items-center gap-2">
-                          {c.passed ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
-                          <span className={c.passed ? "text-slate-700" : "font-medium text-slate-900"}>{CHECK_LABEL[c.name] ?? c.name}</span>
-                          {!c.passed && c.advisory && <span className="text-xs text-amber-700">(accepted)</span>}
+                          {c.passed ? <CircleCheck className="h-4 w-4 shrink-0 text-emerald-600" /> : <TriangleAlert className="h-4 w-4 shrink-0 text-amber-600" />}
+                          <span className={c.passed ? "text-slate-700 dark:text-slate-200" : "font-medium text-slate-900 dark:text-slate-100"}>{CHECK_LABEL[c.name] ?? c.name}</span>
+                          {!c.passed && c.advisory && <span className="text-xs text-amber-700 dark:text-amber-400">(accepted)</span>}
                         </li>
                       ))}
                     </ul>
                   )}
                   {(phase === "ready" || phase === "submitting") && (
-                    <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Looks good. Answer the questions below and send it.</div>
+                    <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">Looks good. Answer the questions below and send it.</div>
                   )}
                   {(phase === "ready" || phase === "submitting") &&
                     notes.map((c) => (
-                      <div key={c.name} className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <div key={c.name} className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
                         {c.message}
                       </div>
                     ))}
@@ -354,7 +354,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
               </div>
             )}
             {phase === "rejected" && (
-              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                 <div className="font-medium">This one can&apos;t be used yet.</div>
                 <ul className="mt-1 list-disc space-y-0.5 pl-5">
                   {rejectionMessages.map((m) => (
@@ -363,7 +363,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                 </ul>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <Button size="sm" onClick={reset}>
-                    <RotateCcw className="h-3.5 w-3.5" /> Try again
+                    <RotateCcw /> Try again
                   </Button>
                   {queue.length > 0 && (
                     <Button size="sm" variant="secondary" onClick={next}>
@@ -371,7 +371,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                     </Button>
                   )}
                   {attempts > 0 && (
-                    <span className="text-xs text-amber-800">
+                    <span className="text-xs text-amber-800 dark:text-amber-400">
                       Attempt {attempts}
                       .
                     </span>
@@ -379,17 +379,17 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                 </div>
               </div>
             )}
-            {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+            {error && <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
           </CardBody>
         </Card>
 
         <Card className={cn(!(phase === "ready" || phase === "submitting") && "opacity-50")}>
           <CardHeader title="2 · Clinical questionnaire" description="Answer after a usable capture. These items come from your study's patient-reported form." />
           <CardBody className="space-y-5">
-            {task.report_questions.length === 0 && <p className="text-sm text-slate-500">No questionnaire for this task — you can send the capture as is.</p>}
+            {task.report_questions.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">No questionnaire for this task — you can send the capture as is.</p>}
             {task.report_questions.map((q) => (
               <fieldset key={q.key} disabled={!(phase === "ready")}>
-                <legend className="mb-2 text-sm font-medium text-slate-900">{q.prompt}</legend>
+                <legend className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">{q.prompt}</legend>
                 {q.type === "choice" && (
                   <div className="flex flex-wrap gap-2">
                     {q.options!.map((o) => (
@@ -399,7 +399,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                         onClick={() => setAnswers({ ...answers, [q.key]: o })}
                         className={cn(
                           "h-9 rounded-md px-4 text-sm font-medium ring-1 ring-inset",
-                          answers[q.key] === o ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50",
+                          answers[q.key] === o ? "bg-slate-900 text-white ring-slate-900 dark:bg-white dark:text-slate-900 dark:ring-white" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-600 dark:hover:bg-slate-800",
                         )}
                       >
                         {o}
@@ -416,7 +416,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                         onClick={() => setAnswers({ ...answers, [q.key]: n })}
                         className={cn(
                           "tabular h-9 w-9 rounded-md text-sm font-medium ring-1 ring-inset",
-                          answers[q.key] === n ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50",
+                          answers[q.key] === n ? "bg-slate-900 text-white ring-slate-900 dark:bg-white dark:text-slate-900 dark:ring-white" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-600 dark:hover:bg-slate-800",
                         )}
                       >
                         {n}
@@ -425,17 +425,17 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                   </div>
                 )}
                 {q.type === "text" && (
-                  <input className="h-9 w-full rounded-md border border-slate-300 px-3 text-sm" value={String(answers[q.key] ?? "")} onChange={(e) => setAnswers({ ...answers, [q.key]: e.target.value })} />
+                  <Input value={String(answers[q.key] ?? "")} onChange={(e) => setAnswers({ ...answers, [q.key]: e.target.value })} />
                 )}
               </fieldset>
             ))}
-            <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
               <Button size="lg" onClick={submit} disabled={phase !== "ready"}>
-                {phase === "submitting" && <Loader2 className="h-4 w-4 animate-spin" />}
+                {phase === "submitting" && <Loader2 className="animate-spin" />}
                 Send check-in
               </Button>
-              {!dueNow && <span className="text-xs text-slate-500">No check-in is due — this will still be saved as an extra capture.</span>}
-              <Link href="/participant" className="ml-auto text-sm text-slate-500 hover:text-slate-900">
+              {!dueNow && <span className="text-xs text-slate-500 dark:text-slate-400">No check-in is due — this will still be saved as an extra capture.</span>}
+              <Link href="/participant" className="ml-auto text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-100">
                 Cancel
               </Link>
             </div>

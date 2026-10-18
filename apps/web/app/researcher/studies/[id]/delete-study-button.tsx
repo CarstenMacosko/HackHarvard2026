@@ -32,7 +32,7 @@ export function DeleteStudyButton({ studyId, studyName }: { studyId: string; stu
   return (
     <div className="flex flex-col items-end gap-1">
       <Button type="button" variant="ghost" size="sm" onClick={onDelete} disabled={pending} className="text-rose-700 hover:bg-rose-50 hover:text-rose-800">
-        <Trash2 className="h-3.5 w-3.5" />
+        <Trash2 />
         {pending ? "Deleting…" : "Delete study"}
       </Button>
       {error && <p className="max-w-xs text-right text-xs text-rose-600">{error}</p>}

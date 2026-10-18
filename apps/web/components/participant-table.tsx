@@ -20,7 +20,7 @@ export function ParticipantTable({ rows, showStudy = false }: { rows: (Participa
         {rows.map((p) => (
           <Tr key={p.id}>
             <Td>
-              <Link href={`/researcher/participants/${p.id}`} className="font-medium text-slate-900 hover:text-brand-700">
+              <Link href={`/researcher/participants/${p.id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100 dark:hover:text-brand-300">
                 {p.display_name}
               </Link>
               {p.status === "invited" && (
@@ -29,13 +29,13 @@ export function ParticipantTable({ rows, showStudy = false }: { rows: (Participa
                 </div>
               )}
             </Td>
-            {showStudy && <Td className="text-slate-600">{p.study_name?.split(":")[0]}</Td>}
+            {showStudy && <Td className="text-slate-600 dark:text-slate-400">{p.study_name?.split(":")[0]}</Td>}
             <Td>
               <Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>
             </Td>
-            <Td className={`tabular text-right ${p.status === "active" && p.completion_rate != null && p.completion_rate < 0.75 ? "font-medium text-rose-600" : ""}`}>{p.status === "invited" ? "—" : pct(p.completion_rate)}</Td>
+            <Td className={`tabular text-right ${p.status === "active" && p.completion_rate != null && p.completion_rate < 0.75 ? "font-medium text-rose-600 dark:text-rose-400" : ""}`}>{p.status === "invited" ? "—" : pct(p.completion_rate)}</Td>
             <Td className="tabular text-right">{p.streak || "—"}</Td>
-            <Td className="text-slate-600">{relTime(p.last_submission_at)}</Td>
+            <Td className="text-slate-600 dark:text-slate-400">{relTime(p.last_submission_at)}</Td>
             <Td>
               <div className="flex gap-1">
                 {p.pending_reviews > 0 && <Badge tone="amber">{p.pending_reviews} to review</Badge>}

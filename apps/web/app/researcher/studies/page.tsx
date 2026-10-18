@@ -30,13 +30,13 @@ export default async function StudiesPage() {
             {studies.map((s) => (
               <Tr key={s.id}>
                 <Td>
-                  <Link href={`/researcher/studies/${s.id}`} className="font-medium text-slate-900 hover:text-brand-700">
+                  <Link href={`/researcher/studies/${s.id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100 dark:hover:text-brand-300">
                     {s.name}
                   </Link>
                   <div className="text-xs text-slate-400">{s.id}</div>
                 </Td>
-                <Td className="text-slate-600">{conditionLabel(s.condition)}</Td>
-                <Td className="text-slate-600">
+                <Td className="text-slate-600 dark:text-slate-400">{conditionLabel(s.condition)}</Td>
+                <Td className="text-slate-600 dark:text-slate-400">
                   v{s.protocol.version} · {s.protocol.approved_by}
                 </Td>
                 <Td>

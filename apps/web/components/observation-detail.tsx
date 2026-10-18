@@ -18,7 +18,7 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
   return (
     <div className="space-y-5 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-slate-600">{dateTime(o.captured_at)}</span>
+        <span className="text-slate-600 dark:text-slate-400">{dateTime(o.captured_at)}</span>
         <span className="text-slate-400">· {o.task_label}</span>
       </div>
 
@@ -32,7 +32,7 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
           </div>
         )
       ) : (
-        <div className="flex items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-xs text-slate-500">
+        <div className="flex items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-xs text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400">
           <span className="px-6 text-center">No media file was kept for submission {o.submission_id}.</span>
         </div>
       )}
@@ -42,9 +42,9 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
         <table className="w-full">
           <tbody>
             {o.measurements.map((m) => (
-              <tr key={m.name} className="border-b border-slate-100 last:border-0">
-                <td className="py-1.5 pr-2 text-slate-700">{m.label}</td>
-                <td className="tabular py-1.5 text-right font-medium text-slate-900">
+              <tr key={m.name} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                <td className="py-1.5 pr-2 text-slate-700 dark:text-slate-200">{m.label}</td>
+                <td className="tabular py-1.5 text-right font-medium text-slate-900 dark:text-slate-100">
                   {m.value.toFixed(2)}
                   {m.uncertainty !== null && <span className="font-normal text-slate-400"> ± {m.uncertainty.toFixed(2)}</span>}
                   <span className="ml-1 text-xs font-normal text-slate-400">{m.unit}</span>
@@ -90,7 +90,7 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
           />
         </div>
       </div>
-      {o.review_note && <p className="rounded-md bg-slate-50 px-3 py-2 text-slate-600">Review note: {o.review_note}</p>}
+      {o.review_note && <p className="rounded-md bg-slate-50 px-3 py-2 text-slate-600 dark:bg-slate-900 dark:text-slate-400">Review note: {o.review_note}</p>}
       {!compact && <ObservationNotes observationId={o.id} />}
     </div>
   );

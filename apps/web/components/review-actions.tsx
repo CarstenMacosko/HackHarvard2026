@@ -4,7 +4,7 @@ import type { Observation } from "@vf/shared";
 import { Check, PencilLine, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button } from "./ui";
+import { Button, cn, fieldClass } from "./ui";
 
 /** Accept / correct / reject. Corrections overwrite individual measurement values and require a note. */
 export function ReviewActions({ observation, nextHref }: { observation: Observation; nextHref?: string }) {
@@ -36,17 +36,17 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
   }
 
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50/60 p-3">
+    <div className="rounded-md border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-900/60">
       {mode === "idle" && (
         <div className="flex flex-wrap gap-2">
           <Button variant="success" size="sm" disabled={pending} onClick={() => submit("accepted")}>
-            <Check className="h-3.5 w-3.5" /> Accept
+            <Check /> Accept
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setMode("correct")}>
-            <PencilLine className="h-3.5 w-3.5" /> Correct
+            <PencilLine /> Correct
           </Button>
           <Button variant="danger" size="sm" onClick={() => setMode("reject")}>
-            <X className="h-3.5 w-3.5" /> Reject
+            <X /> Reject
           </Button>
         </div>
       )}
@@ -55,7 +55,7 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
           {mode === "correct" &&
             observation.measurements.map((m) => (
               <label key={m.name} className="flex items-center justify-between gap-2">
-                <span className="text-slate-600">
+                <span className="text-slate-600 dark:text-slate-400">
                   {m.label} <span className="text-slate-400">({m.unit})</span>
                 </span>
                 <input
@@ -64,7 +64,7 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
                   placeholder={m.value.toFixed(2)}
                   value={values[m.name] ?? ""}
                   onChange={(e) => setValues({ ...values, [m.name]: e.target.value })}
-                  className="tabular w-28 rounded-md border border-slate-300 bg-white px-2 py-1 text-right"
+                  className={cn(fieldClass, "tabular h-8 w-28 text-right")}
                 />
               </label>
             ))}
@@ -72,7 +72,7 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={mode === "reject" ? "Why is this result unusable? (required)" : "What did you correct and why? (required)"}
-            className="w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5"
+            className={cn(fieldClass, "w-full py-1.5")}
             rows={2}
           />
           <div className="flex gap-2">
@@ -85,7 +85,7 @@ export function ReviewActions({ observation, nextHref }: { observation: Observat
           </div>
         </div>
       )}
-      {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
     </div>
   );
 }

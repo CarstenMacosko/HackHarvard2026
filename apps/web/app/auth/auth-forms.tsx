@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Button, cn } from "@/components/ui";
+import { Button, cardClass, cn, Field, Input } from "@/components/ui";
 import { signInAction, signUpAction } from "./actions";
 
-const input = "mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm";
+const form = cn(cardClass, "space-y-5 p-6 sm:p-8");
 
 export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   return (
     <form
-      className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      className={form}
       action={(fd) => {
         start(async () => {
           const r = await signInAction(fd);
@@ -19,16 +19,14 @@ export function SignInForm() {
         });
       }}
     >
-      <label className="block text-sm font-medium text-slate-900">
-        Email
-        <input className={input} name="email" type="email" autoComplete="email" required />
-      </label>
-      <label className="block text-sm font-medium text-slate-900">
-        Password
-        <input className={input} name="password" type="password" autoComplete="current-password" required />
-      </label>
-      {error && <p className="text-sm text-rose-600">{error}</p>}
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Field label="Email">
+        <Input className="h-10" name="email" type="email" autoComplete="email" required />
+      </Field>
+      <Field label="Password">
+        <Input className="h-10" name="password" type="password" autoComplete="current-password" required />
+      </Field>
+      {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
       </Button>
     </form>
@@ -47,7 +45,7 @@ export function SignUpForm({
   const [pending, start] = useTransition();
   return (
     <form
-      className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      className={form}
       action={(fd) => {
         start(async () => {
           const r = await signUpAction(fd);
@@ -56,8 +54,8 @@ export function SignUpForm({
       }}
     >
       <fieldset>
-        <legend className="text-sm font-medium text-slate-900">I am a</legend>
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <legend className="text-sm font-medium text-slate-800 dark:text-slate-200">I am a</legend>
+        <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-md bg-slate-100 p-1 dark:bg-slate-800">
           {(
             [
               ["researcher", "Researcher"],
@@ -67,8 +65,8 @@ export function SignUpForm({
             <label
               key={value}
               className={cn(
-                "flex cursor-pointer items-center justify-center rounded-md border px-3 py-2 text-sm font-medium",
-                role === value ? "border-brand-500 bg-brand-50 text-brand-800" : "border-slate-200 text-slate-600",
+                "flex cursor-pointer items-center justify-center rounded px-3 py-1.5 text-sm font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand-500",
+                role === value ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
               )}
             >
               <input type="radio" name="role" value={value} className="sr-only" checked={role === value} onChange={() => setRole(value)} />
@@ -77,26 +75,22 @@ export function SignUpForm({
           ))}
         </div>
       </fieldset>
-      <label className="block text-sm font-medium text-slate-900">
-        Full name
-        <input className={input} name="display_name" required autoComplete="name" />
-      </label>
-      <label className="block text-sm font-medium text-slate-900">
-        Email
-        <input className={input} name="email" type="email" required autoComplete="email" />
-      </label>
-      <label className="block text-sm font-medium text-slate-900">
-        Password
-        <input className={input} name="password" type="password" required minLength={6} autoComplete="new-password" />
-      </label>
+      <Field label="Full name">
+        <Input className="h-10" name="display_name" required autoComplete="name" />
+      </Field>
+      <Field label="Email">
+        <Input className="h-10" name="email" type="email" required autoComplete="email" />
+      </Field>
+      <Field label="Password">
+        <Input className="h-10" name="password" type="password" required minLength={6} autoComplete="new-password" />
+      </Field>
       {role === "participant" && (
-        <label className="block text-sm font-medium text-slate-900">
-          Study invite code
-          <input className={input} name="invite_code" defaultValue={defaultCode} required placeholder="e.g. PD-006J" />
-        </label>
+        <Field label="Study invite code">
+          <Input className="h-10 font-mono uppercase" name="invite_code" defaultValue={defaultCode} required placeholder="e.g. PD-006J" />
+        </Field>
       )}
-      {error && <p className="text-sm text-rose-600">{error}</p>}
-      <Button type="submit" className="w-full" disabled={pending}>
+      {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending ? "Creating…" : "Create account"}
       </Button>
     </form>

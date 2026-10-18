@@ -30,14 +30,14 @@ export default async function HistoryPage() {
                 const r = s.observation_id ? review.get(s.observation_id) : undefined;
                 return (
                   <Tr key={s.id}>
-                    <Td className="whitespace-nowrap text-slate-700">{dateTime(s.created_at)}</Td>
-                    <Td>{s.accepted ? <Badge tone="green">usable</Badge> : <Badge tone="amber">retake</Badge>}</Td>
-                    <Td className="text-slate-600">
+                    <Td className="whitespace-nowrap text-slate-700 dark:text-slate-200">{dateTime(s.created_at)}</Td>
+                    <Td>{s.accepted ? <Badge tone="green">Usable</Badge> : <Badge tone="amber">Retake</Badge>}</Td>
+                    <Td className="text-slate-600 dark:text-slate-400">
                       {s.accepted ? `Attempt ${s.attempt}` : s.quality.checks.filter((c) => !c.passed && !c.advisory).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ")}
                     </Td>
                     <Td>
                       {s.accepted ? (
-                        r === "pending" ? <Badge tone="amber">with your care team</Badge> : r === "rejected" ? <Badge tone="red">couldn&apos;t be used</Badge> : <Badge tone="green">reviewed</Badge>
+                        r === "pending" ? <Badge tone="amber">With your care team</Badge> : r === "rejected" ? <Badge tone="red">Couldn&apos;t be used</Badge> : <Badge tone="green">Reviewed</Badge>
                       ) : (
                         <span className="text-slate-400">—</span>
                       )}

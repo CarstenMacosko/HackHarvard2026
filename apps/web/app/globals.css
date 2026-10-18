@@ -1,17 +1,76 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --color-brand-50: #eff4ff;
-  --color-brand-100: #dbe5fe;
-  --color-brand-200: #bfd0fd;
-  --color-brand-300: #93b0fa;
-  --color-brand-500: #3d6ee8;
-  --color-brand-600: #2b59c3;
-  --color-brand-700: #23489f;
-  --color-brand-800: #1e3a7e;
-  --color-ink: #0f172a;
+  /* Brick red accent. Reserved for emphasis (active nav, links, focus, key data), not for bulk fills. */
+  --color-brand-50: #fcf4f2;
+  --color-brand-100: #f8e4e0;
+  --color-brand-200: #f0c7bf;
+  --color-brand-300: #e4a194;
+  --color-brand-400: #d47766;
+  --color-brand-500: #bf4f3e;
+  --color-brand-600: #a8402f;
+  --color-brand-700: #8c3527;
+  --color-brand-800: #722d23;
+  --color-brand-900: #5e2820;
+
+  /* `slate-*` is remapped to a quiet, slightly warm neutral so the whole app reads white/gray instead of blue-gray. */
+  --color-slate-50: #fafaf9;
+  --color-slate-100: #f4f4f3;
+  --color-slate-200: #e7e6e4;
+  --color-slate-300: #d6d4d1;
+  --color-slate-400: #a6a39f;
+  --color-slate-500: #75726e;
+  --color-slate-600: #57534f;
+  --color-slate-700: #403d3a;
+  --color-slate-800: #292725;
+  --color-slate-900: #1a1918;
+  --color-slate-950: #0d0c0c;
+
+  --color-ink: #1a1918;
+
+  --shadow-card: 0 1px 2px rgb(26 25 24 / 0.04), 0 2px 8px rgb(26 25 24 / 0.06);
+  --shadow-card-hover: 0 2px 4px rgb(26 25 24 / 0.05), 0 10px 24px rgb(26 25 24 / 0.09);
+  --shadow-overlay: 0 4px 12px rgb(26 25 24 / 0.08), 0 24px 48px rgb(26 25 24 / 0.16);
+
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-muted: var(--surface-muted);
+  --color-line: var(--border);
+  --color-line-subtle: var(--border-subtle);
+  --color-fg: var(--text);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-faint: var(--text-faint);
+}
+
+:root {
+  --surface: #fafaf9;
+  --surface-raised: #ffffff;
+  --surface-muted: #f4f4f3;
+  --border: #e7e6e4;
+  --border-subtle: #f4f4f3;
+  --text: #1a1918;
+  --text-muted: #75726e;
+  --text-faint: #a6a39f;
+}
+
+.dark {
+  color-scheme: dark;
+  --color-ink: #f4f4f3;
+  --surface: #121110;
+  --surface-raised: #1a1918;
+  --surface-muted: #232120;
+  --border: #2e2c2a;
+  --border-subtle: #232120;
+  --text: #f4f4f3;
+  --text-muted: #a6a39f;
+  --text-faint: #75726e;
 }
 
 html,
@@ -20,12 +79,83 @@ body {
 }
 
 body {
-  background: var(--color-slate-50);
-  color: var(--color-ink);
+  background: var(--surface);
+  color: var(--text);
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
 }
 
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-brand-100);
+  color: var(--color-brand-900);
+}
+
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* In @layer base so a `stroke-[…]` utility can still override it per icon. */
+@layer base {
+  svg.lucide {
+    stroke-width: 1.75;
+  }
+}
+
+/* Auth shells: near-white page with a thin brand rule at the top. */
+.surface-mesh {
+  background: var(--surface);
+  border-top: 3px solid var(--color-brand-500);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
+}
+
+.animate-delay-1 {
+  animation-delay: 0.05s;
+}
+.animate-delay-2 {
+  animation-delay: 0.1s;
+}
+.animate-delay-3 {
+  animation-delay: 0.15s;
+}
+.animate-delay-4 {
+  animation-delay: 0.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in {
+    animation: none;
+  }
 }
