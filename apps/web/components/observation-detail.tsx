@@ -1,3 +1,5 @@
+"use client";
+
 import type { Observation } from "@vf/shared";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
 import { ObservationNotes } from "./observation-notes";

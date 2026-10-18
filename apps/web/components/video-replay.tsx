@@ -106,10 +106,18 @@ export function VideoReplay({
   const [t, setT] = useState(0);
   const connectionsRef = useRef<Array<{ start: number; end: number }>>([]);
 
+  // Reset landmark cache when the media URL changes.
+  useEffect(() => {
+    setSamples(null);
+    setError(null);
+  }, [src]);
+
   // Extract landmark track once when an overlay mode is selected (browser MediaPipe — fastest path).
+  // Fetch → blob URL so WebGL/MediaPipe never sees a cross-origin / tainted video element.
   useEffect(() => {
     if (mode === "raw" || samples) return;
     let cancelled = false;
+    let revoke: (() => void) | undefined;
     (async () => {
       setBusy(true);
       setError(null);
@@ -121,7 +129,10 @@ export function VideoReplay({
         video.muted = true;
         video.playsInline = true;
         video.preload = "auto";
-        video.src = src;
+        video.crossOrigin = "anonymous";
+        const objectUrl = await blobUrlForMedia(src);
+        revoke = objectUrl.revoke;
+        video.src = objectUrl.url;
         await new Promise<void>((resolve, reject) => {
           video.onloadeddata = () => resolve();
           video.onerror = () => reject(new Error("Could not load video for landmark overlay."));
@@ -150,13 +161,17 @@ export function VideoReplay({
         }
         if (!cancelled) setSamples(out);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Landmark overlay failed.");
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : "Landmark overlay failed.";
+          setError(msg.includes("cross-origin") || msg.includes("texImage2D") ? "Could not read this video for landmarks (CORS). Try re-uploading the capture." : msg);
+        }
       } finally {
         if (!cancelled) setBusy(false);
       }
     })();
     return () => {
       cancelled = true;
+      revoke?.();
     };
   }, [mode, samples, src]);
 
@@ -208,6 +223,7 @@ export function VideoReplay({
         ))}
       </div>
       <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-slate-900">
+        {/* Display player stays same-origin / no crossOrigin — WebGL sampling uses a separate blob URL. */}
         <video ref={videoRef} src={startAt} controls playsInline className="h-full w-full object-contain" />
         {mode !== "raw" && <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />}
         {busy && (
@@ -226,11 +242,33 @@ export function VideoReplay({
               {nearestSample(samples ?? [], t)?.pipAngle != null && <> · {nearestSample(samples ?? [], t)!.pipAngle!.toFixed(1)}°</>}
             </span>
           </div>
-          <canvas ref={graphRef} width={640} height={120} className="h-28 w-full" />
+          <canvas ref={graphRef} width={720} height={160} className="h-40 w-full" />
         </div>
       )}
     </div>
   );
+}
+
+/** Load media into a same-origin blob URL so MediaPipe WebGL can sample frames safely. */
+async function blobUrlForMedia(src: string): Promise<{ url: string; revoke: () => void }> {
+  const res = await fetch(src, { credentials: "same-origin", cache: "no-store" });
+  if (!res.ok) throw new Error(`Could not fetch video (${res.status}).`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  return { url, revoke: () => URL.revokeObjectURL(url) };
+}
+
+function niceTicks(min: number, max: number, targetCount: number): number[] {
+  const span = Math.max(max - min, 1e-6);
+  const raw = span / Math.max(targetCount, 1);
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const err = raw / pow;
+  const step = (err >= 5 ? 5 : err >= 2 ? 2 : 1) * pow;
+  const start = Math.ceil(min / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; v <= max + step * 1e-9; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
+  if (!ticks.length) ticks.push(min, max);
+  return ticks;
 }
 
 function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: number) {
@@ -238,33 +276,87 @@ function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: 
   if (!ctx) return;
   const w = canvas.width;
   const h = canvas.height;
+  const pad = { left: 44, right: 12, top: 12, bottom: 28 };
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#f8fafc";
   ctx.fillRect(0, 0, w, h);
+
   const angles = samples.map((s) => s.pipAngle).filter((a): a is number => a != null);
   if (!angles.length) {
     ctx.fillStyle = "#94a3b8";
-    ctx.font = "12px sans-serif";
-    ctx.fillText("No index landmarks in this clip", 12, h / 2);
+    ctx.font = "12px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillText("No index landmarks in this clip", pad.left, h / 2);
     return;
   }
-  const minA = Math.min(...angles, 90);
-  const maxA = Math.max(...angles, 180);
-  const maxT = samples[samples.length - 1]?.t || 1;
-  const xOf = (t: number) => (t / maxT) * (w - 16) + 8;
-  const yOf = (a: number) => h - 12 - ((a - minA) / (maxA - minA || 1)) * (h - 24);
 
-  ctx.strokeStyle = "#cbd5e1";
+  // Fixed clinical range with a little headroom so a straight finger (~180°) sits near the top.
+  const minA = Math.min(90, Math.floor(Math.min(...angles) / 10) * 10);
+  const maxA = Math.max(180, Math.ceil(Math.max(...angles) / 10) * 10);
+  const maxT = Math.max(samples[samples.length - 1]?.t || 1, 0.1);
+  const xOf = (t: number) => pad.left + (t / maxT) * plotW;
+  const yOf = (a: number) => pad.top + plotH - ((a - minA) / (maxA - minA || 1)) * plotH;
+
+  // Plot frame
+  ctx.strokeStyle = "#e2e8f0";
   ctx.lineWidth = 1;
-  for (const guide of [160, 180]) {
-    if (guide < minA || guide > maxA) continue;
-    const y = yOf(guide);
+  ctx.strokeRect(pad.left + 0.5, pad.top + 0.5, plotW, plotH);
+
+  ctx.font = "10px ui-sans-serif, system-ui, sans-serif";
+  ctx.fillStyle = "#64748b";
+  ctx.textBaseline = "middle";
+
+  // Y axis: degrees
+  for (const tick of niceTicks(minA, maxA, 5)) {
+    const y = yOf(tick);
+    ctx.strokeStyle = tick === 160 ? "#94a3b8" : "#e2e8f0";
+    ctx.setLineDash(tick === 160 ? [4, 3] : []);
     ctx.beginPath();
-    ctx.moveTo(8, y);
-    ctx.lineTo(w - 8, y);
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + plotW, y);
     ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#64748b";
+    ctx.fillText(`${tick}°`, pad.left - 6, y);
   }
 
+  // X axis: time (s)
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  for (const tick of niceTicks(0, maxT, 6)) {
+    const x = xOf(tick);
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, pad.top + plotH);
+    ctx.stroke();
+    ctx.fillStyle = "#64748b";
+    ctx.fillText(`${tick % 1 === 0 ? tick.toFixed(0) : tick.toFixed(1)}s`, x, pad.top + plotH + 6);
+  }
+
+  // Axis titles
+  ctx.fillStyle = "#94a3b8";
+  ctx.textAlign = "center";
+  ctx.fillText("time", pad.left + plotW / 2, h - 10);
+  ctx.save();
+  ctx.translate(11, pad.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText("PIP °", 0, 0);
+  ctx.restore();
+
+  // Straightness threshold callout
+  if (160 >= minA && 160 <= maxA) {
+    ctx.fillStyle = "#64748b";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.font = "9px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillText("straight ≥ 160°", pad.left + 4, yOf(160) - 2);
+  }
+
+  // Series
   ctx.strokeStyle = "#2a78d6";
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -283,11 +375,12 @@ function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: 
   }
   ctx.stroke();
 
+  // Playhead
   const px = xOf(Math.min(Math.max(playhead, 0), maxT));
   ctx.strokeStyle = "#eb6834";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(px, 4);
-  ctx.lineTo(px, h - 4);
+  ctx.moveTo(px, pad.top);
+  ctx.lineTo(px, pad.top + plotH);
   ctx.stroke();
 }

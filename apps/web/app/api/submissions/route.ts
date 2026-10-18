@@ -16,8 +16,8 @@ const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "
 
 /**
  * Participant upload from the web portal. The browser has already run the on-device CV module
- * (instant feedback); when CV_SERVICE_URL is configured the server re-runs the reference module
- * on the stored media and that result is authoritative.
+ * (instant feedback for finger_tapping, hand_tremor, writing_posture, and gen_*). When
+ * CV_SERVICE_URL is configured the server re-runs the reference module and that result wins.
  */
 export async function POST(req: Request) {
   const form = await req.formData();
@@ -59,9 +59,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No photo or video received." }, { status: 400 });
   }
 
-  // Generated / writing modules only measure on the CV service (browser only frames quality).
-  const needsServerModule = task.module.startsWith("gen_") || task.module === "writing_posture";
-  // analysis: reference module on the server when available, otherwise the on-device result
+  // Prefer the CV service when configured; otherwise accept on-device analysis for modules
+  // that @vf/cv can fully measure (PD hand video, writing_posture, writing-style gen_*).
+  const writingOnDevice =
+    task.module === "writing_posture" ||
+    (task.module.startsWith("gen_") &&
+      task.measurements.some((m) => m.name.includes("index_straight") || m.name.includes("pip_angle") || m.name.includes("writing")));
+  const needsServerModule = task.module.startsWith("gen_") && !writingOnDevice;
   let analysis: AnalysisResult | null = null;
   let runtime: "server" | "on-device" = "on-device";
   let serverError: string | null = null;
