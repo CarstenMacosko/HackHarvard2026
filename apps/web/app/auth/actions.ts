@@ -32,6 +32,10 @@ export async function signOutAction() {
 }
 
 export async function demoResearcherAction() {
-  await continueAsDemoResearcher();
+  try {
+    await continueAsDemoResearcher();
+  } catch {
+    redirect("/auth/sign-in?role=researcher");
+  }
   redirect("/researcher");
 }
