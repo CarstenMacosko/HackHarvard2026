@@ -1,8 +1,7 @@
-import { CircleCheck, CircleDashed } from "lucide-react";
-import { Badge, Card, CardBody, CardHeader, EmptyState, PageHeader, SectionLabel, ValidationBadge } from "@/components/ui";
+import { Badge, Card, CardBody, CardHeader, EmptyState, PageHeader, SectionLabel } from "@/components/ui";
 import { DroidJobs } from "@/components/droid";
+import { backend } from "@/lib/backend";
 import { listCreatedModules } from "@/lib/created-modules";
-import { cvHealth } from "@/lib/cv-service";
 import { CHECK_LABEL } from "@/lib/format";
 import { BUILTIN_MODULES } from "@/lib/modules";
 
@@ -10,7 +9,30 @@ export const metadata = { title: "CV modules" };
 export const dynamic = "force-dynamic";
 
 export default async function ModelsPage() {
-  const [cv, created] = await Promise.all([cvHealth(), listCreatedModules()]);
+  const [created, droidJobs] = await Promise.all([listCreatedModules(), backend().droidJobs(30)]);
+  // Lean list for the client card (no source_code payloads).
+  const initialJobs = droidJobs.map((j) => ({
+    id: j.id,
+    module: j.module,
+    request: j.request as {
+      condition?: string;
+      measurement?: { label?: string };
+      measurements?: { label?: string }[];
+      media_type?: string;
+      description?: string;
+    },
+    status: j.status,
+    error: j.error,
+    created_at: j.created_at,
+    progress: j.progress
+      ? {
+          step: j.progress.step,
+          model_id: j.progress.model_id,
+          module_id: j.progress.module_id,
+          mode: j.progress.mode,
+        }
+      : null,
+  }));
   return (
     <>
       <PageHeader
@@ -20,11 +42,9 @@ export default async function ModelsPage() {
 
       <SectionLabel>Foundational Modules</SectionLabel>
       <div className="mb-10 grid items-start gap-6 xl:grid-cols-2">
-        {BUILTIN_MODULES.map((m) => {
-          const onServer = cv.modules.find((x) => x.id === m.id);
-          return (
+        {BUILTIN_MODULES.map((m) => (
             <Card key={m.id}>
-              <CardHeader title={m.label} description={<span className="font-mono">{m.id}@{m.version}</span>} actions={<Badge>{m.media_type}</Badge>} />
+              <CardHeader title={m.label} description={<span className="font-mono">{m.id}@{m.version}</span>} />
               <CardBody className="space-y-4">
                 <p className="text-sm text-slate-600">{m.summary}</p>
                 <div className="grid gap-5 sm:grid-cols-2">
@@ -32,11 +52,8 @@ export default async function ModelsPage() {
                     <SectionLabel>Measurements</SectionLabel>
                     <ul className="space-y-1.5 text-sm">
                       {m.measurements.map((x) => (
-                        <li key={x.name} className="flex items-center justify-between gap-2">
-                          <span>
-                            {x.label} <span className="text-slate-400">({x.unit})</span>
-                          </span>
-                          <ValidationBadge status="reusable_needs_validation" />
+                        <li key={x.name}>
+                          {x.label} <span className="text-slate-400">({x.unit})</span>
                         </li>
                       ))}
                     </ul>
@@ -52,19 +69,9 @@ export default async function ModelsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-slate-100 pt-3 text-xs text-slate-600">
-                  <span className="flex items-center gap-1.5">
-                    <CircleCheck className="h-3.5 w-3.5 text-emerald-600" /> On-device (browser)
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    {onServer ? <CircleCheck className="h-3.5 w-3.5 text-emerald-600" /> : <CircleDashed className="h-3.5 w-3.5 text-slate-400" />}
-                    CV service {onServer ? `@${onServer.version}` : cv.configured ? "(unreachable)" : "(not configured)"}
-                  </span>
-                </div>
               </CardBody>
             </Card>
-          );
-        })}
+        ))}
       </div>
 
       <SectionLabel>Created Modules</SectionLabel>
@@ -76,11 +83,9 @@ export default async function ModelsPage() {
         </div>
       ) : (
         <div className="mb-10 grid items-start gap-6 xl:grid-cols-2">
-          {created.map((m) => {
-            const onServer = cv.modules.find((x) => x.id === m.id);
-            return (
+          {created.map((m) => (
               <Card key={m.id}>
-                <CardHeader title={m.label} description={<span className="font-mono">{m.id}@{m.version}</span>} actions={<Badge tone="green">created</Badge>} />
+                <CardHeader title={m.label} description={<span className="font-mono">{m.id}@{m.version}</span>} />
                 <CardBody className="space-y-4">
                   <p className="text-sm text-slate-600">{m.description || "Approved Droid + Daytona candidate."}</p>
                   <p className="text-xs text-slate-500">
@@ -90,30 +95,20 @@ export default async function ModelsPage() {
                     <SectionLabel>Measurements</SectionLabel>
                     <ul className="space-y-1.5 text-sm">
                       {m.measurements.map((x) => (
-                        <li key={x.name} className="flex items-center justify-between gap-2">
-                          <span>
-                            {x.label} <span className="text-slate-400">({x.unit})</span>
-                          </span>
-                          <ValidationBadge status="reusable_needs_validation" />
+                        <li key={x.name}>
+                          {x.label} <span className="text-slate-400">({x.unit})</span>
                         </li>
                       ))}
                     </ul>
                   </div>
-                  <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-slate-100 pt-3 text-xs text-slate-600">
-                    <span className="flex items-center gap-1.5">
-                      {onServer ? <CircleCheck className="h-3.5 w-3.5 text-emerald-600" /> : <CircleDashed className="h-3.5 w-3.5 text-slate-400" />}
-                      CV service {onServer ? `@${onServer.version}` : cv.configured ? "(refresh page after approve)" : "(not configured)"}
-                    </span>
-                  </div>
                 </CardBody>
               </Card>
-            );
-          })}
+          ))}
         </div>
       )}
 
       <div id="droid" className="scroll-mt-20">
-        <DroidJobs />
+        <DroidJobs initialJobs={initialJobs} />
       </div>
     </>
   );

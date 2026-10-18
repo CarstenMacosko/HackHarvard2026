@@ -23,9 +23,11 @@ const Body = z.object({
       }),
     )
     .min(1)
-    .max(6),
+    .max(8),
   media_type: z.enum(["photo", "video"]).default("video"),
   study_id: z.string().max(60).nullable().optional(),
+  /** Must be true after the design-loop assessor marks the plan feasible and the researcher accepts it. */
+  plan_accepted: z.literal(true),
 });
 
 /** Start a Droid + Daytona module generation job (progress via GET /api/droid/generate/[id]). */
@@ -35,8 +37,8 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
   }
-  if (parsed.data.media_type !== "video" || !parsed.data.measurements.some((m) => m.name === "index_straight_fraction")) {
-    return NextResponse.json({ error: "The current track evaluator supports index_straight_fraction video candidates only." }, { status: 422 });
+  if (parsed.data.media_type !== "video") {
+    return NextResponse.json({ error: "Video modules only for this generator." }, { status: 422 });
   }
   const live = liveIntegrationStatus();
   const actor = await researcherName();

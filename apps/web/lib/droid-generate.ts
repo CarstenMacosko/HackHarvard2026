@@ -37,18 +37,30 @@ Shared helpers: services/cv/app/modules/hands.py (HandTracker), quality.py, base
 (prepare → quality_checks → measure + features).
 `;
 
+function writingValueExpr(m: { name: string; unit: string }): string {
+  if (m.name === "index_pip_angle_deg" || /angle|deg/i.test(m.unit) || /pip|angle/i.test(m.name)) {
+    return 'result["writing_angle_deg"]';
+  }
+  if (m.name === "index_straight_fraction" || /fraction|ratio|pct|percent/i.test(m.unit) || /straight/i.test(m.name)) {
+    return 'result["straight_fraction"]';
+  }
+  return 'result["straight_fraction"]';
+}
+
 export function templateModuleSource(input: GenerateModuleInput): string {
-  if (input.measurements.some((m) => m.name === "index_straight_fraction")) {
+  const writingLike =
+    input.measurements.some((m) => m.name === "index_straight_fraction" || m.name === "index_pip_angle_deg") ||
+    /dystonia|writer|writing|index.?straight|pen|pip/i.test(input.description);
+  if (writingLike) {
     const c = input.params;
-    const selected = input.measurements.filter((m) => m.name === "index_straight_fraction" || m.name === "index_pip_angle_deg");
+    const selected = input.measurements.length
+      ? input.measurements
+      : [{ name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" }];
     const specLines = selected
       .map((m) => `        MeasurementSpec(${JSON.stringify(m.name)}, ${JSON.stringify(m.label)}, ${JSON.stringify(m.unit)}),`)
       .join("\n");
     const measureCalls = selected
-      .map((m) => {
-        const expr = m.name === "index_pip_angle_deg" ? 'result["writing_angle_deg"]' : 'result["straight_fraction"]';
-        return `self.measurement(${JSON.stringify(m.name)}, ${expr}, None)`;
-      })
+      .map((m) => `self.measurement(${JSON.stringify(m.name)}, ${writingValueExpr(m)}, None)`)
       .join(",\n                          ");
     const featureNames = [
       ...selected.map((m) => m.name),
