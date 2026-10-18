@@ -4,8 +4,10 @@ import { dateTime } from "@/lib/format";
 
 export const metadata = { title: "Audit log" };
 
+const label = (action: string) => (action.endsWith(".escalated") ? action.replace(/\.escalated$/, ".retry_limit") : action);
+
 const TONE = (action: string) =>
-  action.endsWith("rejected") || action.endsWith("escalated") ? "red" : action.endsWith("corrected") || action.startsWith("model") ? "blue" : action.endsWith("accepted") ? "green" : "slate";
+  action.endsWith("rejected") || action.endsWith("escalated") || action.endsWith("retry_limit") ? "red" : action.endsWith("corrected") || action.startsWith("model") ? "blue" : action.endsWith("accepted") ? "green" : "slate";
 
 export default async function AuditPage() {
   const rows = await backend().audit({ limit: 300 });
@@ -30,7 +32,7 @@ export default async function AuditPage() {
                   <Td className="whitespace-nowrap text-slate-600">{dateTime(a.created_at)}</Td>
                   <Td className="text-slate-700">{a.actor}</Td>
                   <Td>
-                    <Badge tone={TONE(a.action)}>{a.action}</Badge>
+                    <Badge tone={TONE(a.action)}>{label(a.action)}</Badge>
                   </Td>
                   <Td className="font-mono text-xs text-slate-600">
                     {a.entity}/{a.entity_id}

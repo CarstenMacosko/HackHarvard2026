@@ -1,16 +1,18 @@
 import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { currentResearcher } from "@/lib/auth";
 import { runModuleGeneration, startModuleGeneration } from "@/lib/generate-module";
 import { backend } from "@/lib/backend";
 import { liveIntegrationStatus } from "@/lib/live-keys";
-import { RESEARCHER_NAME } from "@/lib/session";
+import { researcherName } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const Body = z.object({
   condition: z.string().min(2).max(80),
+  name: z.string().min(2).max(80),
   description: z.string().min(8).max(2000),
   measurements: z
     .array(
@@ -21,24 +23,28 @@ const Body = z.object({
       }),
     )
     .min(1)
-    .max(6),
+    .max(8),
   media_type: z.enum(["photo", "video"]).default("video"),
   study_id: z.string().max(60).nullable().optional(),
+  /** Must be true after the design-loop assessor marks the plan feasible and the researcher accepts it. */
+  plan_accepted: z.literal(true),
 });
 
 /** Start a Droid + Daytona module generation job (progress via GET /api/droid/generate/[id]). */
 export async function POST(req: Request) {
+  if (!(await currentResearcher())) return NextResponse.json({ error: "Sign in as a researcher." }, { status: 401 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
   }
-  if (parsed.data.media_type !== "video" || !parsed.data.measurements.some((m) => m.name === "index_straight_fraction")) {
-    return NextResponse.json({ error: "The current track evaluator supports index_straight_fraction video candidates only." }, { status: 422 });
+  if (parsed.data.media_type !== "video") {
+    return NextResponse.json({ error: "Video modules only for this generator." }, { status: 422 });
   }
   const live = liveIntegrationStatus();
-  const job = await startModuleGeneration(parsed.data);
+  const actor = await researcherName();
+  const job = await startModuleGeneration(parsed.data, actor);
   await backend().insertAudit({
-    actor: RESEARCHER_NAME,
+    actor,
     action: "droid.module_requested",
     entity: "droid_job",
     entity_id: job.id,

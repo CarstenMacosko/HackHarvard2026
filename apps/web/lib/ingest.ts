@@ -1,14 +1,8 @@
 import "server-only";
 import {
-  balance,
   computeStreak,
-  customMeasurements,
   isOpen,
   nextDueAt,
-  rewardMessage,
-  rewardsForAcceptedSubmission,
-  scoreMeasurement,
-  severityScore,
   type Observation,
   type RewardEvent,
   type TaskConfig,
@@ -20,8 +14,8 @@ import type { CaptureRecord, Participant, ScheduledTask, Study, Submission } fro
 
 /**
  * The single path every capture takes, from the web upload page or the messaging agent:
- * record the attempt → (if usable) create a pending observation, apply researcher-trained
- * models, award points once per scheduled check-in, schedule the next one → audit.
+ * record the attempt → (if usable) create a pending observation from module measurements
+ * only, schedule the next check-in → audit.
  * Decisions are made here; the writes happen together in one transaction (record_capture).
  */
 
@@ -48,7 +42,7 @@ export interface IngestResult {
   reward_events: RewardEvent[];
   streak: number;
   points_balance: number;
-  /** confirmation for the participant (reward line, bonus note or retry instructions) */
+  /** confirmation for the participant (success note or retry instructions) */
   message: string;
   completed_scheduled_task: boolean;
 }
@@ -76,7 +70,7 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
   // a retried request (e.g. the agent re-posting an analysis) returns the original outcome
   if (input.observationId) {
     const [existing] = await db.observations({ id: input.observationId });
-    if (existing) return replay(existing, p.id);
+    if (existing) return replay(existing);
   }
   const nowIso = input.capturedAt ?? new Date().toISOString();
   const now = new Date(nowIso).getTime();
@@ -108,15 +102,12 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
   };
 
   let observation: Observation | null = null;
-  let events: RewardEvent[] = [];
+  const events: RewardEvent[] = [];
   let streak = 0;
   let message = analysis.quality.retry_instructions ?? "That one wasn't usable. Please try again.";
   let close: CaptureRecord["scheduled_task"] = null;
 
   if (accepted) {
-    const models = await db.models();
-    const base = { module: task.module, study_id: study.id, features: analysis.features };
-    const score = severityScore(task.module, analysis.measurements);
     observation = {
       id: input.observationId ?? id("obs"),
       study_id: study.id,
@@ -127,8 +118,8 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
       captured_at: nowIso,
       media_url: input.mediaUrl,
       quality: analysis.quality,
-      // the rule-based 0–4 severity score leads, then the module's measurements and study models
-      measurements: [...(score ? [scoreMeasurement(score)] : []), ...analysis.measurements, ...customMeasurements(base, models)],
+      // Module-native measurements only (no trained-head / severity predictions).
+      measurements: analysis.measurements,
       features: analysis.features,
       model_version: analysis.model_version,
       patient_report: input.patientReport,
@@ -137,7 +128,6 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
         attempts: attempt,
         source: input.source,
         analysis_runtime: input.runtime,
-        ...(score ? { score_basis: score.worst.label, score_components: score.components.map((c) => `${c.label} ${c.grade}`).join(", ") } : {}),
       },
       review_status: "pending",
       reviewer: null,
@@ -149,23 +139,14 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
     const acceptedTimes = [...(await db.observations({ participantId: p.id })).map((o) => o.captured_at), nowIso];
     streak = computeStreak(acceptedTimes, task.cadence, new Date(now));
     if (scheduled) {
-      const due = new Date(scheduled.due_at).getTime();
-      events = rewardsForAcceptedSubmission(study.protocol.rewards, {
-        participantId: p.id,
-        submissionId: submission.id,
-        onTime: now <= due + 24 * 3_600_000,
-        streak,
-        totalAccepted: priorSubs.filter((s) => s.accepted).length + 1,
-        at: new Date(now),
-      });
       close = { id: scheduled.id, status: "completed", completed_at: nowIso };
-      message = `Usable capture ✅ ${rewardMessage(events, streak)}`;
+      message = streak > 1 ? `Usable capture ✅ Thanks! That's ${streak} in a row.` : "Usable capture ✅ Thanks — sent to your study team for review.";
     } else {
-      message = "Usable capture ✅ Thanks! This check-in was already complete, so this extra one doesn't earn points, but it still helps the study.";
+      message = "Usable capture ✅ Thanks! This check-in was already complete; the extra capture still helps the study.";
     }
   } else if (submission.escalated && scheduled) {
     close = { id: scheduled.id, status: "escalated" };
-    message = `${message} If it still doesn't work, your study coordinator will reach out to help.`;
+    message = `${message} If it still doesn't work, try again later or contact your study team.`;
   }
 
   const result = await db.recordCapture({
@@ -189,23 +170,22 @@ export async function ingest(input: IngestInput): Promise<IngestResult> {
     observation,
     reward_events: events,
     streak,
-    points_balance: balance(await db.rewardEvents(p.id)),
+    points_balance: 0,
     message,
     completed_scheduled_task: Boolean(accepted && scheduled && result.scheduled_task_updated),
   };
 }
 
 /** The outcome of a capture that was already recorded. */
-async function replay(o: Observation, participantId: string): Promise<IngestResult> {
+async function replay(o: Observation): Promise<IngestResult> {
   const db = backend();
   const [submission] = await db.submissions({ id: o.submission_id });
-  const events = (await db.rewardEvents(participantId)).filter((e) => e.id.startsWith(`${o.submission_id}:`));
   return {
     submission,
     observation: o,
-    reward_events: events,
+    reward_events: [],
     streak: 0,
-    points_balance: balance(await db.rewardEvents(participantId)),
+    points_balance: 0,
     message: "Usable capture ✅ (already received)",
     completed_scheduled_task: Boolean(submission?.scheduled_task_id),
   };

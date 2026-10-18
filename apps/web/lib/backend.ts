@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { CvModel as CvModelSchema, Protocol, isOpen, withSeverityScore, type Observation, type RewardEvent, type SchedulePlan } from "@vf/shared";
-import { BUILTIN_MODELS, demoState } from "./demo-data";
+import { CvModel as CvModelSchema, Protocol, isOpen, type Observation, type RewardEvent, type SchedulePlan } from "@vf/shared";
+import { demoFreshSession, demoState, persistDemoState } from "./demo-data";
 import type {
   AuditEntry,
   CaptureRecord,
@@ -10,7 +10,9 @@ import type {
   DraftRecord,
   DroidJob,
   Message,
+  ObservationNote,
   Participant,
+  PortalUser,
   Redemption,
   Review,
   ScheduledTask,
@@ -21,7 +23,7 @@ import type {
 /**
  * Storage backend. With NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY set it talks to
  * Supabase (schema: supabase/migrations, documented in docs/DATABASE.md); otherwise it uses the
- * in-memory starting state in demo-data.ts (studies and empty accounts; mutations last until the server restarts).
+ * empty in-memory store in demo-data.ts (mutations last until the server restarts).
  * Both implementations keep the same semantics. Server-only: the service role key bypasses RLS.
  */
 export interface Backend {
@@ -55,6 +57,11 @@ export interface Backend {
   updateParticipant(id: string, patch: Partial<Participant>): Promise<void>;
   /** A study and its first protocol version (New study form, or an approved builder draft). */
   insertStudy(s: Study): Promise<void>;
+  /**
+   * Hard-delete a study and all tied product data (participants, captures, rewards, drafts for that study).
+   * Created modules / droid jobs are kept so generated CV modules stay usable.
+   */
+  deleteStudy(studyId: string): Promise<void>;
   insertDraft(d: DraftRecord): Promise<void>;
   updateDraft(id: string, patch: Partial<DraftRecord>): Promise<void>;
   insertDroidJob(j: DroidJob): Promise<void>;
@@ -62,6 +69,10 @@ export interface Backend {
   insertModel(m: CvModel): Promise<void>;
   updateModel(id: string, patch: Partial<CvModel>): Promise<void>;
   insertAudit(a: Omit<AuditEntry, "id" | "created_at">): Promise<void>;
+  portalUsers(f?: { id?: string; email?: string }): Promise<PortalUser[]>;
+  insertPortalUser(u: PortalUser): Promise<void>;
+  observationNotes(observationId: string): Promise<ObservationNote[]>;
+  insertObservationNote(n: ObservationNote): Promise<void>;
   health(): Promise<Health>;
 }
 
@@ -76,13 +87,26 @@ export class ConflictError extends Error {}
 
 export const TABLES = [
   "studies", "protocols", "participants", "scheduled_tasks", "submissions", "observations", "reviews", "reward_events", "redemptions",
-  "cv_models", "workflow_drafts", "droid_jobs", "agent_conversations", "messages", "audit_log",
+  "cv_models", "workflow_drafts", "droid_jobs", "agent_conversations", "messages", "audit_log", "portal_users", "observation_notes",
 ] as const;
 export const MEDIA_BUCKET = "media";
 
 const byTime = <T extends { created_at: string }>(a: T, b: T) => a.created_at.localeCompare(b.created_at);
 const now = () => new Date().toISOString();
 const sameCode = (a: string, b: string) => a.trim().toUpperCase() === b.trim().toUpperCase();
+/** Non-objective / trained-head outputs we no longer show in reviews, charts or exports. */
+const HIDDEN_MEASUREMENTS = new Set([
+  "severity_score",
+  "eczema_likelihood",
+  "psoriasis_likelihood",
+  "scaling_likelihood",
+  "tapping_score",
+  "rest_tremor_score",
+]);
+const withoutHiddenMeasurements = (o: Observation): Observation => ({
+  ...o,
+  measurements: o.measurements.filter((m) => !HIDDEN_MEASUREMENTS.has(m.name)),
+});
 
 const demoBackend: Backend = {
   mode: "demo",
@@ -101,7 +125,7 @@ const demoBackend: Backend = {
           (!f.id || o.id === f.id),
       )
       .sort((a, b) => a.captured_at.localeCompare(b.captured_at))
-      .map(withSeverityScore),
+      .map(withoutHiddenMeasurements),
   submissions: async (f = {}) =>
     demoState()
       .submissions.filter((s) => (!f.participantId || s.participant_id === f.participantId) && (!f.studyId || s.study_id === f.studyId) && (!f.id || s.id === f.id))
@@ -138,76 +162,130 @@ const demoBackend: Backend = {
     }
     if (c.next_task) insertCheckIns([c.next_task]);
     s.audit.push({ ...c.audit, id: `aud_${Date.now().toString(36)}_${s.audit.length}`, created_at: now() });
+    persistDemoState();
     return { observation_inserted, scheduled_task_updated, rewards_inserted: fresh.length };
   },
   applySchedule: async (plan) => {
     for (const t of demoState().scheduledTasks) if (plan.missed.includes(t.id) && isOpen(t)) t.status = "missed";
     insertCheckIns(plan.create);
+    persistDemoState();
   },
   updateScheduledTask: async (id, patch) => {
     const t = demoState().scheduledTasks.find((x) => x.id === id);
     if (t) Object.assign(t, patch);
+    persistDemoState();
   },
   updateObservation: async (id, patch) => {
     const o = demoState().observations.find((x) => x.id === id);
     if (o) Object.assign(o, patch);
+    persistDemoState();
   },
   insertReview: async (r) => {
     demoState().reviews.push({ ...r, id: crypto.randomUUID(), created_at: now() });
+    persistDemoState();
   },
   insertRewardEvents: async (e) => {
     const s = demoState();
     s.rewardEvents.push(...e.filter((x) => !s.rewardEvents.some((y) => y.id === x.id)));
+    persistDemoState();
   },
   insertRedemption: async (r) => {
     demoState().redemptions.push(r);
+    persistDemoState();
   },
   insertParticipant: async (p) => {
     const s = demoState();
     if (s.participants.some((x) => x.id === p.id || sameCode(x.invite_code, p.invite_code))) throw new ConflictError("That participant or invite code already exists.");
     s.participants.push(p);
+    persistDemoState();
   },
   insertScheduledTask: async (t) => {
     const s = demoState();
     if (!s.scheduledTasks.some((x) => x.participant_id === t.participant_id && x.task_id === t.task_id && x.due_at === t.due_at)) s.scheduledTasks.push(t);
+    persistDemoState();
   },
   updateParticipant: async (id, patch) => {
     const s = demoState();
     if (patch.phone && s.participants.some((x) => x.id !== id && x.phone === patch.phone)) throw new ConflictError("That phone number is already enrolled.");
     const p = s.participants.find((x) => x.id === id);
     if (p) Object.assign(p, patch);
+    persistDemoState();
   },
   insertStudy: async (study) => {
     const s = demoState();
     if (s.studies.some((x) => x.id === study.id)) throw new ConflictError("That study already exists.");
     s.studies.push(study);
+    persistDemoState();
+  },
+  deleteStudy: async (studyId) => {
+    const s = demoState();
+    const pids = new Set(s.participants.filter((p) => p.study_id === studyId).map((p) => p.id));
+    const oids = new Set(s.observations.filter((o) => o.study_id === studyId || pids.has(o.participant_id)).map((o) => o.id));
+    s.studies = s.studies.filter((x) => x.id !== studyId);
+    s.participants = s.participants.filter((p) => p.study_id !== studyId);
+    s.observations = s.observations.filter((o) => !oids.has(o.id));
+    s.submissions = s.submissions.filter((x) => x.study_id !== studyId && !pids.has(x.participant_id));
+    s.scheduledTasks = s.scheduledTasks.filter((t) => !pids.has(t.participant_id));
+    s.rewardEvents = s.rewardEvents.filter((e) => !pids.has(e.participant_id));
+    s.redemptions = s.redemptions.filter((r) => !pids.has(r.participant_id));
+    s.reviews = s.reviews.filter((r) => !oids.has(r.observation_id));
+    s.observationNotes = s.observationNotes.filter((n) => !oids.has(n.observation_id));
+    s.messages = s.messages.filter((m) => !m.participant_id || !pids.has(m.participant_id));
+    s.drafts = s.drafts.filter((d) => d.study_id !== studyId);
+    s.models = s.models.filter((m) => m.study_id !== studyId);
+    // Keep droid_jobs / created modules — reusable after study delete.
+    s.audit = s.audit.filter((a) => a.entity_id !== studyId && !(a.entity === "study" && a.entity_id === studyId));
+    persistDemoState();
   },
   insertDraft: async (d) => {
     demoState().drafts.push(d);
+    persistDemoState();
   },
   updateDraft: async (id, patch) => {
     const d = demoState().drafts.find((x) => x.id === id);
     if (d) Object.assign(d, patch);
+    persistDemoState();
   },
   insertDroidJob: async (j) => {
     demoState().droidJobs.push(j);
+    persistDemoState();
   },
   updateDroidJob: async (id, patch) => {
     const j = demoState().droidJobs.find((x) => x.id === id);
     if (j) Object.assign(j, patch, { updated_at: now() });
+    persistDemoState();
   },
   insertModel: async (m) => {
     demoState().models.push(m);
+    persistDemoState();
   },
   updateModel: async (id, patch) => {
     const m = demoState().models.find((x) => x.id === id);
     if (m) Object.assign(m, patch);
+    persistDemoState();
   },
   insertAudit: async (a) => {
     const s = demoState();
     s.audit.push({ ...a, id: `aud_${Date.now().toString(36)}_${s.audit.length}`, created_at: now() });
+    persistDemoState();
   },
-  health: async () => ({ ok: true, tables: [], bucket: { ok: true, detail: "in-memory (demo mode)" } }),
+  portalUsers: async (f = {}) =>
+    demoState().portalUsers.filter(
+      (u) => (!f.id || u.id === f.id) && (!f.email || u.email.toLowerCase() === f.email.toLowerCase()),
+    ),
+  insertPortalUser: async (u) => {
+    const s = demoState();
+    if (s.portalUsers.some((x) => x.email.toLowerCase() === u.email.toLowerCase())) throw new ConflictError("Email already registered.");
+    s.portalUsers.push(u);
+    persistDemoState();
+  },
+  observationNotes: async (observationId) =>
+    demoState().observationNotes.filter((n) => n.observation_id === observationId).sort(byTime),
+  insertObservationNote: async (n) => {
+    demoState().observationNotes.push(n);
+    persistDemoState();
+  },
+  health: async () => ({ ok: true, tables: [], bucket: { ok: true, detail: "persisted demo (.data/demo-state.json)" } }),
 };
 
 function insertCheckIns(rows: CaptureRecord["next_task"][]) {
@@ -264,7 +342,6 @@ function supabaseBackend(db: SupabaseClient): Backend {
       });
     },
     async observations(f = {}) {
-      // captures recorded before scoring existed are scored on read
       return (await all<Observation>(() => {
         let q = db.from("observations").select("*").order("captured_at").order("id");
         if (f.participantId) q = q.eq("participant_id", f.participantId);
@@ -272,7 +349,7 @@ function supabaseBackend(db: SupabaseClient): Backend {
         if (f.status) q = q.eq("review_status", f.status);
         if (f.id) q = q.eq("id", f.id);
         return q;
-      })).map(withSeverityScore);
+      })).map(withoutHiddenMeasurements);
     },
     async submissions(f = {}) {
       return all<Submission>(() => {
@@ -313,9 +390,9 @@ function supabaseBackend(db: SupabaseClient): Backend {
           return q;
         })
       ).map((m) => CvModelSchema.parse(m));
-      // bundled models (training kit / Droid) are listed unless a row overrides them, e.g. after deactivation
-      const builtins = BUILTIN_MODELS.filter((m) => (!f.id || m.id === f.id) && !rows.some((r) => r.id === m.id));
-      return [...builtins, ...rows];
+      // Trained-head / pretrained registry listings are no longer surfaced; keep DB rows
+      // (e.g. Droid-generated module metadata) only.
+      return rows;
     },
     async audit(f = {}) {
       const query = () => {
@@ -383,6 +460,32 @@ function supabaseBackend(db: SupabaseClient): Backend {
         must(res);
       }
     },
+    async deleteStudy(studyId) {
+      // Cascades remove participants, protocols, observations, submissions, etc.
+      // Leave droid_jobs (created modules) intact. Clear study-scoped drafts/models explicitly.
+      await db.from("workflow_drafts").delete().eq("study_id", studyId);
+      await db.from("cv_models").delete().eq("study_id", studyId);
+      must(await db.from("studies").delete().eq("id", studyId));
+      try {
+        const sb = db;
+        const prefix = `studies/${studyId.replace(/[^\w-]/g, "_")}/`;
+        const listed = await sb.storage.from(MEDIA_BUCKET).list(prefix.slice(0, -1));
+        // Best-effort: remove top-level participant folders under this study.
+        const { data: roots } = await sb.storage.from(MEDIA_BUCKET).list(`studies/${studyId.replace(/[^\w-]/g, "_")}`);
+        if (roots?.length) {
+          for (const entry of roots) {
+            const base = `studies/${studyId.replace(/[^\w-]/g, "_")}/${entry.name}`;
+            const { data: files } = await sb.storage.from(MEDIA_BUCKET).list(base, { limit: 1000 });
+            if (files?.length) {
+              await sb.storage.from(MEDIA_BUCKET).remove(files.map((f) => `${base}/${f.name}`));
+            }
+          }
+        }
+        void listed;
+      } catch {
+        /* media cleanup is best-effort for the demo */
+      }
+    },
     async insertDraft(d) {
       must(await db.from("workflow_drafts").insert(d));
     },
@@ -400,13 +503,29 @@ function supabaseBackend(db: SupabaseClient): Backend {
       must(await db.from("cv_models").insert(m));
     },
     async updateModel(id, patch) {
-      const builtin = BUILTIN_MODELS.find((m) => m.id === id);
-      const existing = builtin ? must<unknown[]>(await db.from("cv_models").select("id").eq("id", id)) : [1];
-      if (builtin && !existing.length) must(await db.from("cv_models").insert({ ...builtin, ...patch }));
-      else must(await db.from("cv_models").update(patch).eq("id", id));
+      must(await db.from("cv_models").update(patch).eq("id", id));
     },
     async insertAudit(a) {
       must(await db.from("audit_log").insert(a));
+    },
+    async portalUsers(f = {}) {
+      return all<PortalUser>(() => {
+        let q = db.from("portal_users").select("*").order("created_at").order("id");
+        if (f.id) q = q.eq("id", f.id);
+        if (f.email) q = q.eq("email", f.email.toLowerCase());
+        return q;
+      });
+    },
+    async insertPortalUser(u) {
+      must(await db.from("portal_users").insert({ ...u, email: u.email.toLowerCase() }));
+    },
+    async observationNotes(observationId) {
+      return all<ObservationNote>(() =>
+        db.from("observation_notes").select("*").eq("observation_id", observationId).order("created_at").order("id"),
+      );
+    },
+    async insertObservationNote(n) {
+      must(await db.from("observation_notes").insert(n));
     },
     async health() {
       const tables = await Promise.all(
@@ -424,9 +543,46 @@ function supabaseBackend(db: SupabaseClient): Backend {
   };
 }
 
+function loadRootEnvOnce() {
+  // Same pattern as live-keys: Next may not have loaded repo-root .env.local yet.
+  const g = globalThis as typeof globalThis & { __vfRootEnvLoaded?: boolean };
+  if (g.__vfRootEnvLoaded) return;
+  g.__vfRootEnvLoaded = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { existsSync, readFileSync } = require("node:fs") as typeof import("node:fs");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require("node:path") as typeof import("node:path");
+    const candidates = [
+      path.resolve(process.cwd(), ".env.local"),
+      path.resolve(process.cwd(), "..", ".env.local"),
+      path.resolve(process.cwd(), "../..", ".env.local"),
+      // When cwd is apps/web, also resolve from this file → repo root.
+      path.resolve(__dirname, "../../../.env.local"),
+    ];
+    for (const file of candidates) {
+      if (!existsSync(file)) continue;
+      for (const raw of readFileSync(file, "utf8").split("\n")) {
+        const line = raw.trim();
+        if (!line || line.startsWith("#")) continue;
+        const eq = line.indexOf("=");
+        if (eq <= 0) continue;
+        const key = line.slice(0, eq).trim();
+        let val = line.slice(eq + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
+        if (process.env[key] === undefined || process.env[key] === "") process.env[key] = val;
+      }
+      break;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function supabaseEnv(): { url: string; key: string } | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  loadRootEnvOnce();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   return url && key ? { url, key } : null;
 }
 
@@ -434,12 +590,25 @@ let cached: Backend | undefined;
 export function backend(): Backend {
   if (cached) return cached;
   const env = supabaseEnv();
+  // Prefer Supabase whenever keys are present. VF_DEMO_FRESH only forces empty in-memory
+  // when Supabase is not configured (so `dev:refresh` does not mute a live project).
+  if (!env && demoFreshSession()) {
+    cached = demoBackend;
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[backend] mode=demo (VF_DEMO_FRESH — empty session; not writing .data/demo-state.json)");
+    }
+    return cached;
+  }
   cached = env ? supabaseBackend(createClient(env.url, env.key, { auth: { persistSession: false } })) : demoBackend;
+  if (process.env.NODE_ENV !== "production") {
+    console.info(`[backend] mode=${cached.mode}${env ? ` url=${env.url}` : ""}`);
+  }
   return cached;
 }
 
 /** Admin client for Storage (signed upload/download URLs); null in demo mode. */
 export function storageClient(): SupabaseClient | null {
   const env = supabaseEnv();
-  return env ? createClient(env.url, env.key, { auth: { persistSession: false } }) : null;
+  if (!env) return null;
+  return createClient(env.url, env.key, { auth: { persistSession: false } });
 }

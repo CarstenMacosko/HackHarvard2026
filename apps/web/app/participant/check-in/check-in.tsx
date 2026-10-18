@@ -2,37 +2,23 @@
 
 import type { ModuleResult } from "@vf/cv";
 import type { QualityCheck, RewardEvent, TaskConfig } from "@vf/shared";
-import { AlertTriangle, Camera, CheckCircle2, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Dropzone } from "@/components/dropzone";
-import { LiveCapture, liveCaptureSupported } from "@/components/live-capture";
+import { LiveCapture, liveCaptureSupported, type LiveCaptureModule } from "@/components/live-capture";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ProgressBar, SectionLabel, cn } from "@/components/ui";
-import { analyzePhotoFile, analyzeVideoFile, type VideoModuleId } from "@/lib/cv-client/analyze";
+import { guideStepsForModule } from "@vf/shared";
+import { analyzePhotoFile, analyzeVideoFile, isOnDeviceVideoModule, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { planVideoUpload, type UploadPlan } from "@/lib/cv-client/upload";
 import { CHECK_LABEL } from "@/lib/format";
 import { isMediaKind } from "@/lib/media-kind";
 
-const GUIDE: Record<string, string[]> = {
-  photo: [
-    "Stand near a window or under a bright light. Turn the flash off.",
-    "Hold the phone about a forearm's length (30 cm) away, straight on.",
-    "Fit the whole patch in the frame, with some normal skin around it.",
-    "Tap the screen to focus before taking the photo.",
-  ],
-  video: [
-    "Prop the phone up so your whole hand and wrist are in view.",
-    "Use normal video mode (not slow-motion or time-lapse) in good light.",
-    "Tap your index finger and thumb together as fast and as wide as you can.",
-    "Keep tapping for at least 10 seconds.",
-  ],
-  hand_tremor: [
-    "Prop the phone up so it stays completely still. A hand-held phone adds its own shake.",
-    "Rest your forearm on a table or your lap with your hand relaxed and in view, wrist included.",
-    "Use normal video mode (not slow-motion or time-lapse) in good light.",
-    "Keep your hand still and relaxed for at least 10 seconds.",
-  ],
-};
+function captureGuide(task: TaskConfig): string[] {
+  const custom = task.guide_steps?.map((s) => s.trim()).filter(Boolean);
+  if (custom?.length) return custom;
+  return guideStepsForModule(task.module, task.media_type);
+}
 
 interface Outcome {
   accepted: boolean;
@@ -47,8 +33,9 @@ interface Outcome {
 type Phase = "capture" | "analyzing" | "rejected" | "ready" | "submitting" | "done";
 
 /** Modules with live camera coaching (components/live-capture.tsx). */
-const LIVE_MODULES = new Set(["finger_tapping"]);
-
+function supportsLiveCapture(module: string): boolean {
+  return module === "finger_tapping" || module === "hand_tremor" || module === "writing_posture" || module.startsWith("gen_");
+}
 export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; dueNow: boolean; serverAnalysis: boolean }) {
   const [phase, setPhase] = useState<Phase>("capture");
   const [file, setFile] = useState<File | null>(null);
@@ -68,7 +55,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
   const [live, setLive] = useState(false);
   const [canLive, setCanLive] = useState(false);
   useEffect(() => {
-    const ok = LIVE_MODULES.has(task.module) && liveCaptureSupported();
+    const ok = supportsLiveCapture(task.module) && liveCaptureSupported();
     setCanLive(ok);
     setLive(ok);
   }, [task.module]);
@@ -122,8 +109,46 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         up = { photo: a.upload };
       } else {
         if (!isMediaKind(f, "video")) throw new Error("Please choose a video.");
+        if (!isOnDeviceVideoModule(task.module)) {
+          throw new Error(`This check-in uses module ${task.module}, which is not available on-device.`);
+        }
         const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
-        r = a.result;
+        // Align on-device outputs to the study’s accepted measurement plan (incl. custom names).
+        if (task.measurements.length) {
+          const byName = new Map(a.result.measurements.map((m) => [m.name, m]));
+          r = {
+            ...a.result,
+            measurements: task.measurements.map((spec) => {
+              const hit = byName.get(spec.name);
+              if (hit) return { ...hit, label: spec.label, unit: spec.unit };
+              // Map features only to matching metrics — PIP stays exclusive to PIP / straightness.
+              let fromFeat = a.result.features[spec.name];
+              if (fromFeat == null && spec.name === "index_pip_angle_deg") fromFeat = a.result.features.index_pip_angle_deg;
+              if (fromFeat == null && spec.name === "index_straight_fraction") fromFeat = a.result.features.index_straight_fraction;
+              if (fromFeat == null && (spec.name.includes("pip_angle") || spec.name.includes("index_pip"))) {
+                fromFeat = a.result.features.index_pip_angle_deg;
+              }
+              if (fromFeat == null && spec.name.includes("straight")) fromFeat = a.result.features.index_straight_fraction;
+              // Custom angle names (e.g. knuckle_to_palm) → knuckle–palm geometry, not index PIP.
+              if (fromFeat == null && /angle/i.test(spec.name) && !/pip/i.test(spec.name)) {
+                fromFeat = a.result.features.knuckle_palm_angle_deg;
+              }
+              if (fromFeat == null && /deg/i.test(spec.unit) && !/pip/i.test(spec.name) && !/straight/i.test(spec.name)) {
+                fromFeat = a.result.features.knuckle_palm_angle_deg;
+              }
+              return {
+                name: spec.name,
+                label: spec.label,
+                unit: spec.unit,
+                value: typeof fromFeat === "number" ? fromFeat : 0,
+                uncertainty: null,
+                validation_status: "reusable_needs_validation" as const,
+              };
+            }),
+          };
+        } else {
+          r = a.result;
+        }
         up = { poster: a.poster };
       }
       setResult(r);
@@ -192,7 +217,6 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
   const accept = task.media_type === "photo" ? "image/*" : "video/*";
 
   if (phase === "done" && outcome) {
-    const pts = outcome.reward_events.reduce((s, e) => s + e.points, 0);
     return (
       <Card className="mx-auto max-w-2xl">
         <CardBody className="flex flex-col items-center py-10 text-center">
@@ -201,23 +225,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
             {sent.filter((x) => x.ok).length > 1 ? `Thank you, ${sent.filter((x) => x.ok).length} ${task.media_type}s sent` : "Thank you, that\u2019s a usable check-in"}
           </h2>
           <p className="mt-1 max-w-md text-sm text-slate-600">It has been sent to your study team for review.</p>
-          {pts > 0 ? (
-            <div className="mt-5 rounded-lg bg-brand-50 px-5 py-3 text-sm text-brand-800">
-              <div className="flex items-center justify-center gap-1.5 text-base font-semibold">
-                <Sparkles className="h-4 w-4" /> +{pts} points
-              </div>
-              <ul className="mt-1 text-xs text-brand-700">
-                {outcome.reward_events.map((e) => (
-                  <li key={e.id}>
-                    {e.reason}: +{e.points}
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-1 text-xs">Balance: {outcome.points_balance} pts</div>
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-slate-500">{outcome.message.replace(/^Usable capture ✅ /, "")}</p>
-          )}
+          <p className="mt-4 text-sm text-slate-500">{outcome.message.replace(/^Usable capture ✅ /, "")}</p>
           {sent.length > 1 && (
             <ul className="mt-4 w-full max-w-sm space-y-1 text-left text-sm" data-testid="sent-list">
               {sent.map((x, i) => (
@@ -235,9 +243,6 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
             <ButtonLink href="/participant" variant="secondary">
               Back to home
             </ButtonLink>
-            <ButtonLink href="/participant/rewards" variant="ghost">
-              See rewards
-            </ButtonLink>
           </div>
         </CardBody>
       </Card>
@@ -251,8 +256,8 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         <CardBody className="space-y-4">
           <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{task.instructions}</p>
           <ol className="space-y-2 text-sm text-slate-700">
-            {(GUIDE[task.module] ?? GUIDE[task.media_type]).map((g, i) => (
-              <li key={g} className="flex gap-2.5">
+            {captureGuide(task).map((g, i) => (
+              <li key={`${i}-${g}`} className="flex gap-2.5">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{i + 1}</span>
                 {g}
               </li>
@@ -280,7 +285,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
           <CardHeader title={queue.length || sent.length ? `1 · Add your capture (${sent.length + 1} of ${sent.length + 1 + queue.length})` : "1 · Add your capture"} actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw className="h-3.5 w-3.5" /> Start over</Button> : undefined} />
           <CardBody>
             {!file && live ? (
-              <LiveCapture onCapture={(f, trim) => void onFile(f, trim)} onCancel={() => setLive(false)} />
+              <LiveCapture module={task.module as LiveCaptureModule} onCapture={(f, trim) => void onFile(f, trim)} onCancel={() => setLive(false)} />
             ) : !file ? (
               <div className="space-y-3">
                 <Dropzone
@@ -368,7 +373,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                   {attempts > 0 && (
                     <span className="text-xs text-amber-800">
                       Attempt {attempts}
-                      {outcome?.escalated ? ": your study coordinator has been told and will reach out to help." : ". Retakes never cost you points."}
+                      .
                     </span>
                   )}
                 </div>
@@ -379,8 +384,9 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         </Card>
 
         <Card className={cn(!(phase === "ready" || phase === "submitting") && "opacity-50")}>
-          <CardHeader title="2 · A few quick questions" />
+          <CardHeader title="2 · Clinical questionnaire" description="Answer after a usable capture. These items come from your study's patient-reported form." />
           <CardBody className="space-y-5">
+            {task.report_questions.length === 0 && <p className="text-sm text-slate-500">No questionnaire for this task — you can send the capture as is.</p>}
             {task.report_questions.map((q) => (
               <fieldset key={q.key} disabled={!(phase === "ready")}>
                 <legend className="mb-2 text-sm font-medium text-slate-900">{q.prompt}</legend>
@@ -428,7 +434,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                 {phase === "submitting" && <Loader2 className="h-4 w-4 animate-spin" />}
                 Send check-in
               </Button>
-              {!dueNow && <span className="text-xs text-slate-500">No check-in is due, so this one won&apos;t earn points.</span>}
+              {!dueNow && <span className="text-xs text-slate-500">No check-in is due — this will still be saved as an extra capture.</span>}
               <Link href="/participant" className="ml-auto text-sm text-slate-500 hover:text-slate-900">
                 Cancel
               </Link>

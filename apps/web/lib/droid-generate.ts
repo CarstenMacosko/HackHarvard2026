@@ -37,9 +37,38 @@ Shared helpers: services/cv/app/modules/hands.py (HandTracker), quality.py, base
 (prepare → quality_checks → measure + features).
 `;
 
+function writingValueExpr(m: { name: string; unit: string }): string {
+  if (m.name === "index_pip_angle_deg" || /angle|deg/i.test(m.unit) || /pip|angle/i.test(m.name)) {
+    return 'result["writing_angle_deg"]';
+  }
+  if (m.name === "index_straight_fraction" || /fraction|ratio|pct|percent/i.test(m.unit) || /straight/i.test(m.name)) {
+    return 'result["straight_fraction"]';
+  }
+  return 'result["straight_fraction"]';
+}
+
 export function templateModuleSource(input: GenerateModuleInput): string {
-  if (input.measurements.some((m) => m.name === "index_straight_fraction")) {
+  const writingLike =
+    input.measurements.some((m) => m.name === "index_straight_fraction" || m.name === "index_pip_angle_deg") ||
+    /dystonia|writer|writing|index.?straight|pen|pip/i.test(input.description);
+  if (writingLike) {
     const c = input.params;
+    const selected = input.measurements.length
+      ? input.measurements
+      : [{ name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" }];
+    const specLines = selected
+      .map((m) => `        MeasurementSpec(${JSON.stringify(m.name)}, ${JSON.stringify(m.label)}, ${JSON.stringify(m.unit)}),`)
+      .join("\n");
+    const measureCalls = selected
+      .map((m) => `self.measurement(${JSON.stringify(m.name)}, ${writingValueExpr(m)}, None)`)
+      .join(",\n                          ");
+    const featureNames = [
+      ...selected.map((m) => m.name),
+      "hold_index_pip_angle_deg",
+      "posture_change_deg",
+      "index_visible_fraction",
+      "example_frame_s",
+    ];
     return `"""Candidate index straightening module; requires clinician validation before deployment."""
 from __future__ import annotations
 from .. import quality as q
@@ -57,8 +86,10 @@ class GeneratedWritingPostureModule(CVModule):
     media_type = "video"
     conditions = ["focal_hand_dystonia"]
     components = ["hand_landmarks", "index_joint_angle"]
-    measurements = [MeasurementSpec("index_straight_fraction", ${JSON.stringify(input.measurements[0]?.label ?? "Index finger straight during writing")}, ${JSON.stringify(input.measurements[0]?.unit ?? "fraction")})]
-    feature_names = ["index_straight_fraction", "index_pip_angle_deg", "hold_index_pip_angle_deg", "posture_change_deg", "index_visible_fraction", "example_frame_s"]
+    measurements = [
+${specLines}
+    ]
+    feature_names = ${JSON.stringify(featureNames)}
     default_criteria = {"blur": 20, "exposure_min": 60, "exposure_max": 220, "hand_visible": 0.8,
                         "fps": 20, "duration_s": ${c.min_duration_s ?? 6}, "index_visible": ${c.min_visible ?? 0.7},
                         "hold_s": ${c.hold_s ?? 2}, "straight_deg": ${c.straight_deg ?? 160}}
@@ -87,7 +118,7 @@ class GeneratedWritingPostureModule(CVModule):
         if not result["accepted"]:
             raise TaskNotCompleted("Keep the index finger visible during writing.")
         return MeasureResult(
-            measurements=[self.measurement("index_straight_fraction", result["straight_fraction"], None)],
+            measurements=[${measureCalls}],
             features={"index_straight_fraction": result["straight_fraction"],
                       "index_pip_angle_deg": result["writing_angle_deg"],
                       "hold_index_pip_angle_deg": result["hold_angle_deg"],
@@ -299,11 +330,17 @@ function stripFence(text: string): string {
 
 export function pickComponents(description: string, mediaType: "photo" | "video"): string[] {
   const d = description.toLowerCase();
-  if (mediaType === "photo" || /skin|eczema|psoriasis|rash|lesion/.test(d)) {
+  if (mediaType === "photo" || /skin|eczema|psoriasis|rash|lesion|dermatitis/.test(d)) {
     return ["blur", "exposure", "skin_coverage", "skin_mask", "erythema_index", "color_texture_features"];
+  }
+  if (/dystonia|writer|writing|index.?straight|pen/.test(d)) {
+    return ["blur", "exposure", "duration", "hand_visible", "hand_landmarks", "writing_posture"];
   }
   if (/tap|finger/.test(d)) {
     return ["blur", "exposure", "duration", "hand_visible", "hand_landmarks", "tap_kinematics", "tap_features"];
+  }
+  if (/tremor|parkinson/.test(d)) {
+    return ["blur", "exposure", "duration", "hand_visible", "hand_landmarks", "tremor_spectrum"];
   }
   return ["blur", "exposure", "duration", "hand_visible", "hand_landmarks", "tremor_spectrum"];
 }

@@ -47,8 +47,9 @@ describe("conversation", () => {
     state = r.state;
   });
 
-  it("answers POINTS in any state", () => {
+  it("ignores POINTS once rewards are removed", () => {
     const r = handle({ kind: "idle" }, { type: "text", text: "points" });
-    expect(r.effects).toEqual([{ type: "show_points" }]);
+    expect(r.effects).toEqual([]);
+    expect(r.messages[0]).toMatch(/next check-in/i);
   });
 });

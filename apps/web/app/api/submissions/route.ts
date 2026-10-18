@@ -16,8 +16,8 @@ const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "
 
 /**
  * Participant upload from the web portal. The browser has already run the on-device CV module
- * (instant feedback); when CV_SERVICE_URL is configured the server re-runs the reference module
- * on the stored media and that result is authoritative.
+ * (finger_tapping, hand_tremor, writing_posture, and every gen_*). CV_SERVICE_URL is optional:
+ * when set, the server re-runs the reference module and that result wins.
  */
 export async function POST(req: Request) {
   const form = await req.formData();
@@ -59,7 +59,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No photo or video received." }, { status: 400 });
   }
 
-  // analysis: reference module on the server when available, otherwise the on-device result
+  // Prefer the CV service when configured; otherwise accept the browser's on-device result.
+  // All gen_* / writing_posture modules measure on-device via @vf/cv hand landmarks — never
+  // require CV_SERVICE_URL for check-in (service is optional re-analysis only).
   let analysis: AnalysisResult | null = null;
   let runtime: "server" | "on-device" = "on-device";
   let serverError: string | null = null;

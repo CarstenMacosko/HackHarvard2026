@@ -76,7 +76,7 @@ export const ReportQuestion = z.object({
 });
 export type ReportQuestion = z.infer<typeof ReportQuestion>;
 
-export const Cadence = z.enum(["daily", "twice_weekly", "weekly", "biweekly"]);
+export const Cadence = z.enum(["twice_daily", "daily", "twice_weekly", "weekly", "biweekly"]);
 export type Cadence = z.infer<typeof Cadence>;
 
 /** One task in a protocol: which CV module runs, how the agent asks for it, what counts as usable. */
@@ -87,6 +87,8 @@ export const TaskConfig = z.object({
   media_type: z.enum(["photo", "video"]),
   cadence: Cadence,
   instructions: z.string(), // first message the agent sends
+  /** Numbered capture steps shown in the participant check-in UI (optional; falls back to module defaults). */
+  guide_steps: z.array(z.string().min(1)).max(12).optional(),
   quality_criteria: z.record(z.number()), // thresholds, keyed by quality check name
   report_questions: z.array(ReportQuestion),
   measurements: z.array(

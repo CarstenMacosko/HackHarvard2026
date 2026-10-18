@@ -24,7 +24,7 @@ export function Timeline({ observations }: { observations: Observation[] }) {
     for (const o of observations) for (const m of o.measurements) if (!seen.has(m.name)) seen.set(m.name, { name: m.name, label: m.label, unit: m.unit });
     return [...seen.values()];
   }, [observations]);
-  const [metric, setMetric] = useState((names.find((n) => n.name === "severity_score") ?? names[0])?.name);
+  const [metric, setMetric] = useState(names[0]?.name);
   const [selectedId, setSelectedId] = useState<string | null>(observations.at(-1)?.id ?? null);
   const selected = observations.find((o) => o.id === selectedId) ?? null;
 

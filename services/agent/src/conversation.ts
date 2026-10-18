@@ -33,8 +33,7 @@ export type ConvEvent =
 export type Effect =
   | { type: "analyze"; task: TaskConfig; submissionId: string; mediaUrl: string; attempt: number }
   | { type: "complete"; task: TaskConfig; observation: Observation; attempts: number }
-  | { type: "escalate"; task: TaskConfig; submissionId: string; reason: string }
-  | { type: "show_points" };
+  | { type: "escalate"; task: TaskConfig; submissionId: string; reason: string };
 
 export interface Step {
   state: ConvState;
@@ -65,11 +64,6 @@ function parseAnswer(task: TaskConfig, i: number, text: string): string | number
 }
 
 export function handle(state: ConvState, event: ConvEvent): Step {
-  // global commands work in any state
-  if (event.type === "text" && /^(points|rewards|balance)\b/i.test(event.text.trim())) {
-    return step(state, [], [{ type: "show_points" }]);
-  }
-
   switch (state.kind) {
     case "idle":
       if (event.type === "task_due") {
@@ -81,7 +75,7 @@ export function handle(state: ConvState, event: ConvEvent): Step {
       if (event.type === "media") {
         return step(state, ["Thanks! There's no check-in due right now. I'll message you when the next one is ready."]);
       }
-      return step(state, ["Hi! I'll text you when your next check-in is due. Reply POINTS any time to see your rewards."]);
+      return step(state, ["Hi! I'll text you when your next check-in is due."]);
 
     case "awaiting_media":
       if (event.type === "media") {
@@ -101,7 +95,7 @@ export function handle(state: ConvState, event: ConvEvent): Step {
         if (!obs.quality.accepted) {
           if (state.attempt >= MAX_ATTEMPTS) {
             return step({ kind: "idle" }, [
-              "Thanks for trying. That one is tricky! Your study coordinator will reach out to help. No points are lost.",
+              "Thanks for trying. That one is tricky! Your study coordinator will reach out to help.",
             ], [{ type: "escalate", task: state.task, submissionId: state.submissionId, reason: obs.quality.retry_instructions ?? "quality" }]);
           }
           return step(

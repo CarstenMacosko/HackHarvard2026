@@ -1,6 +1,10 @@
 import { ECZEMA_MODULE, TAPPING_MODULE, TREMOR_MODULE } from "@vf/cv";
 
-/** Built-in CV modules: available on-device (@vf/cv) and in services/cv. */
+/**
+ * Foundational CV modules shown in the researcher registry.
+ * Focal hand dystonia writing posture is created via Generate module (Created Modules), not listed here.
+ * Backend `writing_posture` remains available to assist Droid drafting.
+ */
 export const BUILTIN_MODULES = [
   {
     ...ECZEMA_MODULE,
@@ -16,7 +20,7 @@ export const BUILTIN_MODULES = [
   },
   {
     ...TREMOR_MODULE,
-    label: "Hand tremor (rest / postural)",
+    label: "Hand tremor (rest / postural, Parkinson's)",
     condition: "parkinsons",
     summary: "MediaPipe hand landmarks per frame → hand-centre and fingertip motion in hand-size units → Welch spectrum → dominant 3–12 Hz frequency, peak-to-peak amplitude and tremor share of movement.",
   },

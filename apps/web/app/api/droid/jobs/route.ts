@@ -1,25 +1,47 @@
 import { after } from "next/server";
 import { NextResponse } from "next/server";
+import { currentResearcher } from "@/lib/auth";
 import { DroidRequestInput } from "@/lib/droid";
 import { runModuleGeneration, startModuleGeneration } from "@/lib/generate-module";
 import { backend } from "@/lib/backend";
 import { liveIntegrationStatus } from "@/lib/live-keys";
-import { RESEARCHER_NAME } from "@/lib/session";
+import { researcherName } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+/** Strip bulky fields so the jobs list stays fast to poll. */
+function summarizeJob(job: Awaited<ReturnType<ReturnType<typeof backend>["droidJobs"]>>[number]) {
+  const progress = job.progress;
+  if (!progress || typeof progress !== "object") return job;
+  const { logs, source_code: _unusedSource, ...rest } = progress;
+  void _unusedSource;
+  return {
+    ...job,
+    progress: {
+      ...rest,
+      // Keep a short tail of logs for status context; full source lives on the generate detail route.
+      logs: Array.isArray(logs) ? logs.slice(-8) : logs,
+    },
+  };
+}
+
 /** List Droid+Daytona generation jobs from the database. */
 export async function GET() {
-  const jobs = await backend().droidJobs(30);
-  const live = liveIntegrationStatus();
-  return NextResponse.json({
-    jobs,
-    daytona: live.daytona,
-    droid: live.droid,
-    mode: live.mode,
-    droid_exec: live.droid_exec,
-  });
+  try {
+    const jobs = (await backend().droidJobs(30)).map(summarizeJob);
+    const live = liveIntegrationStatus();
+    return NextResponse.json({
+      jobs,
+      daytona: live.daytona,
+      droid: live.droid,
+      mode: live.mode,
+      droid_exec: live.droid_exec,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Could not load Droid jobs.";
+    return NextResponse.json({ jobs: [], error: message }, { status: 500 });
+  }
 }
 
 /**
@@ -27,6 +49,7 @@ export async function GET() {
  * Results are written to droid_jobs.progress and cv_models — no GitHub Actions.
  */
 export async function POST(req: Request) {
+  if (!(await currentResearcher())) return NextResponse.json({ error: "Sign in as a researcher." }, { status: 401 });
   const parsed = DroidRequestInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
@@ -36,15 +59,17 @@ export async function POST(req: Request) {
   }
   const input = {
     condition: parsed.data.condition,
+    name: parsed.data.measurement.label || `Writing posture (${parsed.data.condition})`,
     description: parsed.data.description || `${parsed.data.measurement.label} for ${parsed.data.condition}`,
     measurements: [parsed.data.measurement],
     media_type: parsed.data.media_type,
     study_id: parsed.data.study_id ?? null,
   };
-  const job = await startModuleGeneration(input);
+  const actor = await researcherName();
+  const job = await startModuleGeneration(input, actor);
   const live = liveIntegrationStatus();
   await backend().insertAudit({
-    actor: RESEARCHER_NAME,
+    actor,
     action: "droid.module_requested",
     entity: "droid_job",
     entity_id: job.id,

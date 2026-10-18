@@ -1,12 +1,13 @@
-import { Download } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdherenceChart } from "@/components/charts";
 import { FunnelBars } from "@/components/funnel";
 import { ParticipantTable } from "@/components/participant-table";
-import { Badge, ButtonLink, Card, CardBody, CardHeader, EmptyState, KeyValues, PageHeader, SectionLabel, Stat, Tabs, ValidationBadge } from "@/components/ui";
+import { ButtonLink, Card, CardBody, CardHeader, KeyValues, PageHeader, SectionLabel, Stat, Tabs, ValidationBadge } from "@/components/ui";
 import { CHECK_LABEL, conditionLabel, pct } from "@/lib/format";
 import { studyDetail } from "@/lib/queries";
+import { DeleteStudyButton } from "./delete-study-button";
+import { ExportCsvModal } from "@/components/export-csv-modal";
 import { InviteButton } from "./invite-button";
 
 const TABS = ["overview", "participants", "protocol", "data"] as const;
@@ -28,6 +29,7 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
         description={`${conditionLabel(study.condition)} · protocol v${study.protocol.version}, approved by ${study.protocol.approved_by ?? "—"}`}
         actions={
           <>
+            <DeleteStudyButton studyId={id} studyName={study.name} />
             <ButtonLink href={`/researcher/review?study=${id}`} variant="secondary">
               Review queue
             </ButtonLink>
@@ -83,8 +85,19 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                 <CardHeader title={t.label} description={`${t.media_type} · ${t.cadence.replace("_", " ")} · CV module ${t.module}`} />
                 <CardBody className="space-y-5">
                   <div>
-                    <SectionLabel>Message the participant receives</SectionLabel>
+                    <SectionLabel>Instructions shown to the participant</SectionLabel>
                     <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{t.instructions}</p>
+                  </div>
+                  <div>
+                    <SectionLabel>Clinical questionnaire (after capture)</SectionLabel>
+                    <ul className="list-disc space-y-0.5 pl-5 text-sm text-slate-700">
+                      {t.report_questions.map((q) => (
+                        <li key={q.key}>
+                          {q.prompt}{" "}
+                          {q.type === "choice" && q.options ? <span className="text-slate-400">({q.options.join(" / ")})</span> : q.type === "scale" ? <span className="text-slate-400">(0–10)</span> : null}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                   <div className="grid gap-6 md:grid-cols-2">
                     <div>
@@ -98,16 +111,6 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                             <ValidationBadge status={m.validation_status} />
                           </li>
                         ))}
-                        {d.models
-                          .filter((m) => m.module === t.module && m.active)
-                          .map((m) => (
-                            <li key={m.id} className="flex items-center justify-between gap-2">
-                              <span>
-                                {m.target.label} <span className="text-slate-400">(custom model v{m.version})</span>
-                              </span>
-                              <ValidationBadge status={m.status} />
-                            </li>
-                          ))}
                       </ul>
                     </div>
                     <div>
@@ -115,51 +118,9 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                       <KeyValues items={Object.entries(t.quality_criteria).map(([k, v]) => [CHECK_LABEL[k.replace(/_(min|max)$/, "")] ?? k, `${k.endsWith("_max") ? "≤" : "≥"} ${v}`])} />
                     </div>
                   </div>
-                  <div>
-                    <SectionLabel>Patient-reported context</SectionLabel>
-                    <ul className="list-disc space-y-0.5 pl-5 text-sm text-slate-700">
-                      {t.report_questions.map((q) => (
-                        <li key={q.key}>
-                          {q.prompt} {q.options && <span className="text-slate-400">({q.options.join(" / ")})</span>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
                 </CardBody>
               </Card>
             ))}
-          </div>
-          <div className="space-y-6">
-            <Card>
-              <CardHeader title="Rewards (simulated)" />
-              <CardBody>
-                <KeyValues
-                  items={[
-                    ["Per usable check-in", `${study.protocol.rewards.base_points} pts`],
-                    ["On-schedule bonus", `+${study.protocol.rewards.on_time_bonus} pts`],
-                    ["Streak multiplier", `+${study.protocol.rewards.streak_step}× per period, max ×${study.protocol.rewards.max_multiplier}`],
-                    ...study.protocol.rewards.tiers.map((tier) => [`${tier.name} tier`, `${tier.points} pts · ${tier.payout_label}`] as [string, string]),
-                  ]}
-                />
-              </CardBody>
-            </Card>
-            <Card>
-              <CardHeader title="Custom models" description="Researcher-trained heads applied to this study's captures" />
-              {d.models.length ? (
-                <ul className="divide-y divide-slate-100 text-sm">
-                  {d.models.map((m) => (
-                    <li key={m.id} className="flex items-center justify-between gap-2 px-5 py-2.5">
-                      <span>
-                        {m.name} <span className="text-slate-400">v{m.version}</span>
-                      </span>
-                      {m.active ? <ValidationBadge status={m.status} /> : <Badge>inactive</Badge>}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <EmptyState title="No custom models yet" action={<ButtonLink href="/researcher/generate" size="sm" variant="secondary">Generate a candidate</ButtonLink>} />
-              )}
-            </Card>
           </div>
         </div>
       )}
@@ -167,22 +128,17 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
       {tab === "data" && (
         <div className="grid gap-6 xl:grid-cols-3">
           <Card className="xl:col-span-2">
-            <CardHeader title="Export observations" description="Long format: one row per measurement, with uncertainty, validation status, reviewer, model version and patient report." />
-            <CardBody className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <a href={`/api/export?study=${id}&format=csv`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-600 px-3.5 text-sm font-medium text-white hover:bg-brand-700">
-                  <Download className="h-4 w-4" /> Reviewed results (CSV)
-                </a>
-                <a href={`/api/export?study=${id}&format=json`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-white px-3.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
-                  <Download className="h-4 w-4" /> Reviewed results (JSON)
-                </a>
-                <a href={`/api/export?study=${id}&format=csv&include=all`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-white px-3.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
-                  <Download className="h-4 w-4" /> Everything, incl. unreviewed (CSV)
-                </a>
-              </div>
-              <p className="text-sm text-slate-500">
-                Only accepted or corrected observations enter the analysis export by default; rejected results never do. Each row keeps the model version and the analysis runtime, so results can
-                be re-analysed if a model changes.
+            <CardHeader
+              title="Export submissions"
+              description="Researcher-only CSV. One row per measurement, linked by IDs (no display names or media URLs). Clinical answers stay in patient_report JSON."
+              actions={<ExportCsvModal studyId={id} />}
+            />
+            <CardBody className="space-y-3 text-sm text-slate-600">
+              <p>
+                Use <span className="font-medium text-slate-900">Export CSV</span> to choose which review statuses to include (accepted, corrected, pending, rejected). Defaults to reviewed results only.
+              </p>
+              <p className="text-xs text-slate-500">
+                Columns include study/participant/observation/submission IDs, module, measurements, quality failures, review fields, model version, attempt/source, note IDs, and notes JSON.
               </p>
             </CardBody>
           </Card>

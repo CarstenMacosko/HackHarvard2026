@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { currentResearcher } from "@/lib/auth";
 import { backend } from "@/lib/backend";
-import { RESEARCHER_NAME } from "@/lib/session";
+import { researcherName } from "@/lib/session";
 
 const Body = z.object({
   id: z.string(),
@@ -11,6 +12,9 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
+  const researcher = await currentResearcher();
+  if (!researcher) return NextResponse.json({ error: "Sign in as a researcher to review." }, { status: 401 });
+
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   const { id, decision, note, corrected } = parsed.data;
@@ -20,6 +24,7 @@ export async function POST(req: Request) {
   const [obs] = await db.observations({ id });
   if (!obs) return NextResponse.json({ error: "Observation not found" }, { status: 404 });
 
+  const actor = await researcherName();
   const measurements =
     decision === "corrected"
       ? obs.measurements.map((m) => {
@@ -32,20 +37,20 @@ export async function POST(req: Request) {
   await db.updateObservation(id, {
     review_status: decision,
     measurements,
-    reviewer: RESEARCHER_NAME,
+    reviewer: actor,
     reviewed_at: new Date().toISOString(),
     review_note: note,
   });
   await db.insertReview({
     observation_id: id,
-    reviewer: RESEARCHER_NAME,
+    reviewer: actor,
     decision,
     corrected_measurements: decision === "corrected" ? corrected : null,
     before_measurements: decision === "corrected" ? obs.measurements : null,
     note,
   });
   await db.insertAudit({
-    actor: RESEARCHER_NAME,
+    actor,
     action: `review.${decision}`,
     entity: "observation",
     entity_id: id,

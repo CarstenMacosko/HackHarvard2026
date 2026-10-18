@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "cd ../.. && npm ci",
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build",
+  "functions": {
+    "app/api/droid/generate/route.ts": { "maxDuration": 300 },
+    "app/api/droid/jobs/route.ts": { "maxDuration": 300 },
+    "app/api/droid/assess/route.ts": { "maxDuration": 120 },
+    "app/api/submissions/route.ts": { "maxDuration": 60 }
+  }
 }

@@ -1,9 +1,15 @@
 "use client";
 
+/**
+ * Callers: apps/web/app/researcher/models/page.tsx (DroidJobs), workflow builder (DroidGenerate).
+ * API: GET/POST /api/droid/jobs. Schema: DroidJob list (jobs[], optional error).
+ * User: "are the droid jobs constantly \"Loading…\" ? what is up with that"
+ */
+
 import type { TaskConfig } from "@vf/shared";
 import { Bot, ExternalLink, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, CardBody, CardHeader, EmptyState, Table, Td, Th, THead, Tr } from "@/components/ui";
 
 interface DispatchResult {
@@ -97,37 +103,69 @@ const JOB_BADGE: Record<Job["status"], [string, "green" | "blue" | "red" | "slat
   failed: ["failed", "red"],
 };
 
+type JobsPayload = { jobs: Job[]; error?: string };
+
+async function fetchJobs(signal?: AbortSignal): Promise<JobsPayload> {
+  const res = await fetch("/api/droid/jobs", { cache: "no-store", signal });
+  const body = (await res.json().catch(() => null)) as { jobs?: Job[]; error?: string } | null;
+  if (!res.ok) {
+    return { jobs: [], error: body?.error ?? `Could not load Droid jobs (${res.status}).` };
+  }
+  if (!body || !Array.isArray(body.jobs)) {
+    return { jobs: [], error: body?.error ?? "Droid jobs response was malformed." };
+  }
+  return { jobs: body.jobs, error: body.error };
+}
+
 /** Droid+Daytona candidate jobs stored in droid_jobs. */
-export function DroidJobs() {
-  const [data, setData] = useState<{ jobs: Job[]; daytona?: boolean; droid?: boolean; error?: string } | null>(null);
-  const load = useCallback(() => {
-    fetch("/api/droid/jobs", { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => setData({ jobs: [], error: "Could not load Droid jobs." }));
+export type DroidJobsRow = Job;
+
+export function DroidJobs({ initialJobs }: { initialJobs?: DroidJobsRow[] }) {
+  const [data, setData] = useState<JobsPayload | null>(initialJobs ? { jobs: initialJobs } : null);
+  const [refreshing, setRefreshing] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const load = useCallback(async () => {
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    const timedOut = window.setTimeout(() => ac.abort(), 12_000);
+    setRefreshing(true);
+    try {
+      const next = await fetchJobs(ac.signal);
+      if (!ac.signal.aborted) setData(next);
+    } catch {
+      // Keep prior rows on transient failures; only error if we have nothing.
+      setData((prev) => prev ?? { jobs: [], error: "Could not load Droid jobs." });
+    } finally {
+      window.clearTimeout(timedOut);
+      if (!ac.signal.aborted) setRefreshing(false);
+    }
   }, []);
+
   useEffect(() => {
-    load();
-    const t = setInterval(load, 8_000);
-    return () => clearInterval(t);
+    void load();
+    const t = window.setInterval(() => void load(), 8_000);
+    return () => {
+      window.clearInterval(t);
+      abortRef.current?.abort();
+    };
   }, [load]);
 
   return (
     <Card>
       <CardHeader
         title="Droid jobs"
-        description="Factory Droid drafts candidate analyzers. Daytona checks the shared writing feature on landmark tracks; candidates remain in job records for review."
-        actions={
-          data && (
-            <div className="flex gap-1.5">
-              <Badge tone={data.droid ? "green" : "slate"}>{data.droid ? "Droid live" : "Droid template"}</Badge>
-              <Badge tone={data.daytona ? "blue" : "slate"}>{data.daytona ? "Daytona cloud" : "Daytona local"}</Badge>
-            </div>
-          )
+        description={
+          refreshing && data
+            ? "Factory Droid drafts candidate analyzers. Refreshing…"
+            : "Factory Droid drafts candidate analyzers. Daytona checks the shared writing feature on landmark tracks; candidates remain in job records for review."
         }
       />
       {!data ? (
-        <CardBody className="text-sm text-slate-500">Loading…</CardBody>
+        <CardBody className="flex items-center gap-2 text-sm text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+        </CardBody>
       ) : data.jobs.length ? (
         <Table>
           <THead>
@@ -139,7 +177,7 @@ export function DroidJobs() {
           <tbody>
             {data.jobs.map((j) => {
               const [label, tone] = JOB_BADGE[j.status] ?? ["unknown", "slate"];
-              const title = j.request.measurement?.label ?? j.request.measurements?.[0]?.label ?? j.module;
+              const title = j.request?.measurement?.label ?? j.request?.measurements?.[0]?.label ?? j.module;
               const step = j.progress?.step;
               return (
                 <Tr key={j.id}>
@@ -147,7 +185,7 @@ export function DroidJobs() {
                     <Link href="/researcher/generate" className="inline-flex items-center gap-1 font-medium text-slate-900 hover:underline">
                       {title} <ExternalLink className="h-3 w-3 text-slate-400" />
                     </Link>
-                    <span className="text-slate-400"> · {j.request.condition ?? "—"}</span>
+                    <span className="text-slate-400"> · {j.request?.condition ?? "—"}</span>
                     <div className="font-mono text-xs text-slate-400">{j.id}</div>
                   </Td>
                   <Td>
