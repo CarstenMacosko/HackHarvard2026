@@ -32,7 +32,7 @@ export default async function ParticipantPage({ params }: { params: Promise<{ id
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Stat label="Completion" value={pct(p.completion_rate)} tone={p.completion_rate < 0.75 && p.status === "active" ? "warn" : "default"} />
+        <Stat label="Completion" value={pct(p.completion_rate)} tone={p.completion_rate != null && p.completion_rate < 0.75 && p.status === "active" ? "warn" : "default"} />
         <Stat label="Current streak" value={p.streak} />
         <Stat label="Observations" value={observations.length} />
         <Stat label="Awaiting review" value={p.pending_reviews} />

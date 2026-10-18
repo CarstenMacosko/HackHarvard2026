@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { currentResearcher } from "@/lib/auth";
 import { ConflictError, backend } from "@/lib/backend";
-import { RESEARCHER_NAME } from "@/lib/session";
+import { researcherName } from "@/lib/session";
 
 export async function createInvite(studyId: string): Promise<string> {
+  if (!(await currentResearcher())) throw new Error("UNAUTHORIZED_RESEARCHER");
   const db = backend();
   const study = (await db.studies()).find((s) => s.id === studyId);
   if (!study) throw new Error("unknown study");
@@ -31,7 +33,13 @@ export async function createInvite(studyId: string): Promise<string> {
       if (!(e instanceof ConflictError) || attempt >= 4) throw e;
     }
   }
-  await db.insertAudit({ actor: RESEARCHER_NAME, action: "participant.invited", entity: "participant", entity_id: id, detail: { study_id: studyId } });
+  await db.insertAudit({
+    actor: await researcherName(),
+    action: "participant.invited",
+    entity: "participant",
+    entity_id: id,
+    detail: { study_id: studyId },
+  });
   revalidatePath(`/researcher/studies/${studyId}`);
   return code;
 }

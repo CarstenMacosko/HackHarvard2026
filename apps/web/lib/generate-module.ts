@@ -4,7 +4,6 @@ import { buildParamGrid, runExperimentsDaytona, runExperimentsLocal } from "./da
 import { draftModuleWithDroid, pickComponents, templateModuleSource } from "./droid-generate";
 import { emptyProgress, type GenerationLog, type GenerationProgress } from "./generation-types";
 import { daytonaConfigured, droidConfigured, liveIntegrationStatus } from "./live-keys";
-import { RESEARCHER_NAME } from "./session";
 import type { DroidJob } from "./types";
 
 const EXPERIMENT_COUNT = 20;
@@ -201,8 +200,9 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
         "Candidate ready for researcher review in this job record; no trained model was created.",
       );
       await patch(jobId, progress, "succeeded");
+      const [jobRow] = (await db.droidJobs(50)).filter((j) => j.id === jobId);
       await db.insertAudit({
-        actor: RESEARCHER_NAME,
+        actor: jobRow?.created_by ?? "system",
         action: "droid.module_ready",
         entity: "droid_job",
         entity_id: jobId,
@@ -220,7 +220,7 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
   }
 }
 
-export async function reviewGeneratedCandidate(jobId: string): Promise<{ module_id: string; status: "reviewed_candidate" }> {
+export async function reviewGeneratedCandidate(jobId: string, actor: string): Promise<{ module_id: string; status: "reviewed_candidate" }> {
   const db = backend();
   const job = (await db.droidJobs(50)).find((j) => j.id === jobId);
   if (!job?.progress?.module_id || job.progress.step !== "ready") {
@@ -232,7 +232,7 @@ export async function reviewGeneratedCandidate(jobId: string): Promise<{ module_
   const progress = log({ ...job.progress, step: "approved" }, `Reviewed candidate ${module_id}; no model activation or CV-service deployment`);
   await db.updateDroidJob(jobId, { progress });
   await db.insertAudit({
-    actor: RESEARCHER_NAME,
+    actor,
     action: "droid.candidate_reviewed",
     entity: "droid_job",
     entity_id: jobId,
@@ -241,7 +241,7 @@ export async function reviewGeneratedCandidate(jobId: string): Promise<{ module_
   return { module_id, status: "reviewed_candidate" };
 }
 
-export async function startModuleGeneration(input: StartGenerateInput): Promise<DroidJob> {
+export async function startModuleGeneration(input: StartGenerateInput, actor: string): Promise<DroidJob> {
   const id = `gen-${slugify(input.measurements[0]?.name ?? "module")}-${Date.now().toString(36)}`.slice(0, 41);
   const at = new Date().toISOString();
   const mode = liveIntegrationStatus().mode;
@@ -255,7 +255,7 @@ export async function startModuleGeneration(input: StartGenerateInput): Promise<
     run_url: null,
     pr_url: null,
     error: null,
-    created_by: RESEARCHER_NAME,
+    created_by: actor,
     created_at: at,
     updated_at: at,
     kind: "module_generate",

@@ -159,3 +159,58 @@ export class TappingCoach {
     }
   }
 }
+
+/**
+ * Timed hand-video coach for rest tremor and writing posture: framing → ready → recording
+ * (starts automatically once framing has been good for settleMs) → done after durationMs.
+ * Reuses the same CoachState shape as TappingCoach so the live UI can share one component.
+ */
+export class TimedCaptureCoach {
+  private hist: { t: number; wrist: number[] | null; size: number | null }[] = [];
+  private goodSince: number | null = null;
+  private phase: CoachPhase = "framing";
+  private recordStart: number | null = null;
+  private lastBrightness: number | null = null;
+  private lastSharpness: number | null = null;
+
+  constructor(private readonly durationMs = 10_000) {}
+
+  push(f: LiveFrame): CoachState {
+    if (f.brightness != null) this.lastBrightness = f.brightness;
+    if (f.sharpness != null) this.lastSharpness = f.sharpness;
+    const size = f.pts ? handSize(f.pts) : null;
+    this.hist.push({ t: f.t, wrist: f.pts ? f.pts[WRIST] : null, size });
+    while (this.hist.length && this.hist[0].t < f.t - 2000) this.hist.shift();
+
+    const guidance = frameGuidance({ ...f, brightness: this.lastBrightness, sharpness: this.lastSharpness }, this.wristTravel(f.t));
+
+    if (this.phase !== "tapping") {
+      const ok = guidance.level !== "bad";
+      this.goodSince = ok ? (this.goodSince ?? f.t) : null;
+      if (this.goodSince !== null && f.t - this.goodSince >= LIVE.settleMs) {
+        this.phase = "tapping";
+        this.recordStart = f.t;
+      } else {
+        this.phase = this.goodSince !== null && f.t - this.goodSince >= LIVE.settleMs * 0.5 ? "ready" : "framing";
+      }
+    }
+
+    const elapsed = this.phase === "tapping" && this.recordStart !== null ? f.t - this.recordStart : 0;
+    return {
+      phase: this.phase,
+      guidance,
+      taps: 0,
+      tapStart: this.recordStart,
+      elapsed,
+      done: elapsed >= this.durationMs,
+    };
+  }
+
+  private wristTravel(now: number): number {
+    const recent = this.hist.filter((h) => h.wrist && h.size && h.t >= now - 1000);
+    if (recent.length < 2) return 0;
+    const size = recent.reduce((s, h) => s + h.size!, 0) / recent.length;
+    const xs = recent.map((h) => h.wrist![0]), ys = recent.map((h) => h.wrist![1]);
+    return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / size;
+  }
+}

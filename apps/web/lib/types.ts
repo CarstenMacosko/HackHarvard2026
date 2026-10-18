@@ -129,7 +129,7 @@ export interface Message {
 }
 
 export interface ParticipantSummary extends Participant {
-  completion_rate: number; // completed / due so far
+  completion_rate: number | null; // completed / due so far; null when nothing due yet
   streak: number;
   last_submission_at: string | null;
   pending_reviews: number;
@@ -140,9 +140,9 @@ export interface ParticipantSummary extends Participant {
 export interface StudySummary extends Study {
   participants: number;
   active: number;
-  completion_rate: number;
+  completion_rate: number | null;
   pending_reviews: number;
-  first_try_usable_rate: number;
+  first_try_usable_rate: number | null;
 }
 
 export interface Redemption {

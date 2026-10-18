@@ -1,7 +1,15 @@
 "use client";
 
-import { DEFAULT_CONSENT, TASK_LIBRARY, type Cadence } from "@vf/shared";
-import { Plus, Trash2 } from "lucide-react";
+import {
+  DEFAULT_CONSENT,
+  TASK_LIBRARY,
+  clinicalFormForCondition,
+  clinicalQuestionsForModule,
+  defaultModuleForCondition,
+  type Cadence,
+  type ReportQuestion,
+} from "@vf/shared";
+import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { Button, Card, CardBody, CardHeader, cn } from "@/components/ui";
@@ -9,10 +17,10 @@ import type { Condition } from "@/lib/types";
 import { createStudy } from "./actions";
 
 const EVALS = [
-  { module: "finger_tapping", label: "Finger tapping (video)" },
-  { module: "hand_tremor", label: "Hand tremor (video)" },
-  { module: "writing_posture", label: "Writing posture / focal hand dystonia (video)" },
-  { module: "eczema_photo", label: "Skin photo" },
+  { module: "finger_tapping", label: "Finger tapping (video)", conditions: ["parkinsons", "other"] },
+  { module: "hand_tremor", label: "Hand tremor (video)", conditions: ["parkinsons", "other"] },
+  { module: "writing_posture", label: "Writing posture / focal hand dystonia (video)", conditions: ["focal_hand_dystonia", "other"] },
+  { module: "eczema_photo", label: "Skin photo (atopic dermatitis)", conditions: ["eczema", "other"] },
 ] as const;
 
 const CADENCES: { id: Cadence; label: string }[] = [
@@ -25,17 +33,35 @@ const CADENCES: { id: Cadence; label: string }[] = [
 
 const input = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm";
 
+type EvalRow = { module: string; cadence: Cadence; report_questions: ReportQuestion[] };
+
+function defaultEval(condition: Condition): EvalRow {
+  const module = defaultModuleForCondition(condition);
+  return {
+    module,
+    cadence: TASK_LIBRARY[module]?.cadence ?? "weekly",
+    report_questions: clinicalQuestionsForModule(module),
+  };
+}
+
 export function StudyForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [condition, setCondition] = useState<Condition>("parkinsons");
   const [consentTitle, setConsentTitle] = useState(DEFAULT_CONSENT.title);
   const [consentBody, setConsentBody] = useState(DEFAULT_CONSENT.body);
-  const [evals, setEvals] = useState<{ module: string; cadence: Cadence }[]>([{ module: "finger_tapping", cadence: "weekly" }]);
+  const [evals, setEvals] = useState<EvalRow[]>([defaultEval("parkinsons")]);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const taskModules = useMemo(() => new Set(evals.map((e) => e.module)), [evals]);
+  const formMeta = clinicalFormForCondition(condition);
+  const availableEvals = EVALS.filter((e) => (e.conditions as readonly string[]).includes(condition));
+
+  function setConditionAndDefaults(next: Condition) {
+    setCondition(next);
+    setEvals([defaultEval(next)]);
+  }
 
   return (
     <form
@@ -43,7 +69,14 @@ export function StudyForm() {
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
-          const r = await createStudy({ name, condition, consentTitle, consentBody, evals, reminders: [] });
+          const r = await createStudy({
+            name,
+            condition,
+            consentTitle,
+            consentBody,
+            evals: evals.map((ev) => ({ module: ev.module, cadence: ev.cadence, report_questions: ev.report_questions })),
+            reminders: [],
+          });
           if (!r.ok) return setError(r.error);
           router.push(`/researcher/studies/${r.id}?tab=participants`);
           router.refresh();
@@ -60,13 +93,16 @@ export function StudyForm() {
             </label>
             <label className="block text-sm font-medium text-slate-900">
               Condition
-              <select className={cn(input, "mt-1")} value={condition} onChange={(e) => setCondition(e.target.value as Condition)}>
+              <select className={cn(input, "mt-1")} value={condition} onChange={(e) => setConditionAndDefaults(e.target.value as Condition)}>
                 <option value="parkinsons">Parkinson&apos;s disease</option>
                 <option value="focal_hand_dystonia">Focal hand dystonia</option>
                 <option value="eczema">Atopic dermatitis</option>
                 <option value="other">Other</option>
               </select>
             </label>
+            <p className="text-xs text-slate-500">
+              CV module and clinical questionnaire default to this condition ({formMeta.name}).
+            </p>
           </CardBody>
         </Card>
 
@@ -87,45 +123,185 @@ export function StudyForm() {
         <Card>
           <CardHeader
             title="Required evaluations"
-            description="Choose which CV tests participants complete and how often."
+            description="Each evaluation uses its condition-specific CV module. Participants fill the clinical form after a usable capture."
             actions={
               <Button
                 type="button"
                 size="sm"
                 variant="secondary"
                 onClick={() => {
-                  const next = EVALS.find((e) => !taskModules.has(e.module));
-                  if (next) setEvals((xs) => [...xs, { module: next.module, cadence: TASK_LIBRARY[next.module].cadence }]);
+                  const next = availableEvals.find((e) => !taskModules.has(e.module));
+                  if (next) {
+                    setEvals((xs) => [
+                      ...xs,
+                      {
+                        module: next.module,
+                        cadence: TASK_LIBRARY[next.module].cadence,
+                        report_questions: clinicalQuestionsForModule(next.module),
+                      },
+                    ]);
+                  }
                 }}
               >
                 <Plus className="h-3.5 w-3.5" /> Add
               </Button>
             }
           />
-          <CardBody className="space-y-3">
+          <CardBody className="space-y-4">
             {evals.map((ev, i) => (
-              <div key={`${ev.module}-${i}`} className="flex flex-wrap items-center gap-2 rounded-md bg-slate-50 p-3">
-                <select
-                  className={cn(input, "max-w-xs")}
-                  value={ev.module}
-                  onChange={(e) => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, module: e.target.value } : x)))}
-                >
-                  {EVALS.map((opt) => (
-                    <option key={opt.module} value={opt.module}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <select className={cn(input, "w-44")} value={ev.cadence} onChange={(e) => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, cadence: e.target.value as Cadence } : x)))}>
-                  {CADENCES.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-                <Button type="button" size="sm" variant="ghost" disabled={evals.length === 1} onClick={() => setEvals((xs) => xs.filter((_, j) => j !== i))}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+              <div key={`${ev.module}-${i}`} className="space-y-3 rounded-md bg-slate-50 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    className={cn(input, "max-w-xs")}
+                    value={ev.module}
+                    onChange={(e) => {
+                      const module = e.target.value;
+                      setEvals((xs) =>
+                        xs.map((x, j) =>
+                          j === i
+                            ? { module, cadence: TASK_LIBRARY[module]?.cadence ?? x.cadence, report_questions: clinicalQuestionsForModule(module) }
+                            : x,
+                        ),
+                      );
+                    }}
+                  >
+                    {availableEvals.map((opt) => (
+                      <option key={opt.module} value={opt.module}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select className={cn(input, "w-44")} value={ev.cadence} onChange={(e) => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, cadence: e.target.value as Cadence } : x)))}>
+                    {CADENCES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                  <Button type="button" size="sm" variant="ghost" disabled={evals.length === 1} onClick={() => setEvals((xs) => xs.filter((_, j) => j !== i))}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+
+                <div className="rounded-md border border-slate-200 bg-white p-3">
+                  <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-medium text-slate-900">Post-capture clinical form</div>
+                      <p className="text-xs text-slate-500">
+                        Default: {clinicalFormForCondition(condition === "other" ? (ev.module === "eczema_photo" ? "eczema" : ev.module === "writing_posture" ? "focal_hand_dystonia" : "parkinsons") : condition).name}.{" "}
+                        <span className="text-slate-400">{clinicalFormForCondition(condition === "other" ? (ev.module === "eczema_photo" ? "eczema" : ev.module === "writing_posture" ? "focal_hand_dystonia" : "parkinsons") : condition).citation}</span>
+                      </p>
+                    </div>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, report_questions: clinicalQuestionsForModule(x.module) } : x)))}>
+                      <RotateCcw className="h-3.5 w-3.5" /> Reset to clinical default
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {ev.report_questions.map((q, qi) => (
+                      <div key={`${q.key}-${qi}`} className="grid gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-[1fr_auto]">
+                        <input
+                          className={input}
+                          value={q.prompt}
+                          onChange={(e) =>
+                            setEvals((xs) =>
+                              xs.map((x, j) =>
+                                j === i
+                                  ? {
+                                      ...x,
+                                      report_questions: x.report_questions.map((qq, k) => (k === qi ? { ...qq, prompt: e.target.value } : qq)),
+                                    }
+                                  : x,
+                              ),
+                            )
+                          }
+                        />
+                        <div className="flex items-center gap-2">
+                          <select
+                            className={cn(input, "w-28")}
+                            value={q.type}
+                            onChange={(e) =>
+                              setEvals((xs) =>
+                                xs.map((x, j) =>
+                                  j === i
+                                    ? {
+                                        ...x,
+                                        report_questions: x.report_questions.map((qq, k) =>
+                                          k === qi ? { ...qq, type: e.target.value as ReportQuestion["type"], options: e.target.value === "choice" ? qq.options ?? ["Yes", "No"] : undefined } : qq,
+                                        ),
+                                      }
+                                    : x,
+                                ),
+                              )
+                            }
+                          >
+                            <option value="choice">Choice</option>
+                            <option value="scale">0–10 scale</option>
+                            <option value="text">Text</option>
+                          </select>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, report_questions: x.report_questions.filter((_, k) => k !== qi) } : x)))}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        {q.type === "choice" && (
+                          <input
+                            className={cn(input, "sm:col-span-2")}
+                            value={(q.options ?? []).join(" | ")}
+                            onChange={(e) =>
+                              setEvals((xs) =>
+                                xs.map((x, j) =>
+                                  j === i
+                                    ? {
+                                        ...x,
+                                        report_questions: x.report_questions.map((qq, k) =>
+                                          k === qi
+                                            ? {
+                                                ...qq,
+                                                options: e.target.value
+                                                  .split("|")
+                                                  .map((s) => s.trim())
+                                                  .filter(Boolean),
+                                              }
+                                            : qq,
+                                        ),
+                                      }
+                                    : x,
+                                ),
+                              )
+                            }
+                            placeholder="Options separated by |"
+                          />
+                        )}
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        setEvals((xs) =>
+                          xs.map((x, j) =>
+                            j === i
+                              ? {
+                                  ...x,
+                                  report_questions: [
+                                    ...x.report_questions,
+                                    { key: `custom_${Date.now().toString(36)}`, prompt: "New question", type: "text" as const },
+                                  ],
+                                }
+                              : x,
+                          ),
+                        )
+                      }
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add question
+                    </Button>
+                  </div>
+                </div>
               </div>
             ))}
           </CardBody>
@@ -134,8 +310,14 @@ export function StudyForm() {
 
       <div className="space-y-6">
         <Card>
-          <CardHeader title="Next" description="After creating the study, invite participants and assign tests from their profile." />
-          <CardBody className="text-sm text-slate-600">Participants complete check-ins in the web portal. Each assigned test uses its CV module for guidance and measurement.</CardBody>
+          <CardHeader title="Clinical form defaults" description={formMeta.summary} />
+          <CardBody className="space-y-2 text-sm text-slate-600">
+            <p>
+              <span className="font-medium text-slate-900">{formMeta.name}</span>
+            </p>
+            <p className="text-xs text-slate-500">{formMeta.citation}</p>
+            <p>Participants complete this questionnaire after a usable video or photo. Edit prompts above; reset restores the verified default.</p>
+          </CardBody>
         </Card>
         {error && <p className="text-sm text-rose-600">{error}</p>}
         <Button type="submit" disabled={pending} className="w-full">

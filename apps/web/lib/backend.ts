@@ -23,7 +23,7 @@ import type {
 /**
  * Storage backend. With NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY set it talks to
  * Supabase (schema: supabase/migrations, documented in docs/DATABASE.md); otherwise it uses the
- * in-memory starting state in demo-data.ts (studies and empty accounts; mutations last until the server restarts).
+ * empty in-memory store in demo-data.ts (mutations last until the server restarts).
  * Both implementations keep the same semantics. Server-only: the service role key bypasses RLS.
  */
 export interface Backend {

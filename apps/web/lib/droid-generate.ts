@@ -299,11 +299,17 @@ function stripFence(text: string): string {
 
 export function pickComponents(description: string, mediaType: "photo" | "video"): string[] {
   const d = description.toLowerCase();
-  if (mediaType === "photo" || /skin|eczema|psoriasis|rash|lesion/.test(d)) {
+  if (mediaType === "photo" || /skin|eczema|psoriasis|rash|lesion|dermatitis/.test(d)) {
     return ["blur", "exposure", "skin_coverage", "skin_mask", "erythema_index", "color_texture_features"];
+  }
+  if (/dystonia|writer|writing|index.?straight|pen/.test(d)) {
+    return ["blur", "exposure", "duration", "hand_visible", "hand_landmarks", "writing_posture"];
   }
   if (/tap|finger/.test(d)) {
     return ["blur", "exposure", "duration", "hand_visible", "hand_landmarks", "tap_kinematics", "tap_features"];
+  }
+  if (/tremor|parkinson/.test(d)) {
+    return ["blur", "exposure", "duration", "hand_visible", "hand_landmarks", "tremor_spectrum"];
   }
   return ["blur", "exposure", "duration", "hand_visible", "hand_landmarks", "tremor_spectrum"];
 }

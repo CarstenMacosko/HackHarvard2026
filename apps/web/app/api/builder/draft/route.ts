@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { currentResearcher } from "@/lib/auth";
 import { backend } from "@/lib/backend";
 import { draftWorkflow } from "@/lib/builder";
-import { RESEARCHER_NAME } from "@/lib/session";
+import { researcherName } from "@/lib/session";
 
 const Body = z.object({ prompt: z.string().min(10).max(4000) });
 
 /** Draft a workflow for a new condition and keep it (workflow_drafts) until a clinician approves it. */
 export async function POST(req: Request) {
+  if (!(await currentResearcher())) return NextResponse.json({ error: "Sign in as a researcher." }, { status: 401 });
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Describe the condition in at least a sentence." }, { status: 400 });
   const draft = await draftWorkflow(parsed.data.prompt);
@@ -19,7 +21,7 @@ export async function POST(req: Request) {
     source: draft.source,
     status: "draft",
     study_id: null,
-    created_by: RESEARCHER_NAME,
+    created_by: await researcherName(),
     approved_by: null,
     approved_at: null,
     created_at: new Date().toISOString(),
