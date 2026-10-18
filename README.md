@@ -4,6 +4,16 @@ Remote, clinician-verified visual follow-up for longitudinal studies. Built at H
 
 Participants complete short photo and video check-ins from home. Modular computer vision scores each capture, and clinicians verify every result on a longitudinal timeline.
 
+### AI-Powered CV Module Generation with Factory Droid
+
+StreamCare uses **Factory Droid** to automatically generate custom computer vision assessment modules from researcher-defined clinical protocols. Droid analyzes the requested measurements and existing CV infrastructure to produce assessment-specific Python code, eliminating the need for researchers to manually develop each test. 
+Factory Droid acts as the AI software engineering agent, creating tests in real time..
+
+How it works:
+1. Describe an assessment. Researchers specify a condition, assessment requirements, and desired measurements.
+2. Assess feasibility with Droid. Factory Droid evaluates whether the requested measurements can reasonably be derived from phone video and supported landmarks.
+3. Generate code with Droid. Droid examines StreamCare's existing modules and produces a candidate Python implementation following the CVModule interface.
+
 ## How it works
 
 ```
