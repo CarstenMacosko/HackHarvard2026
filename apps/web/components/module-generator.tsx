@@ -18,8 +18,10 @@ const STEPS: { id: GenerationStep; label: string }[] = [
   { id: "approved", label: "Approved" },
 ];
 
-/** Suggested starter metrics for the FHD writing demo — optional, not locked. */
-const SUGGESTED = [
+type Meas = { name: string; label: string; unit: string };
+
+/** Placeholder metrics for the FHD writing demo — used when the row is left blank. */
+const SUGGESTED: (Meas & { hint: string })[] = [
   {
     name: "index_straight_fraction",
     label: "Index finger straight during writing",
@@ -32,9 +34,24 @@ const SUGGESTED = [
     unit: "degrees",
     hint: "Average index PIP joint angle while writing.",
   },
-] as const;
+];
 
-type Meas = { name: string; label: string; unit: string };
+type PlanRow = Meas & { placeholder?: (typeof SUGGESTED)[number] };
+
+function blankPlanRows(): PlanRow[] {
+  return SUGGESTED.map((s) => ({ name: "", label: "", unit: "", placeholder: s }));
+}
+
+function resolveRow(row: PlanRow): Meas | null {
+  const p = row.placeholder;
+  const label = row.label.trim() || p?.label || "";
+  if (!label) return null;
+  return {
+    label,
+    name: row.name.trim() || (row.label.trim() ? slugify(row.label) : p?.name ?? slugify(label)),
+    unit: row.unit.trim() || p?.unit || "fraction",
+  };
+}
 
 type DesignMsg = { role: "researcher" | "droid"; text: string; at: string };
 
@@ -53,7 +70,6 @@ const DEMO_PRESET = {
   moduleName: "Writing posture (focal hand dystonia)",
   description:
     "With a fixed side-view camera, hold a pen for two seconds, then write the same short phrase. Measure index-finger posture from hand landmarks.",
-  measurements: SUGGESTED.map((m) => ({ name: m.name, label: m.label, unit: m.unit })) as Meas[],
 };
 
 function stepIndex(step: GenerationStep): number {
@@ -114,10 +130,13 @@ function Pipeline({ progress }: { progress: GenerationProgress }) {
 
 export function ModuleGenerator() {
   const router = useRouter();
-  const [condition, setCondition] = useState(DEMO_PRESET.condition);
-  const [moduleName, setModuleName] = useState(DEMO_PRESET.moduleName);
-  const [description, setDescription] = useState(DEMO_PRESET.description);
-  const [measurements, setMeasurements] = useState<Meas[]>([...DEMO_PRESET.measurements]);
+  const [conditionInput, setCondition] = useState("");
+  const [moduleName, setModuleName] = useState("");
+  const [descriptionInput, setDescription] = useState("");
+  const [rows, setMeasurements] = useState<PlanRow[]>(blankPlanRows);
+  const condition = conditionInput.trim() || DEMO_PRESET.condition;
+  const description = descriptionInput.trim() || DEMO_PRESET.description;
+  const measurements = useMemo(() => rows.map(resolveRow).filter((m): m is Meas => m !== null), [rows]);
   const [customLabel, setCustomLabel] = useState("");
   const [customUnit, setCustomUnit] = useState("fraction");
   const [designNote, setDesignNote] = useState("");
@@ -138,10 +157,10 @@ export function ModuleGenerator() {
   }
 
   function resetForm() {
-    setCondition(DEMO_PRESET.condition);
-    setModuleName(DEMO_PRESET.moduleName);
-    setDescription(DEMO_PRESET.description);
-    setMeasurements([...DEMO_PRESET.measurements]);
+    setCondition("");
+    setModuleName("");
+    setDescription("");
+    setMeasurements(blankPlanRows());
     setCustomLabel("");
     setCustomUnit("fraction");
     setDesignNote("");
@@ -184,15 +203,6 @@ export function ModuleGenerator() {
   const passed = useMemo(() => progress?.experiments.filter((e) => e.status === "passed").length ?? 0, [progress]);
   const failed = useMemo(() => progress?.experiments.filter((e) => e.status === "failed").length ?? 0, [progress]);
   const running = useMemo(() => progress?.experiments.filter((e) => e.status === "running").length ?? 0, [progress]);
-
-  function toggleSuggested(m: (typeof SUGGESTED)[number]) {
-    invalidatePlan();
-    setMeasurements((xs) => {
-      const on = xs.some((x) => x.name === m.name);
-      if (on) return xs.filter((x) => x.name !== m.name);
-      return [...xs, { name: m.name, label: m.label, unit: m.unit }];
-    });
-  }
 
   function addCustom() {
     const label = customLabel.trim();
@@ -312,18 +322,19 @@ export function ModuleGenerator() {
       <Card className="h-fit">
         <CardHeader
           title="Design a CV module"
-          description="Propose measurements, get Droid’s feasibility advice, accept a plan, then generate. Suggested writing metrics are optional starters."
+          description="Propose measurements, get Droid’s feasibility advice, accept a plan, then generate. Blank fields use the gray example values."
         />
         <CardBody className="space-y-4">
           <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
             Condition
             <input
               className={cn(input, "mt-1")}
-              value={condition}
+              value={conditionInput}
               onChange={(e) => {
                 invalidatePlan();
                 setCondition(e.target.value);
               }}
+              placeholder={DEMO_PRESET.condition}
             />
           </label>
           <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -335,53 +346,34 @@ export function ModuleGenerator() {
                 invalidatePlan();
                 setModuleName(e.target.value);
               }}
-              placeholder="Writing posture (focal hand dystonia)"
+              placeholder={DEMO_PRESET.moduleName}
             />
           </label>
           <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
             Assessment description
             <textarea
               className={cn(fieldClass, "mt-1 min-h-[100px] w-full py-2.5")}
-              value={description}
+              value={descriptionInput}
               onChange={(e) => {
                 invalidatePlan();
                 setDescription(e.target.value);
               }}
+              placeholder={DEMO_PRESET.description}
             />
             <span className="mt-1 block text-xs font-normal text-slate-500 dark:text-slate-400">Becomes capture instructions in the study. Tell Droid about camera view and task timing.</span>
           </label>
 
           <div>
-            <div className="text-sm font-medium text-slate-900 dark:text-slate-100">Suggested measurements</div>
-            <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">Included for the writing demo — toggle off if this module measures something else.</p>
-            <div className="space-y-2">
-              {SUGGESTED.map((m) => {
-                const on = measurements.some((x) => x.name === m.name);
-                return (
-                  <label key={m.name} className={cn("flex gap-2 rounded-md border p-3", on ? "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900/60" : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900")}>
-                    <input type="checkbox" className="mt-1" checked={on} onChange={() => toggleSuggested(m)} />
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{m.label}</div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{m.hint}</p>
-                      <p className="font-mono text-[11px] text-slate-400">
-                        {m.name} · {m.unit}
-                      </p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
             <div className="mb-2 text-sm font-medium text-slate-900 dark:text-slate-100">Plan measurements</div>
             <div className="space-y-2">
-              {measurements.map((m, i) => (
-                <div key={`${m.name}-${i}`} className="flex gap-2 rounded-md border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/60">
+              {rows.map((m, i) => (
+                <div key={i} className="flex gap-2 rounded-md border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/60">
                   <div className="min-w-0 flex-1 space-y-1">
                     <input
                       className={input}
                       value={m.label}
+                      placeholder={m.placeholder?.label ?? "Measurement label"}
+                      title={m.placeholder?.hint}
                       onChange={(e) => {
                         invalidatePlan();
                         setMeasurements((xs) => xs.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)));
@@ -391,16 +383,18 @@ export function ModuleGenerator() {
                       <input
                         className={cn(input, "font-mono text-xs")}
                         value={m.name}
+                        placeholder={m.placeholder?.name ?? "metric_name"}
                         onChange={(e) => {
                           invalidatePlan();
                           setMeasurements((xs) =>
-                            xs.map((x, j) => (j === i ? { ...x, name: slugify(e.target.value) || x.name } : x)),
+                            xs.map((x, j) => (j === i ? { ...x, name: e.target.value ? slugify(e.target.value) : "" } : x)),
                           );
                         }}
                       />
                       <input
                         className={cn(input, "w-28")}
                         value={m.unit}
+                        placeholder={m.placeholder?.unit ?? "unit"}
                         onChange={(e) => {
                           invalidatePlan();
                           setMeasurements((xs) => xs.map((x, j) => (j === i ? { ...x, unit: e.target.value } : x)));
