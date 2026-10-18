@@ -8,49 +8,17 @@ import { useEffect, useRef, useState } from "react";
 import { Dropzone } from "@/components/dropzone";
 import { LiveCapture, liveCaptureSupported, type LiveCaptureModule } from "@/components/live-capture";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ProgressBar, SectionLabel, cn } from "@/components/ui";
-import { analyzePhotoFile, analyzeVideoFile, type VideoModuleId } from "@/lib/cv-client/analyze";
+import { guideStepsForModule } from "@vf/shared";
+import { analyzePhotoFile, analyzeVideoFile, isOnDeviceVideoModule, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { planVideoUpload, type UploadPlan } from "@/lib/cv-client/upload";
 import { CHECK_LABEL } from "@/lib/format";
 import { isMediaKind } from "@/lib/media-kind";
 
-const GUIDE: Record<string, string[]> = {
-  eczema_photo: [
-    "Stand near a window or under a bright light. Turn the flash off.",
-    "Hold the phone about a forearm's length (30 cm) away, straight on.",
-    "Fit the whole patch in the frame, with some normal skin around it.",
-    "Tap the screen to focus before taking the photo.",
-  ],
-  photo: [
-    "Stand near a window or under a bright light. Turn the flash off.",
-    "Hold the phone about a forearm's length (30 cm) away, straight on.",
-    "Fit the whole patch in the frame, with some normal skin around it.",
-    "Tap the screen to focus before taking the photo.",
-  ],
-  finger_tapping: [
-    "Prop the phone up so your whole hand and wrist are in view.",
-    "Use normal video mode (not slow-motion or time-lapse) in good light.",
-    "Tap your index finger and thumb together as fast and as wide as you can.",
-    "Keep tapping for at least 10 seconds.",
-  ],
-  video: [
-    "Prop the phone up so your whole hand and wrist are in view.",
-    "Use normal video mode (not slow-motion or time-lapse) in good light.",
-    "Follow the on-screen guidance for this study's task.",
-    "Keep the camera still until recording finishes.",
-  ],
-  hand_tremor: [
-    "Prop the phone up so it stays completely still. A hand-held phone adds its own shake.",
-    "Rest your forearm on a table or your lap with your hand relaxed and in view, wrist included.",
-    "Use normal video mode (not slow-motion or time-lapse) in good light.",
-    "Keep your hand still and relaxed for at least 10 seconds.",
-  ],
-  writing_posture: [
-    "Prop the phone for a clear side view of your writing hand and wrist.",
-    "Hold the pen still for about two seconds with your index finger visible.",
-    "Then write the same short phrase once — keep the index finger in view.",
-    "Use normal video mode in good light; record at least six seconds total.",
-  ],
-};
+function captureGuide(task: TaskConfig): string[] {
+  const custom = task.guide_steps?.map((s) => s.trim()).filter(Boolean);
+  if (custom?.length) return custom;
+  return guideStepsForModule(task.module, task.media_type);
+}
 
 interface Outcome {
   accepted: boolean;
@@ -68,9 +36,6 @@ type Phase = "capture" | "analyzing" | "rejected" | "ready" | "submitting" | "do
 function supportsLiveCapture(module: string): boolean {
   return module === "finger_tapping" || module === "hand_tremor" || module === "writing_posture" || module.startsWith("gen_");
 }
-/** On-device CV (browser) — must match the task's condition module, never a PD fallback. */
-const ON_DEVICE_VIDEO = new Set(["finger_tapping", "hand_tremor"]);
-
 export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; dueNow: boolean; serverAnalysis: boolean }) {
   const [phase, setPhase] = useState<Phase>("capture");
   const [file, setFile] = useState<File | null>(null);
@@ -144,23 +109,19 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         up = { photo: a.upload };
       } else {
         if (!isMediaKind(f, "video")) throw new Error("Please choose a video.");
-        if (ON_DEVICE_VIDEO.has(task.module)) {
-          const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
-          r = a.result;
-          up = { poster: a.poster };
-        } else {
-          // writing_posture / generated modules: quality framing on-device with the same hand tracker,
-          // measurements come from the condition-specific CV service module (never a PD substitute).
-          setProgress({ fraction: 0.6, stage: `Preparing ${task.label} for ${task.module} analysis…` });
-          const a = await analyzeVideoFile(f, "hand_tremor", task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
-          r = {
-            ...a.result,
-            model_version: `${task.module}@pending`,
-            measurements: [],
-            features: {},
-          };
-          up = { poster: a.poster };
+        const measurementNames = task.measurements.map((m) => m.name);
+        if (!isOnDeviceVideoModule(task.module, measurementNames)) {
+          throw new Error(
+            `This check-in uses module ${task.module}, which needs the CV service (CV_SERVICE_URL). Writing-posture modules run on-device.`,
+          );
         }
+        const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
+        const allowed = new Set(measurementNames);
+        r =
+          allowed.size > 0
+            ? { ...a.result, measurements: a.result.measurements.filter((m) => allowed.has(m.name)) }
+            : a.result;
+        up = { poster: a.poster };
       }
       setResult(r);
       setUpload(up);
@@ -267,8 +228,8 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         <CardBody className="space-y-4">
           <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{task.instructions}</p>
           <ol className="space-y-2 text-sm text-slate-700">
-            {(GUIDE[task.module] ?? (task.module.startsWith("gen_") ? GUIDE.writing_posture : GUIDE[task.media_type])).map((g, i) => (
-              <li key={g} className="flex gap-2.5">
+            {captureGuide(task).map((g, i) => (
+              <li key={`${i}-${g}`} className="flex gap-2.5">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{i + 1}</span>
                 {g}
               </li>

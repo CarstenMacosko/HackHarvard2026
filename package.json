@@ -11,7 +11,7 @@
     "services/agent"
   ],
   "scripts": {
-    "dev": "npm run dev -w apps/web",
+    "dev": "node scripts/dev-start.mjs",
     "dev:refresh": "node scripts/dev-refresh.mjs",
     "build": "npm run build -w apps/web",
     "lint": "npm run lint -w apps/web",

@@ -22,6 +22,8 @@ function memoryResponse(req: Request, id: string, head: boolean): Response {
     "Accept-Ranges": "bytes",
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
+    // Allow MediaPipe WebGL (texImage2D) to sample frames from <video crossOrigin="anonymous">.
+    "Access-Control-Allow-Origin": "*",
   });
   const range = req.headers.get("range");
   let start = 0;
@@ -73,14 +75,30 @@ async function serve(req: Request, ctx: Context, head: boolean): Promise<Respons
   if (!storageClient()) return new Response("Storage is not configured", { status: 503 });
   try {
     const signedUrl = await signedUrlForStoragePath(parts.slice(1).join("/"), 600);
-    return new Response(null, {
-      status: 307,
-      headers: {
-        Location: signedUrl,
-        "Cache-Control": "private, no-store",
-        "Referrer-Policy": "no-referrer",
-      },
+    // Proxy bytes (don't 307) so browser MediaPipe can fetch same-origin without CORS on the bucket.
+    const upstream = await fetch(signedUrl, {
+      headers: req.headers.get("range") ? { Range: req.headers.get("range")! } : undefined,
     });
+    if (!upstream.ok && upstream.status !== 206) {
+      return new Response("Media could not be loaded", { status: 502 });
+    }
+    const headers = new Headers({
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Access-Control-Allow-Origin": "*",
+      "Accept-Ranges": "bytes",
+    });
+    const ct = upstream.headers.get("Content-Type");
+    if (ct) headers.set("Content-Type", ct);
+    const cr = upstream.headers.get("Content-Range");
+    if (cr) headers.set("Content-Range", cr);
+    const cl = upstream.headers.get("Content-Length");
+    if (cl) headers.set("Content-Length", cl);
+    if (head) {
+      upstream.body?.cancel();
+      return new Response(null, { status: upstream.status, headers });
+    }
+    return new Response(upstream.body, { status: upstream.status, headers });
   } catch {
     return new Response("Media could not be loaded", { status: 502 });
   }

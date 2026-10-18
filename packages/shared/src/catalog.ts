@@ -41,6 +41,52 @@ export function validationStatusFor(componentId: string, condition: string): Val
   return "reusable_needs_validation";
 }
 
+/** Default numbered capture steps for the participant check-in UI (overridable per study). */
+export const DEFAULT_GUIDE_STEPS: Record<string, string[]> = {
+  finger_tapping: [
+    "Prop the phone up so your whole hand and wrist are in view.",
+    "Use normal video mode (not slow-motion or time-lapse) in good light.",
+    "Tap your index finger and thumb together as fast and as wide as you can.",
+    "Keep tapping for at least 10 seconds.",
+  ],
+  hand_tremor: [
+    "Prop the phone up so it stays completely still. A hand-held phone adds its own shake.",
+    "Rest your forearm on a table or your lap with your hand relaxed and in view, wrist included.",
+    "Use normal video mode (not slow-motion or time-lapse) in good light.",
+    "Keep your hand still and relaxed for at least 10 seconds.",
+  ],
+  eczema_photo: [
+    "Stand near a window or under a bright light. Turn the flash off.",
+    "Hold the phone about a forearm's length (30 cm) away, straight on.",
+    "Fit the whole patch in the frame, with some normal skin around it.",
+    "Tap the screen to focus before taking the photo.",
+  ],
+  writing_posture: [
+    "Prop the phone for a clear side view of your writing hand and wrist.",
+    "Hold the pen still for about two seconds with your index finger visible.",
+    "Then write the same short phrase once — keep the index finger in view.",
+    "Use normal video mode in good light; record at least six seconds total.",
+  ],
+  photo: [
+    "Stand near a window or under a bright light. Turn the flash off.",
+    "Hold the phone about a forearm's length (30 cm) away, straight on.",
+    "Fit the whole patch in the frame, with some normal skin around it.",
+    "Tap the screen to focus before taking the photo.",
+  ],
+  video: [
+    "Prop the phone up so your whole hand and wrist are in view.",
+    "Use normal video mode (not slow-motion or time-lapse) in good light.",
+    "Follow the on-screen guidance for this study's task.",
+    "Keep the camera still until recording finishes.",
+  ],
+};
+
+export function guideStepsForModule(module: string, mediaType: "photo" | "video" = "video"): string[] {
+  if (DEFAULT_GUIDE_STEPS[module]) return [...DEFAULT_GUIDE_STEPS[module]];
+  if (module.startsWith("gen_")) return [...DEFAULT_GUIDE_STEPS.writing_posture];
+  return [...(DEFAULT_GUIDE_STEPS[mediaType] ?? DEFAULT_GUIDE_STEPS.video)];
+}
+
 export const FINGER_TAPPING_TASK: TaskConfig = {
   id: "pd_finger_tap_right",
   module: "finger_tapping",
@@ -49,6 +95,7 @@ export const FINGER_TAPPING_TASK: TaskConfig = {
   cadence: "weekly",
   instructions:
     "Time for your weekly finger-tapping check 👋 Prop your phone up so your whole right hand is in view, then tap your index finger and thumb together as fast and as wide as you can for 10 seconds. Send the video here.",
+  guide_steps: [...DEFAULT_GUIDE_STEPS.finger_tapping],
   quality_criteria: { blur: 20, exposure_min: 60, exposure_max: 220, hand_visible: 0.8, duration_s: 8, fps: 20 },
   report_questions: clinicalQuestionsForModule("finger_tapping"),
   measurements: [
@@ -67,6 +114,7 @@ export const TREMOR_TASK: TaskConfig = {
   cadence: "weekly",
   instructions:
     "Weekly tremor check 🤚 Prop your phone up so it can't move, rest your right forearm on a table with your hand relaxed and in view (wrist included), and keep it still for 15 seconds. Send the video here.",
+  guide_steps: [...DEFAULT_GUIDE_STEPS.hand_tremor],
   quality_criteria: { blur: 20, exposure_min: 60, exposure_max: 220, hand_visible: 0.8, duration_s: 8, fps: 24 },
   report_questions: clinicalQuestionsForModule("hand_tremor"),
   measurements: [
@@ -84,6 +132,7 @@ export const ECZEMA_TASK: TaskConfig = {
   cadence: "twice_weekly",
   instructions:
     "Skin check time 📸 Stand near a window (no flash), hold your phone about 30 cm (one forearm) from your left inner elbow, and take a straight-on photo with the whole patch in frame.",
+  guide_steps: [...DEFAULT_GUIDE_STEPS.eczema_photo],
   quality_criteria: { blur: 15, exposure_min: 70, exposure_max: 210, skin_coverage: 0.25 },
   report_questions: clinicalQuestionsForModule("eczema_photo"),
   measurements: [
@@ -100,6 +149,7 @@ export const WRITING_POSTURE_TASK: TaskConfig = {
   cadence: "weekly",
   instructions:
     "Writing check ✍️ Prop your phone for a clear side view of your writing hand. Hold the pen still for 2 seconds, then write the same short phrase once. Keep your index finger visible the whole time.",
+  guide_steps: [...DEFAULT_GUIDE_STEPS.writing_posture],
   quality_criteria: {
     blur: 20,
     exposure_min: 60,

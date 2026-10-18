@@ -20,12 +20,22 @@ import type {
 /**
  * Demo-mode store when Supabase env is not set.
  * Persisted under `.data/demo-state.json` so `npm run dev` keeps data across restarts.
- * `npm run dev:refresh` sets VF_DEMO_FRESH=1: this process starts empty and does not
+ * `npm run dev:refresh` writes `.data/VF_DEMO_FRESH`: this process starts empty and does not
  * overwrite the saved file, so the next plain `npm run dev` still has prior data.
  */
 
 function isFreshSession(): boolean {
-  return process.env.VF_DEMO_FRESH === "1" || process.env.VF_DEMO_FRESH === "true";
+  if (process.env.VF_DEMO_FRESH === "1" || process.env.VF_DEMO_FRESH === "true") return true;
+  try {
+    return existsSync(path.join(dataDir(), "VF_DEMO_FRESH"));
+  } catch {
+    return false;
+  }
+}
+
+/** Exported so backend() can force an empty demo store during refresh sessions. */
+export function demoFreshSession(): boolean {
+  return isFreshSession();
 }
 
 export interface DemoState {

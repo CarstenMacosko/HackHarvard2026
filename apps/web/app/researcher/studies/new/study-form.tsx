@@ -3,9 +3,11 @@
 import {
   DEFAULT_CONSENT,
   TASK_LIBRARY,
+  WRITING_POSTURE_TASK,
   clinicalFormForCondition,
   clinicalQuestionsForModule,
   defaultModuleForCondition,
+  guideStepsForModule,
   type Cadence,
   type ReportQuestion,
 } from "@vf/shared";
@@ -26,6 +28,7 @@ export type CreatedModuleOption = {
   id: string;
   label: string;
   condition: string;
+  description?: string;
   measurements: { name: string; label: string; unit: string }[];
 };
 
@@ -39,25 +42,37 @@ const CADENCES: { id: Cadence; label: string }[] = [
 
 const input = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm";
 
-type EvalRow = { module: string; cadence: Cadence; report_questions: ReportQuestion[] };
+type EvalRow = {
+  module: string;
+  cadence: Cadence;
+  report_questions: ReportQuestion[];
+  instructions: string;
+  guide_steps: string[];
+};
+
+function defaultsForModule(module: string, created: CreatedModuleOption[]): Pick<EvalRow, "instructions" | "guide_steps" | "cadence" | "report_questions"> {
+  const lib = TASK_LIBRARY[module];
+  const createdHit = created.find((m) => m.id === module);
+  const createdInstructions = createdHit?.description?.trim();
+  return {
+    cadence: lib?.cadence ?? "weekly",
+    report_questions: clinicalQuestionsForModule(module),
+    instructions:
+      lib?.instructions ??
+      (createdInstructions || (createdHit ? WRITING_POSTURE_TASK.instructions : "Follow the capture steps below, then send your recording.")),
+    guide_steps: lib?.guide_steps?.length ? [...lib.guide_steps] : guideStepsForModule(module, lib?.media_type ?? "video"),
+  };
+}
 
 function defaultEval(condition: Condition, created: CreatedModuleOption[]): EvalRow | null {
   if (condition === "focal_hand_dystonia") {
     const first = created[0];
     if (!first) return null;
-    return {
-      module: first.id,
-      cadence: "weekly",
-      report_questions: clinicalQuestionsForModule(first.id),
-    };
+    return { module: first.id, ...defaultsForModule(first.id, created) };
   }
   const module = defaultModuleForCondition(condition);
   if (!module) return null;
-  return {
-    module,
-    cadence: TASK_LIBRARY[module]?.cadence ?? "weekly",
-    report_questions: clinicalQuestionsForModule(module),
-  };
+  return { module, ...defaultsForModule(module, created) };
 }
 
 export function StudyForm({ createdModules = [] }: { createdModules?: CreatedModuleOption[] }) {
@@ -103,7 +118,13 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
             condition,
             consentTitle,
             consentBody,
-            evals: evals.map((ev) => ({ module: ev.module, cadence: ev.cadence, report_questions: ev.report_questions })),
+            evals: evals.map((ev) => ({
+              module: ev.module,
+              cadence: ev.cadence,
+              report_questions: ev.report_questions,
+              instructions: ev.instructions,
+              guide_steps: ev.guide_steps,
+            })),
             reminders: [],
           });
           if (!r.ok) return setError(r.error);
@@ -162,14 +183,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                 onClick={() => {
                   const next = availableEvals.find((e) => !taskModules.has(e.module));
                   if (next) {
-                    setEvals((xs) => [
-                      ...xs,
-                      {
-                        module: next.module,
-                        cadence: TASK_LIBRARY[next.module]?.cadence ?? "weekly",
-                        report_questions: clinicalQuestionsForModule(next.module),
-                      },
-                    ]);
+                    setEvals((xs) => [...xs, { module: next.module, ...defaultsForModule(next.module, createdModules) }]);
                   }
                 }}
               >
@@ -195,13 +209,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                     value={ev.module}
                     onChange={(e) => {
                       const module = e.target.value;
-                      setEvals((xs) =>
-                        xs.map((x, j) =>
-                          j === i
-                            ? { module, cadence: TASK_LIBRARY[module]?.cadence ?? x.cadence, report_questions: clinicalQuestionsForModule(module) }
-                            : x,
-                        ),
-                      );
+                      setEvals((xs) => xs.map((x, j) => (j === i ? { module, ...defaultsForModule(module, createdModules) } : x)));
                     }}
                   >
                     {availableEvals.map((opt) => (
@@ -220,6 +228,89 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                   <Button type="button" size="sm" variant="ghost" disabled={evals.length === 1} onClick={() => setEvals((xs) => xs.filter((_, j) => j !== i))}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
+                </div>
+                {createdModules.find((m) => m.id === ev.module)?.measurements?.length ? (
+                  <p className="text-xs text-slate-500">
+                    Measurements from module:{" "}
+                    {createdModules
+                      .find((m) => m.id === ev.module)!
+                      .measurements.map((m) => m.label)
+                      .join(" · ")}
+                  </p>
+                ) : null}
+
+                <div className="rounded-md border border-slate-200 bg-white p-3 space-y-3">
+                  <div>
+                    <div className="text-sm font-medium text-slate-900">Capture instructions</div>
+                    <p className="mb-2 text-xs text-slate-500">Shown to the participant before recording. Edit freely for this study.</p>
+                    <textarea
+                      className="min-h-[72px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                      value={ev.instructions}
+                      onChange={(e) => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, instructions: e.target.value } : x)))}
+                    />
+                  </div>
+                  <div>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-slate-900">Numbered capture steps</div>
+                        <p className="text-xs text-slate-500">The checklist on the check-in page (for example how to prop the phone and hold the pen).</p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setEvals((xs) =>
+                            xs.map((x, j) => (j === i ? { ...x, guide_steps: guideStepsForModule(x.module, TASK_LIBRARY[x.module]?.media_type ?? "video") } : x)),
+                          )
+                        }
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Reset steps
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {ev.guide_steps.map((step, si) => (
+                        <div key={si} className="flex gap-2">
+                          <span className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
+                            {si + 1}
+                          </span>
+                          <input
+                            className={input}
+                            value={step}
+                            onChange={(e) =>
+                              setEvals((xs) =>
+                                xs.map((x, j) =>
+                                  j === i
+                                    ? { ...x, guide_steps: x.guide_steps.map((s, k) => (k === si ? e.target.value : s)) }
+                                    : x,
+                                ),
+                              )
+                            }
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={ev.guide_steps.length <= 1}
+                            onClick={() =>
+                              setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, guide_steps: x.guide_steps.filter((_, k) => k !== si) } : x)))
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={ev.guide_steps.length >= 12}
+                        onClick={() => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, guide_steps: [...x.guide_steps, ""] } : x)))}
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add step
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="rounded-md border border-slate-200 bg-white p-3">

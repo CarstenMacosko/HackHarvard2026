@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { CvModel as CvModelSchema, Protocol, isOpen, type Observation, type RewardEvent, type SchedulePlan } from "@vf/shared";
-import { demoState, persistDemoState } from "./demo-data";
+import { demoFreshSession, demoState, persistDemoState } from "./demo-data";
 import type {
   AuditEntry,
   CaptureRecord,
@@ -587,6 +587,14 @@ function supabaseEnv(): { url: string; key: string } | null {
 let cached: Backend | undefined;
 export function backend(): Backend {
   if (cached) return cached;
+  // Refresh sessions always use an empty in-memory demo store (saved file + Supabase left alone).
+  if (demoFreshSession()) {
+    cached = demoBackend;
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[backend] mode=demo (VF_DEMO_FRESH — empty session; not writing .data/demo-state.json)");
+    }
+    return cached;
+  }
   const env = supabaseEnv();
   cached = env ? supabaseBackend(createClient(env.url, env.key, { auth: { persistSession: false } })) : demoBackend;
   if (process.env.NODE_ENV !== "production") {
@@ -597,6 +605,7 @@ export function backend(): Backend {
 
 /** Admin client for Storage (signed upload/download URLs); null in demo mode. */
 export function storageClient(): SupabaseClient | null {
+  if (demoFreshSession()) return null;
   const env = supabaseEnv();
   return env ? createClient(env.url, env.key, { auth: { persistSession: false } }) : null;
 }

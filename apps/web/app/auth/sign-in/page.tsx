@@ -13,7 +13,6 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           Visual Follow-Up
         </Link>
         <h1 className="mt-8 text-2xl font-semibold tracking-tight text-slate-900">Sign in</h1>
-        <p className="mt-2 text-sm text-slate-600">Sign in with your account. Researcher and participant sessions are separate — switching portals requires signing in again.</p>
         <div className="mt-8">
           <SignInForm defaultRole={sp.role === "researcher" ? "researcher" : "participant"} />
         </div>

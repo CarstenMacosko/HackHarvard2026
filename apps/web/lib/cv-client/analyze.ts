@@ -4,6 +4,7 @@ import {
   analyzeSkinPhoto,
   analyzeTapping,
   analyzeTremor,
+  analyzeWritingPosture,
   embeddingFeatures,
   HAND_CROP_MARGIN,
   HAND_CROP_SIDE,
@@ -17,8 +18,25 @@ import {
 } from "@vf/cv";
 import { loadHandLandmarker, loadImageEmbedder } from "./mediapipe";
 
-/** Video modules that run on-device; both work from the same hand track. */
-export type VideoModuleId = "finger_tapping" | "hand_tremor";
+/** Video modules that run on-device from the same hand track (gen_* uses writing-posture metrics). */
+export type VideoModuleId = "finger_tapping" | "hand_tremor" | "writing_posture" | (string & {});
+
+/** True when the browser can fully measure this module (not quality-only). */
+export function isOnDeviceVideoModule(module: string, measurementNames: string[] = []): boolean {
+  if (module === "finger_tapping" || module === "hand_tremor" || module === "writing_posture") return true;
+  // Approved FHD gen_* modules expose writing-posture measurement names; other gen_* still need the CV service.
+  if (module.startsWith("gen_")) {
+    return measurementNames.some((n) => n.includes("index_straight") || n.includes("pip_angle") || n.includes("writing"));
+  }
+  return false;
+}
+
+function analyzeHandTrack(module: string, track: PreparedHandTrack, criteria: Record<string, number>): ModuleResult {
+  if (module === "hand_tremor") return analyzeTremor(track, criteria);
+  if (module === "finger_tapping") return analyzeTapping(tappingFromTrack(track), criteria);
+  if (module === "writing_posture" || module.startsWith("gen_")) return analyzeWritingPosture(track, criteria, module);
+  throw new Error(`Unsupported on-device video module: ${module}`);
+}
 
 /**
  * On-device analysis: runs the same CV modules as services/cv (ported in @vf/cv) in the
@@ -226,7 +244,7 @@ export async function analyzeVideoFile(
       landmarks,
       detection_rate: detected / n,
     };
-    const result = module === "hand_tremor" ? analyzeTremor(track, criteria) : analyzeTapping(tappingFromTrack(track), criteria);
+    const result = analyzeHandTrack(module, track, criteria);
     await seek(video, start + Math.min(duration / 2, duration - 0.05));
     const p = fit(W, H, 960);
     const poster = canvas(p.w, p.h);

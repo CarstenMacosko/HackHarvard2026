@@ -18,14 +18,30 @@ const STEPS: { id: GenerationStep; label: string }[] = [
   { id: "approved", label: "Approved" },
 ];
 
+/** Measurements Daytona can validate today (writing-posture landmark tracks). */
+const MEASURABLE_OPTIONS = [
+  {
+    name: "index_straight_fraction",
+    label: "Index finger straight during writing",
+    unit: "fraction",
+    required: true,
+    hint: "Fraction of writing frames where the index PIP stays above the straightness threshold (required for track evaluation).",
+  },
+  {
+    name: "index_pip_angle_deg",
+    label: "Mean index PIP angle during writing",
+    unit: "degrees",
+    required: false,
+    hint: "Average index PIP joint angle while writing (degrees).",
+  },
+] as const;
+
 const DEMO_PRESET = {
   condition: "Focal hand dystonia",
+  moduleName: "Writing posture (focal hand dystonia)",
   description:
-    "With a fixed side-view camera, hold a pen for two seconds, then write the same short phrase. Measure index-finger straightening during writing from hand landmarks (index finger straight during writing; mean index PIP angle during writing).",
-  measurements: [
-    { name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" },
-    { name: "index_pip_angle_deg", label: "Mean index PIP angle during writing", unit: "degrees" },
-  ],
+    "With a fixed side-view camera, hold a pen for two seconds, then write the same short phrase. Measure index-finger straightening during writing from hand landmarks.",
+  selected: MEASURABLE_OPTIONS.map((m) => m.name) as string[],
   media_type: "video" as const,
 };
 
@@ -78,10 +94,12 @@ function Pipeline({ progress }: { progress: GenerationProgress }) {
 export function ModuleGenerator() {
   const router = useRouter();
   const [condition, setCondition] = useState(DEMO_PRESET.condition);
-  const [moduleName, setModuleName] = useState("Writing posture (focal hand dystonia)");
+  const [moduleName, setModuleName] = useState(DEMO_PRESET.moduleName);
   const [description, setDescription] = useState(DEMO_PRESET.description);
-  const [measurementLabel, setMeasurementLabel] = useState(DEMO_PRESET.measurements[0].label);
-  const [measurementUnit, setMeasurementUnit] = useState(DEMO_PRESET.measurements[0].unit);
+  const [selectedNames, setSelectedNames] = useState<string[]>([...DEMO_PRESET.selected]);
+  const [labels, setLabels] = useState<Record<string, string>>(() =>
+    Object.fromEntries(MEASURABLE_OPTIONS.map((m) => [m.name, m.label])),
+  );
   const [jobId, setJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -90,9 +108,31 @@ export function ModuleGenerator() {
   const [reviewing, startReview] = useTransition();
   const input = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm";
 
+  const selectedMeasurements = useMemo(
+    () =>
+      MEASURABLE_OPTIONS.filter((m) => selectedNames.includes(m.name)).map((m) => ({
+        name: m.name,
+        label: (labels[m.name] ?? m.label).trim() || m.label,
+        unit: m.unit,
+      })),
+    [selectedNames, labels],
+  );
+
+  function resetForm() {
+    setCondition(DEMO_PRESET.condition);
+    setModuleName(DEMO_PRESET.moduleName);
+    setDescription(DEMO_PRESET.description);
+    setSelectedNames([...DEMO_PRESET.selected]);
+    setLabels(Object.fromEntries(MEASURABLE_OPTIONS.map((m) => [m.name, m.label])));
+    setJobId(null);
+    setProgress(null);
+    setError(null);
+  }
+
   const poll = useCallback(async (id: string) => {
     const res = await fetch(`/api/droid/generate/${id}`, { cache: "no-store" });
     const body = await res.json();
+    if (res.status === 404) throw new Error("Job not found yet — retrying…");
     if (!res.ok) throw new Error(body.error ?? "Could not load job");
     setProgress(body.job.progress ?? null);
     setMeta({ daytona: body.daytona, droid: body.droid });
@@ -135,18 +175,19 @@ export function ModuleGenerator() {
   function startJob() {
     setError(null);
     setProgress(null);
+    if (!selectedMeasurements.some((m) => m.name === "index_straight_fraction")) {
+      setError("Select at least “Index finger straight during writing” — Daytona needs it to validate the track.");
+      return;
+    }
     start(async () => {
       const res = await fetch("/api/droid/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           condition,
-          name: moduleName.trim() || "Writing posture (focal hand dystonia)",
+          name: moduleName.trim() || DEMO_PRESET.moduleName,
           description,
-          measurements: [
-            { name: "index_straight_fraction", label: measurementLabel, unit: measurementUnit },
-            { name: "index_pip_angle_deg", label: "Mean index PIP angle during writing", unit: "degrees" },
-          ],
+          measurements: selectedMeasurements,
           media_type: "video",
         }),
       });
@@ -200,18 +241,62 @@ export function ModuleGenerator() {
           <label className="block text-sm font-medium text-slate-900">
             Assessment description
             <textarea className="mt-1 min-h-[140px] w-full rounded-md border border-slate-300 p-3 text-sm" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <span className="mt-1 block text-xs font-normal text-slate-500">Becomes the capture instructions when this module is added to a study.</span>
           </label>
-          <label className="block text-sm font-medium text-slate-900">Measurement label
-            <input className={cn(input, "mt-1")} value={measurementLabel} onChange={(e) => setMeasurementLabel(e.target.value)} />
-          </label>
-          <label className="block text-sm font-medium text-slate-900">Measurement unit
-            <input className={cn(input, "mt-1")} value={measurementUnit} onChange={(e) => setMeasurementUnit(e.target.value)} />
-          </label>
-          <p className="text-xs text-slate-600">Feature: <code>index_straight_fraction</code>. No videos or clinical labels are supplied. The default checks use clearly labeled synthetic landmark tracks.</p>
-          <Button className="w-full" disabled={pending} onClick={startJob}>
+          <div>
+            <div className="text-sm font-medium text-slate-900">Measurements to include</div>
+            <p className="mb-2 text-xs text-slate-500">
+              Pick what Droid should expose. Daytona validates that each selected metric can be computed from writing landmark tracks.
+            </p>
+            <div className="space-y-2">
+              {MEASURABLE_OPTIONS.map((m) => {
+                const on = selectedNames.includes(m.name);
+                return (
+                  <label key={m.name} className={cn("block rounded-md border p-3", on ? "border-slate-300 bg-white" : "border-slate-200 bg-slate-50")}>
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={on}
+                        disabled={m.required}
+                        onChange={(e) => {
+                          if (m.required) return;
+                          setSelectedNames((xs) => (e.target.checked ? [...xs, m.name] : xs.filter((n) => n !== m.name)));
+                        }}
+                      />
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="text-sm font-medium text-slate-900">
+                          {m.label}
+                          {m.required && <span className="ml-1 text-[11px] font-normal text-slate-400">(required)</span>}
+                        </div>
+                        <p className="text-xs text-slate-500">{m.hint}</p>
+                        {on && (
+                          <input
+                            className={input}
+                            value={labels[m.name] ?? m.label}
+                            onChange={(e) => setLabels((prev) => ({ ...prev, [m.name]: e.target.value }))}
+                            aria-label={`Display label for ${m.name}`}
+                          />
+                        )}
+                        <p className="font-mono text-[11px] text-slate-400">
+                          {m.name} · {m.unit}
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <Button className="w-full" disabled={pending || !!jobId} onClick={startJob}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {pending ? "Starting…" : "Generate with Droid + Daytona"}
           </Button>
+          {jobId && (
+            <Button type="button" variant="secondary" className="w-full" onClick={resetForm}>
+              Start another module
+            </Button>
+          )}
           {error && <p className="text-sm text-rose-600">{error}</p>}
           {meta && (
             <div className="flex flex-wrap gap-2 text-xs">
@@ -327,8 +412,11 @@ export function ModuleGenerator() {
                         <Link href="/researcher/studies/new" className="font-medium underline">
                           create a study
                         </Link>
-                        .
+                        . Measurements: {(progress.measurements ?? []).map((m) => m.label).join(", ") || "—"}.
                       </p>
+                      <Button type="button" size="sm" variant="secondary" onClick={resetForm}>
+                        Generate another module
+                      </Button>
                     </div>
                   )}
                   {progress.step === "failed" && (
