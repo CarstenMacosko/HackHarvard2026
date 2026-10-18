@@ -20,8 +20,6 @@ import type { Condition, Study } from "@/lib/types";
 export interface CreateStudyInput {
   name: string;
   condition: Condition;
-  consentTitle: string;
-  consentBody: string;
   evals: {
     module: string;
     cadence: Cadence;
@@ -41,7 +39,6 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
   const name = input.name.trim();
   if (name.length < 3) return { ok: false, error: "Give the study a name." };
   if (!input.evals.length) return { ok: false, error: "Choose at least one required evaluation." };
-  if (!input.consentBody.trim()) return { ok: false, error: "Consent form text is required." };
 
   const tasks: TaskConfig[] = [];
   for (const ev of input.evals) {
@@ -101,7 +98,7 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
     approved_by: by,
     tasks,
     rewards: DEFAULT_REWARDS,
-    consent: { title: input.consentTitle.trim() || DEFAULT_CONSENT.title, body: input.consentBody.trim() },
+    consent: DEFAULT_CONSENT,
     reminders,
   });
   const study: Study = { id, name, condition: input.condition, status: "active", protocol };

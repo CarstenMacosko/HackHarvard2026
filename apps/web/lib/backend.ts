@@ -557,6 +557,8 @@ function loadRootEnvOnce() {
       path.resolve(process.cwd(), ".env.local"),
       path.resolve(process.cwd(), "..", ".env.local"),
       path.resolve(process.cwd(), "../..", ".env.local"),
+      // When cwd is apps/web, also resolve from this file → repo root.
+      path.resolve(__dirname, "../../../.env.local"),
     ];
     for (const file of candidates) {
       if (!existsSync(file)) continue;
@@ -587,15 +589,16 @@ function supabaseEnv(): { url: string; key: string } | null {
 let cached: Backend | undefined;
 export function backend(): Backend {
   if (cached) return cached;
-  // Refresh sessions always use an empty in-memory demo store (saved file + Supabase left alone).
-  if (demoFreshSession()) {
+  const env = supabaseEnv();
+  // Prefer Supabase whenever keys are present. VF_DEMO_FRESH only forces empty in-memory
+  // when Supabase is not configured (so `dev:refresh` does not mute a live project).
+  if (!env && demoFreshSession()) {
     cached = demoBackend;
     if (process.env.NODE_ENV !== "production") {
       console.info("[backend] mode=demo (VF_DEMO_FRESH — empty session; not writing .data/demo-state.json)");
     }
     return cached;
   }
-  const env = supabaseEnv();
   cached = env ? supabaseBackend(createClient(env.url, env.key, { auth: { persistSession: false } })) : demoBackend;
   if (process.env.NODE_ENV !== "production") {
     console.info(`[backend] mode=${cached.mode}${env ? ` url=${env.url}` : ""}`);
@@ -605,7 +608,7 @@ export function backend(): Backend {
 
 /** Admin client for Storage (signed upload/download URLs); null in demo mode. */
 export function storageClient(): SupabaseClient | null {
-  if (demoFreshSession()) return null;
   const env = supabaseEnv();
-  return env ? createClient(env.url, env.key, { auth: { persistSession: false } }) : null;
+  if (!env) return null;
+  return createClient(env.url, env.key, { auth: { persistSession: false } });
 }
