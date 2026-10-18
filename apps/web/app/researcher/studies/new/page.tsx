@@ -19,6 +19,7 @@ export default async function NewStudyPage() {
           id: m.id,
           label: m.label,
           condition: m.condition,
+          description: m.description,
           measurements: m.measurements,
         }))}
       />

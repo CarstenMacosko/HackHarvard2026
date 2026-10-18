@@ -22,7 +22,13 @@ export interface CreateStudyInput {
   condition: Condition;
   consentTitle: string;
   consentBody: string;
-  evals: { module: string; cadence: Cadence; report_questions?: ReportQuestion[] }[];
+  evals: {
+    module: string;
+    cadence: Cadence;
+    report_questions?: ReportQuestion[];
+    instructions?: string;
+    guide_steps?: string[];
+  }[];
   reminders: { kind: ReminderConfig["kind"]; every_hours: number; message: string; task_module?: string }[];
 }
 
@@ -56,7 +62,14 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
       options: q.type === "choice" ? (q.options?.length ? q.options : ["Yes", "No"]) : undefined,
     }));
     if (questions.some((q) => !q.prompt)) return { ok: false, error: "Every clinical-form question needs a prompt." };
-    tasks.push({ ...base, cadence: ev.cadence, report_questions: questions });
+    const instructions = (ev.instructions ?? base.instructions).trim();
+    if (!instructions) return { ok: false, error: "Each evaluation needs capture instructions." };
+    const guide_steps = (ev.guide_steps ?? base.guide_steps ?? [])
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+    if (!guide_steps.length) return { ok: false, error: "Add at least one numbered capture step for each evaluation." };
+    tasks.push({ ...base, cadence: ev.cadence, report_questions: questions, instructions, guide_steps });
   }
 
   const reminders: ReminderConfig[] = input.reminders

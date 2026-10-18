@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AppShell, Brand, type NavSection } from "@/components/shell";
 import { currentResearcher } from "@/lib/auth";
 import { backend } from "@/lib/backend";
 import { navCounts } from "@/lib/queries";
-import { signOutAction, demoResearcherAction } from "../auth/actions";
+import { signOutAction } from "../auth/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -11,14 +12,16 @@ export default async function ResearcherLayout({ children }: { children: React.R
   const db = backend();
   const researcher = await currentResearcher();
   if (!researcher) {
+    // Local demo / `npm run dev:refresh`: skip the sign-in wall and enter as Demo clinician.
+    if (db.mode === "demo") {
+      redirect("/auth/demo-continue?next=/researcher");
+    }
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
         <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-xl font-semibold text-slate-900">Researcher sign-in required</h1>
           <p className="mt-2 text-sm text-slate-600">
-            {db.mode === "supabase"
-              ? "Sign in or create a study team account. Studies, participants and reviews are stored in your Supabase database."
-              : "Supabase is not configured, so this process uses an empty in-memory store. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for durable data."}
+            Sign in or create a study team account. Studies, participants and reviews are stored in your Supabase database.
           </p>
           <div className="mt-6 flex flex-col gap-2">
             <Link href="/auth/sign-in?role=researcher" className="inline-flex h-10 items-center justify-center rounded-md bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">
@@ -27,13 +30,6 @@ export default async function ResearcherLayout({ children }: { children: React.R
             <Link href="/auth/sign-up?role=researcher" className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-800 hover:bg-slate-50">
               Create researcher account
             </Link>
-            {db.mode === "demo" && (
-              <form action={demoResearcherAction}>
-                <button type="submit" className="w-full text-sm text-brand-700 hover:underline">
-                  Continue with empty local store
-                </button>
-              </form>
-            )}
           </div>
         </div>
       </main>
