@@ -1,6 +1,6 @@
 "use client";
 
-import { UploadCloud } from "lucide-react";
+import { CloudUpload } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { cn } from "./ui";
 
@@ -62,7 +62,7 @@ export function Dropzone({
         disabled && "cursor-not-allowed opacity-60",
       )}
     >
-      <UploadCloud className={cn("mb-2 text-slate-400", compact ? "h-6 w-6" : "h-8 w-8")} strokeWidth={1.5} />
+      <CloudUpload className={cn("mb-2 stroke-[1.5] text-slate-400", compact ? "h-6 w-6" : "h-8 w-8")} />
       <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{title}</div>
       {hint && <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</div>}
       <input

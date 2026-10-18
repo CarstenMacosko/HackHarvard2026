@@ -21,12 +21,12 @@ export function InviteButton({ studyId }: { studyId: string }) {
           title="Copy the invite code"
         >
           <code className="font-mono font-semibold">{code}</code>
-          <Copy className="h-3 w-3" />
+          <Copy className="h-3.5 w-3.5" />
           {copied ? "copied" : "copy code"}
         </button>
       )}
       <Button size="sm" disabled={pending} onClick={() => start(async () => { setCopied(false); setCode(await createInvite(studyId)); })}>
-        <UserPlus className="h-3.5 w-3.5" /> Invite participant
+        <UserPlus /> Invite participant
       </Button>
     </div>
   );

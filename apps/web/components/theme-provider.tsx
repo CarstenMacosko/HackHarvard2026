@@ -32,11 +32,11 @@ function readStored(): ThemePreference {
   } catch {
     /* ignore */
   }
-  return "system";
+  return "light";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [preference, setPreferenceState] = useState<ThemePreference>("system");
+  const [preference, setPreferenceState] = useState<ThemePreference>("light");
   const [resolved, setResolved] = useState<Resolved>("light");
 
   const resolve = useCallback((pref: ThemePreference): Resolved => {
@@ -47,8 +47,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     (pref: ThemePreference) => {
       setPreferenceState(pref);
       try {
-        if (pref === "system") sessionStorage.removeItem(STORAGE_KEY);
-        else sessionStorage.setItem(STORAGE_KEY, pref);
+        sessionStorage.setItem(STORAGE_KEY, pref);
       } catch {
         /* ignore */
       }

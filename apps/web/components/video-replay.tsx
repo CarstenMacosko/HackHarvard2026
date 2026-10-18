@@ -239,8 +239,8 @@ export function VideoReplay({
         <video ref={videoRef} src={startAt} controls playsInline className="h-full w-full object-contain" />
         {mode !== "raw" && <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />}
         {busy && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-sm text-white">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Computing landmarks…
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 text-sm text-white">
+            <Loader2 className="h-4 w-4 animate-spin" /> Computing landmarks…
           </div>
         )}
         {error && <div className="absolute bottom-2 left-2 right-2 rounded bg-rose-600/90 px-2 py-1 text-xs text-white">{error}</div>}

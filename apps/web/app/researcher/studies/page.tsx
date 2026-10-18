@@ -30,7 +30,7 @@ export default async function StudiesPage() {
             {studies.map((s) => (
               <Tr key={s.id}>
                 <Td>
-                  <Link href={`/researcher/studies/${s.id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100">
+                  <Link href={`/researcher/studies/${s.id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100 dark:hover:text-brand-300">
                     {s.name}
                   </Link>
                   <div className="text-xs text-slate-400">{s.id}</div>

@@ -14,7 +14,8 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
  * End-of-line name labels were removed — they stacked when many studies hit 100%.
  * Identify series via the legend above and the hover tooltip.
  */
-export const SERIES = ["#2a78d6", "#eb6834", "#0d9488", "#7c3aed", "#ca8a04", "#db2777", "#475569", "#0891b2"];
+export const SERIES = ["#bf4f3e", "#3a3633", "#4f7cac", "#c9952e", "#5f8f6b", "#8a6aa8", "#a6a39f", "#3f8f99"];
+export const CHART = { grid: "#e7e6e4", tick: "#75726e", muted: "#a6a39f" } as const;
 
 const shortWeek = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
@@ -31,7 +32,7 @@ export function AdherenceChart({ series }: { series: { name: string; weeks: { we
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600">
+      <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
         {series.map((s, k) => (
           <span key={s.name} className="flex items-center gap-1.5">
             <span className="inline-block h-0.5 w-4 rounded" style={{ background: seriesColor(k) }} />
@@ -42,13 +43,13 @@ export function AdherenceChart({ series }: { series: { name: string; weeks: { we
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -12 }}>
-            <CartesianGrid stroke="#e2e8f0" vertical={false} />
-            <XAxis dataKey="week" tickFormatter={shortWeek} tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} unit="%" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
+            <CartesianGrid stroke={CHART.grid} vertical={false} />
+            <XAxis dataKey="week" tickFormatter={shortWeek} tick={{ fontSize: 11, fill: CHART.tick }} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} unit="%" tick={{ fontSize: 11, fill: CHART.tick }} axisLine={false} tickLine={false} />
             <Tooltip
               labelFormatter={(w) => `Week ending ${shortWeek(String(w))}`}
               formatter={(v: number, key: string) => [`${v}%`, series[Number(key.slice(1))]?.name ?? key]}
-              contentStyle={{ fontSize: 12, borderRadius: 6, borderColor: "#e2e8f0" }}
+              contentStyle={{ fontSize: 12, borderRadius: 6, borderColor: CHART.grid }}
             />
             {series.map((s, k) => (
               <Line

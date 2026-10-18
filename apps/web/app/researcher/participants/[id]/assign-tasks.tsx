@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Button, Card, CardBody, CardHeader } from "@/components/ui";
+import { Button, Card, CardBody, CardHeader, cn, fieldClass } from "@/components/ui";
 import { assignParticipantTasks } from "./actions";
 
 export function AssignTasks({
@@ -46,7 +46,7 @@ export function AssignTasks({
                   <div className="font-mono text-xs text-slate-400">{t.module}</div>
                   {on && (
                     <textarea
-                      className="mt-2 min-h-[72px] w-full rounded-md border border-slate-300 p-2 text-sm"
+                      className={cn(fieldClass, "mt-2 min-h-[72px] w-full py-2")}
                       placeholder={t.instructions}
                       value={instructions[t.id] ?? ""}
                       onChange={(e) => setInstructions((m) => ({ ...m, [t.id]: e.target.value }))}

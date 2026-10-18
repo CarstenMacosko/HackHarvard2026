@@ -36,11 +36,11 @@ export function ThemeToggle({ className }: { className?: string }) {
             className={cn(
               "flex flex-1 items-center justify-center rounded px-1.5 py-1 transition-colors",
               active
-                ? "bg-white text-brand-700 shadow-sm dark:bg-white dark:text-black"
+                ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
                 : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
             )}
           >
-            <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+            <Icon className="h-3.5 w-3.5" />
           </button>
         );
       })}

@@ -15,10 +15,11 @@ import {
   LayoutDashboard,
   Menu,
   Settings,
-  Sparkles,
   Upload,
   UserPlus,
   Users,
+  WandSparkles,
+  Workflow,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -34,8 +35,8 @@ const ICONS = {
   submissions: Inbox,
   models: Boxes,
   train: BrainCircuit,
-  generate: FlaskConical,
-  builder: Sparkles,
+  generate: WandSparkles,
+  builder: Workflow,
   audit: FileClock,
   settings: Settings,
   home: Home,
@@ -77,7 +78,7 @@ export function AppShell({
   brand: ReactNode;
   sections: NavSection[];
   footer?: ReactNode;
-  /** Shown in the sticky mobile header (e.g. theme toggle when the drawer is hidden). */
+  /** Shown in the sticky mobile header. */
   headerActions?: ReactNode;
   children: ReactNode;
   /** phones get a bottom tab bar instead of the drawer (participant portal) */
@@ -103,13 +104,13 @@ export function AppShell({
                     href={item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
+                      "relative flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
                       active
-                        ? "bg-brand-50 font-medium text-slate-900 dark:bg-white dark:text-black"
+                        ? "bg-slate-100 font-medium text-brand-700 before:absolute before:inset-y-1 before:-left-3 before:w-1 before:rounded-r-full before:bg-brand-500 dark:bg-slate-800 dark:text-brand-300"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-slate-100",
                     )}
                   >
-                    <Icon className={cn("h-4 w-4 shrink-0", active ? "text-brand-600 dark:text-black" : "text-slate-400 dark:text-slate-500")} strokeWidth={1.75} />
+                    <Icon className={cn("h-4 w-4 shrink-0", active ? "text-brand-500 dark:text-brand-400" : "text-slate-400 dark:text-slate-500")} />
                     <span className="flex-1 truncate">{item.label}</span>
                     {item.badge ? (
                       <span className="tabular rounded bg-amber-100 px-1.5 text-xs font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
@@ -136,7 +137,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-[var(--surface)]">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/80 lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:block">
         {sidebar}
       </aside>
       {open && (
@@ -175,10 +176,10 @@ export function AppShell({
                       href={item.href}
                       className={cn(
                         "flex flex-col items-center gap-0.5 px-3 py-2 text-[11px] transition-colors",
-                        active ? "text-brand-700 dark:text-white" : "text-slate-500 dark:text-slate-400",
+                        active ? "text-brand-600 dark:text-brand-400" : "text-slate-500 dark:text-slate-400",
                       )}
                     >
-                      <Icon className="h-5 w-5" strokeWidth={1.75} />
+                      <Icon className="h-5 w-5" />
                       {item.label}
                     </Link>
                   </li>
@@ -198,11 +199,11 @@ export function BrandLogo({ className }: { className?: string }) {
   );
 }
 
-export function Brand({ suffix }: { suffix: string }) {
+export function Brand({ suffix }: { suffix?: string }) {
   return (
     <Link href="/" className="flex min-w-0 flex-col gap-0.5">
       <BrandLogo className="h-6 w-auto max-w-full" />
-      <span className="truncate text-[11px] text-slate-500 dark:text-slate-400">{suffix}</span>
+      {suffix && <span className="truncate text-[11px] text-slate-500 dark:text-slate-400">{suffix}</span>}
     </Link>
   );
 }

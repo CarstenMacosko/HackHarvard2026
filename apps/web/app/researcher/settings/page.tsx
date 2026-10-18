@@ -14,7 +14,7 @@ function Row({ state, title, detail, hint }: { state: State; title: string; deta
   const color = state === "ok" ? "text-emerald-600" : state === "error" ? "text-rose-600" : "text-slate-400";
   return (
     <div className="flex gap-3 border-b border-slate-100 px-5 py-4 last:border-0">
-      <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${color}`} strokeWidth={1.75} />
+      <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${color}`} />
       <div className="min-w-0">
         <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
           {title} <span className="ml-1 text-xs font-normal text-slate-500">{state === "ok" ? "connected" : state === "error" ? "error" : "not configured"}</span>

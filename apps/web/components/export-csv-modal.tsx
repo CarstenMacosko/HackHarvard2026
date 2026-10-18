@@ -2,7 +2,7 @@
 
 import { Download, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Button, cn } from "@/components/ui";
+import { Button, buttonClass, cn, fieldClass } from "@/components/ui";
 
 const OPTIONS = [
   { id: "accepted", label: "Accepted", hint: "Clinician-accepted results" },
@@ -68,13 +68,13 @@ export function ExportCsvModal({
         }}
         disabled={!studyId && !(studies?.length)}
       >
-        <Download className="h-4 w-4" /> {buttonLabel}
+        <Download /> {buttonLabel}
       </Button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="export-csv-title">
           <button type="button" className="absolute inset-0 bg-slate-900/40" aria-label="Close" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900/60">
+          <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-overlay ring-1 ring-slate-900/5 dark:bg-slate-900 dark:ring-white/10">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 id="export-csv-title" className="text-base font-semibold text-slate-900 dark:text-slate-100">
@@ -93,7 +93,7 @@ export function ExportCsvModal({
               <label className="mt-4 block text-sm font-medium text-slate-900 dark:text-slate-100">
                 Study
                 <select
-                  className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  className={cn(fieldClass, "mt-1.5 h-10 w-full")}
                   value={pickedStudy}
                   onChange={(e) => setPickedStudy(e.target.value)}
                 >
@@ -143,12 +143,9 @@ export function ExportCsvModal({
                   if (!canDownload) e.preventDefault();
                   else setOpen(false);
                 }}
-                className={cn(
-                  "inline-flex h-9 items-center gap-1.5 rounded-md px-3.5 text-sm font-medium text-white",
-                  canDownload ? "bg-brand-600 hover:bg-brand-700" : "cursor-not-allowed bg-slate-300",
-                )}
+                className={cn(buttonClass(), !canDownload && "pointer-events-none opacity-40")}
               >
-                <Download className="h-4 w-4" /> Download CSV
+                <Download /> Download CSV
               </a>
             </div>
           </div>

@@ -1,9 +1,9 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button, Card, CardBody, cn } from "@/components/ui";
+import { Button, Card, CardBody, cn, fieldClass } from "@/components/ui";
 import { enroll, lookupInvite, type LookupResult } from "./actions";
 
 const STEPS = ["Invite code", "Consent", "Done"] as const;
@@ -17,7 +17,7 @@ export function JoinFlow({ initialCode }: { initialCode: string }) {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const input = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100";
+  const input = cn(fieldClass, "h-10 w-full");
 
   return (
     <Card className="mx-auto max-w-2xl">
@@ -90,7 +90,7 @@ export function JoinFlow({ initialCode }: { initialCode: string }) {
         )}
         {step === 2 && (
           <div className="flex flex-col items-center py-4 text-center">
-            <CheckCircle2 className="h-10 w-10 text-emerald-600" strokeWidth={1.5} />
+            <CircleCheck className="h-10 w-10 stroke-[1.5] text-emerald-600" />
             <div className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">You&apos;re in</div>
             <p className="mt-1 max-w-sm text-sm text-slate-600 dark:text-slate-400">Open your dashboard to complete check-ins when they are due.</p>
             <Button

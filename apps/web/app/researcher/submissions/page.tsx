@@ -64,13 +64,13 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
                 <Tr key={s.id}>
                   <Td className="whitespace-nowrap text-slate-600 dark:text-slate-400">{dateTime(s.created_at)}</Td>
                   <Td>
-                    <Link href={`/researcher/participants/${s.participant_id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100">
+                    <Link href={`/researcher/participants/${s.participant_id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100 dark:hover:text-brand-300">
                       {s.participant_name}
                     </Link>
                   </Td>
                   <Td className="text-slate-600 dark:text-slate-400">{s.task_label}</Td>
                   <Td className="tabular">{s.attempt}</Td>
-                  <Td>{s.accepted ? <Badge tone="green">usable</Badge> : <Badge tone="amber">retry</Badge>}</Td>
+                  <Td>{s.accepted ? <Badge tone="green">Usable</Badge> : <Badge tone="amber">Retry requested</Badge>}</Td>
                   <Td>
                     <div className="flex flex-wrap gap-1">
                       {s.quality.checks

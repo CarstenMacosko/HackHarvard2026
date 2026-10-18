@@ -1,4 +1,5 @@
 import { pct } from "@/lib/format";
+import { cn } from "./ui";
 
 interface Funnel {
   attempts: number;
@@ -11,16 +12,16 @@ interface Funnel {
 }
 
 /** Horizontal bars, each labelled with its count and share of all attempts. */
-export function FunnelBars({ funnel: f }: { funnel: Funnel }) {
+export function FunnelBars({ funnel: f, className }: { funnel: Funnel; className?: string }) {
   const rows = [
-    { label: "All capture attempts", n: f.attempts, color: "#94a3b8" },
+    { label: "All capture attempts", n: f.attempts, color: "#a6a39f" },
     { label: "Usable on first try", n: f.firstTry, color: "#0f8a5f" },
-    { label: "Usable after a guided retry", n: f.afterRetry, color: "#2a78d6" },
+    { label: "Usable after a guided retry", n: f.afterRetry, color: "#4f7cac" },
     { label: "Unusable (retry requested)", n: f.unusable, color: "#c98500" },
   ];
   const max = Math.max(1, f.attempts);
   return (
-    <div className="space-y-3">
+    <div className={cn("flex flex-col gap-3", className)}>
       {rows.map((r) => (
         <div key={r.label}>
           <div className="mb-1 flex justify-between text-xs">
