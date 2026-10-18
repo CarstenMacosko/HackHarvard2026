@@ -1,7 +1,7 @@
 import { ArrowRight, CalendarClock, Flame, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { Badge, ButtonLink, Card, CardBody, CardHeader, EmptyState, PageHeader } from "@/components/ui";
-import { CHECK_LABEL, dateTime, relTime, shortDate } from "@/lib/format";
+import { CHECK_LABEL, dateTime, pct, relTime, shortDate } from "@/lib/format";
 import { participantHome } from "@/lib/queries";
 import { requireParticipant } from "@/lib/require-participant";
 
@@ -111,7 +111,7 @@ export default async function ParticipantHome() {
             <div className="grid grid-cols-2 divide-x divide-slate-100">
               {[
                 { icon: Flame, color: "text-orange-500", value: p.streak, label: "streak" },
-                { icon: ShieldCheck, color: "text-emerald-600", value: `${Math.round(p.completion_rate * 100)}%`, label: "completed" },
+                { icon: ShieldCheck, color: "text-emerald-600", value: pct(p.completion_rate), label: "completed" },
               ].map((s) => (
                 <div key={s.label} className="flex flex-col items-center px-2 py-4 text-center">
                   <s.icon className={`h-4 w-4 ${s.color}`} strokeWidth={1.75} />

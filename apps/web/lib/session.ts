@@ -4,13 +4,12 @@ import { currentResearcher, researcherDisplayName } from "./auth";
 
 export const PARTICIPANT_COOKIE = "vf_participant";
 
-/** Researcher display name for reviews / audit (signed-in researcher, else demo label). */
+/** Researcher display name for reviews / audit — always the signed-in researcher. */
 export async function researcherName(): Promise<string> {
-  return researcherDisplayName(await currentResearcher());
+  const user = await currentResearcher();
+  if (!user) throw new Error("UNAUTHORIZED_RESEARCHER");
+  return researcherDisplayName(user);
 }
-
-/** @deprecated prefer researcherName() — kept for call sites that need a sync string in client bundles */
-export const RESEARCHER_NAME = "Demo clinician";
 
 /** Participant id from the session cookie, or empty when unsigned (no silent demo default). */
 export async function currentParticipantId(): Promise<string> {

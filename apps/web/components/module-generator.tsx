@@ -214,11 +214,7 @@ export function ModuleGenerator() {
             <Card>
               <CardHeader
                 title="Generation pipeline"
-                description={
-                  progress.mode === "live"
-                    ? "Using your FACTORY_API_KEY and/or DAYTONA_API_KEY from .env.local"
-                    : "Demo mode — add FACTORY_API_KEY and DAYTONA_API_KEY to the repo-root .env.local, then restart npm run dev"
-                }
+                description={progress.mode === "live" ? "Live Droid + Daytona generation" : "Template mode (offline draft + local checks)"}
                 actions={progress.module_id ? <Badge>{progress.module_id}</Badge> : undefined}
               />
               <CardBody className="space-y-4">

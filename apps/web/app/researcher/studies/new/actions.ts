@@ -1,7 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { DEFAULT_CONSENT, DEFAULT_REWARDS, Protocol, TASK_LIBRARY, captureReminderFor, type Cadence, type ReminderConfig, type TaskConfig } from "@vf/shared";
+import {
+  DEFAULT_CONSENT,
+  DEFAULT_REWARDS,
+  Protocol,
+  TASK_LIBRARY,
+  captureReminderFor,
+  clinicalQuestionsForModule,
+  type Cadence,
+  type ReminderConfig,
+  type ReportQuestion,
+  type TaskConfig,
+} from "@vf/shared";
 import { backend } from "@/lib/backend";
 import { researcherName } from "@/lib/session";
 import type { Condition, Study } from "@/lib/types";
@@ -11,11 +22,16 @@ export interface CreateStudyInput {
   condition: Condition;
   consentTitle: string;
   consentBody: string;
-  evals: { module: string; cadence: Cadence }[];
+  evals: { module: string; cadence: Cadence; report_questions?: ReportQuestion[] }[];
   reminders: { kind: ReminderConfig["kind"]; every_hours: number; message: string; task_module?: string }[];
 }
 
 export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  try {
+    await researcherName();
+  } catch {
+    return { ok: false, error: "Sign in as a researcher to create a study." };
+  }
   const name = input.name.trim();
   if (name.length < 3) return { ok: false, error: "Give the study a name." };
   if (!input.evals.length) return { ok: false, error: "Choose at least one required evaluation." };
@@ -25,7 +41,14 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
   for (const ev of input.evals) {
     const base = TASK_LIBRARY[ev.module];
     if (!base) return { ok: false, error: `Unknown evaluation ${ev.module}` };
-    tasks.push({ ...structuredClone(base), cadence: ev.cadence });
+    const questions = (ev.report_questions?.length ? ev.report_questions : clinicalQuestionsForModule(ev.module)).map((q, i) => ({
+      key: q.key.trim() || `q_${i}`,
+      prompt: q.prompt.trim(),
+      type: q.type,
+      options: q.type === "choice" ? (q.options?.length ? q.options : ["Yes", "No"]) : undefined,
+    }));
+    if (questions.some((q) => !q.prompt)) return { ok: false, error: "Every clinical-form question needs a prompt." };
+    tasks.push({ ...structuredClone(base), cadence: ev.cadence, report_questions: questions });
   }
 
   const reminders: ReminderConfig[] = input.reminders

@@ -33,7 +33,7 @@ export function ParticipantTable({ rows, showStudy = false }: { rows: (Participa
             <Td>
               <Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge>
             </Td>
-            <Td className={`tabular text-right ${p.status === "active" && p.completion_rate < 0.75 ? "font-medium text-rose-600" : ""}`}>{p.status === "invited" ? "—" : pct(p.completion_rate)}</Td>
+            <Td className={`tabular text-right ${p.status === "active" && p.completion_rate != null && p.completion_rate < 0.75 ? "font-medium text-rose-600" : ""}`}>{p.status === "invited" ? "—" : pct(p.completion_rate)}</Td>
             <Td className="tabular text-right">{p.streak || "—"}</Td>
             <Td className="text-slate-600">{relTime(p.last_submission_at)}</Td>
             <Td>

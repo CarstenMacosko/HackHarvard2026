@@ -86,6 +86,17 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                     <SectionLabel>Instructions shown to the participant</SectionLabel>
                     <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{t.instructions}</p>
                   </div>
+                  <div>
+                    <SectionLabel>Clinical questionnaire (after capture)</SectionLabel>
+                    <ul className="list-disc space-y-0.5 pl-5 text-sm text-slate-700">
+                      {t.report_questions.map((q) => (
+                        <li key={q.key}>
+                          {q.prompt}{" "}
+                          {q.type === "choice" && q.options ? <span className="text-slate-400">({q.options.join(" / ")})</span> : q.type === "scale" ? <span className="text-slate-400">(0–10)</span> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                   <div className="grid gap-6 md:grid-cols-2">
                     <div>
                       <SectionLabel>Measurements</SectionLabel>
@@ -104,16 +115,6 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                       <SectionLabel>Quality gate</SectionLabel>
                       <KeyValues items={Object.entries(t.quality_criteria).map(([k, v]) => [CHECK_LABEL[k.replace(/_(min|max)$/, "")] ?? k, `${k.endsWith("_max") ? "≤" : "≥"} ${v}`])} />
                     </div>
-                  </div>
-                  <div>
-                    <SectionLabel>Patient-reported context</SectionLabel>
-                    <ul className="list-disc space-y-0.5 pl-5 text-sm text-slate-700">
-                      {t.report_questions.map((q) => (
-                        <li key={q.key}>
-                          {q.prompt} {q.options && <span className="text-slate-400">({q.options.join(" / ")})</span>}
-                        </li>
-                      ))}
-                    </ul>
                   </div>
                 </CardBody>
               </Card>

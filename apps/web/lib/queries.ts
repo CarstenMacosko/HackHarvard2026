@@ -9,9 +9,9 @@ import type { Participant, ParticipantSummary, ScheduledTask, Study, StudySummar
 
 const DAY = 86_400_000;
 
-function completion(tasks: ScheduledTask[]): number {
+function completion(tasks: ScheduledTask[]): number | null {
   const due = tasks.filter((t) => !isOpen(t));
-  return due.length ? due.filter((t) => t.status === "completed").length / due.length : 0;
+  return due.length ? due.filter((t) => t.status === "completed").length / due.length : null;
 }
 
 function summarize(p: Participant, study: Study | undefined, tasks: ScheduledTask[], obs: Observation[], rewards: RewardEvent[]): ParticipantSummary {
@@ -83,7 +83,7 @@ export async function listStudies(): Promise<StudySummary[]> {
       active: ps.filter((p) => p.status === "active").length,
       completion_rate: completion(tasks.filter((t) => ids.has(t.participant_id))),
       pending_reviews: so.filter((o) => o.review_status === "pending").length,
-      first_try_usable_rate: so.length ? so.filter((o) => Number(o.context.attempts ?? 1) === 1).length / so.length : 0,
+      first_try_usable_rate: so.length ? so.filter((o) => Number(o.context.attempts ?? 1) === 1).length / so.length : null,
     };
   });
 }
@@ -116,8 +116,11 @@ export async function overview() {
       active: participants.filter((p) => p.status === "active").length,
       enrolled: participants.filter((p) => p.status !== "invited").length,
       checkins7d: subs.filter((s) => s.accepted && now - new Date(s.created_at).getTime() < 7 * DAY).length,
-      completion30d: completion(tasks.filter((t) => last30(t.due_at))),
-      firstTry30d: recentObs.length ? recentObs.filter((o) => Number(o.context.attempts ?? 1) === 1).length / recentObs.length : 0,
+      completion30d: (() => {
+        const due = tasks.filter((t) => last30(t.due_at) && !isOpen(t));
+        return due.length ? due.filter((t) => t.status === "completed").length / due.length : null;
+      })(),
+      firstTry30d: recentObs.length ? recentObs.filter((o) => Number(o.context.attempts ?? 1) === 1).length / recentObs.length : null,
       pendingReviews: obs.filter((o) => o.review_status === "pending").length,
       escalations: summaries.reduce((s, p) => s + p.escalations, 0),
     },

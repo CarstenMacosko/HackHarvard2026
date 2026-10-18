@@ -1,10 +1,11 @@
 import { after } from "next/server";
 import { NextResponse } from "next/server";
+import { currentResearcher } from "@/lib/auth";
 import { DroidRequestInput } from "@/lib/droid";
 import { runModuleGeneration, startModuleGeneration } from "@/lib/generate-module";
 import { backend } from "@/lib/backend";
 import { liveIntegrationStatus } from "@/lib/live-keys";
-import { RESEARCHER_NAME } from "@/lib/session";
+import { researcherName } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -27,6 +28,7 @@ export async function GET() {
  * Results are written to droid_jobs.progress and cv_models — no GitHub Actions.
  */
 export async function POST(req: Request) {
+  if (!(await currentResearcher())) return NextResponse.json({ error: "Sign in as a researcher." }, { status: 401 });
   const parsed = DroidRequestInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
@@ -41,10 +43,11 @@ export async function POST(req: Request) {
     media_type: parsed.data.media_type,
     study_id: parsed.data.study_id ?? null,
   };
-  const job = await startModuleGeneration(input);
+  const actor = await researcherName();
+  const job = await startModuleGeneration(input, actor);
   const live = liveIntegrationStatus();
   await backend().insertAudit({
-    actor: RESEARCHER_NAME,
+    actor,
     action: "droid.module_requested",
     entity: "droid_job",
     entity_id: job.id,

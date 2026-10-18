@@ -6,7 +6,7 @@ import { AlertTriangle, Camera, CheckCircle2, Loader2, RotateCcw } from "lucide-
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Dropzone } from "@/components/dropzone";
-import { LiveCapture, liveCaptureSupported } from "@/components/live-capture";
+import { LiveCapture, liveCaptureSupported, type LiveCaptureModule } from "@/components/live-capture";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ProgressBar, SectionLabel, cn } from "@/components/ui";
 import { analyzePhotoFile, analyzeVideoFile, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { planVideoUpload, type UploadPlan } from "@/lib/cv-client/upload";
@@ -14,17 +14,29 @@ import { CHECK_LABEL } from "@/lib/format";
 import { isMediaKind } from "@/lib/media-kind";
 
 const GUIDE: Record<string, string[]> = {
+  eczema_photo: [
+    "Stand near a window or under a bright light. Turn the flash off.",
+    "Hold the phone about a forearm's length (30 cm) away, straight on.",
+    "Fit the whole patch in the frame, with some normal skin around it.",
+    "Tap the screen to focus before taking the photo.",
+  ],
   photo: [
     "Stand near a window or under a bright light. Turn the flash off.",
     "Hold the phone about a forearm's length (30 cm) away, straight on.",
     "Fit the whole patch in the frame, with some normal skin around it.",
     "Tap the screen to focus before taking the photo.",
   ],
-  video: [
+  finger_tapping: [
     "Prop the phone up so your whole hand and wrist are in view.",
     "Use normal video mode (not slow-motion or time-lapse) in good light.",
     "Tap your index finger and thumb together as fast and as wide as you can.",
     "Keep tapping for at least 10 seconds.",
+  ],
+  video: [
+    "Prop the phone up so your whole hand and wrist are in view.",
+    "Use normal video mode (not slow-motion or time-lapse) in good light.",
+    "Follow the on-screen guidance for this study's task.",
+    "Keep the camera still until recording finishes.",
   ],
   hand_tremor: [
     "Prop the phone up so it stays completely still. A hand-held phone adds its own shake.",
@@ -53,7 +65,9 @@ interface Outcome {
 type Phase = "capture" | "analyzing" | "rejected" | "ready" | "submitting" | "done";
 
 /** Modules with live camera coaching (components/live-capture.tsx). */
-const LIVE_MODULES = new Set(["finger_tapping"]);
+const LIVE_MODULES = new Set(["finger_tapping", "hand_tremor", "writing_posture"]);
+/** On-device CV (browser) — must match the task's condition module, never a PD fallback. */
+const ON_DEVICE_VIDEO = new Set(["finger_tapping", "hand_tremor"]);
 
 export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; dueNow: boolean; serverAnalysis: boolean }) {
   const [phase, setPhase] = useState<Phase>("capture");
@@ -128,18 +142,18 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         up = { photo: a.upload };
       } else {
         if (!isMediaKind(f, "video")) throw new Error("Please choose a video.");
-        const onDevice = task.module === "finger_tapping" || task.module === "hand_tremor";
-        if (onDevice) {
+        if (ON_DEVICE_VIDEO.has(task.module)) {
           const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
           r = a.result;
           up = { poster: a.poster };
         } else {
-          // writing_posture / generated modules: capture on-device, measure on the CV service
-          setProgress({ fraction: 0.6, stage: "Preparing your video…" });
-          const a = await analyzeVideoFile(f, "finger_tapping", task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
+          // writing_posture / generated modules: quality framing on-device with the same hand tracker,
+          // measurements come from the condition-specific CV service module (never a PD substitute).
+          setProgress({ fraction: 0.6, stage: `Preparing ${task.label} for ${task.module} analysis…` });
+          const a = await analyzeVideoFile(f, "hand_tremor", task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
           r = {
             ...a.result,
-            model_version: `${task.module}@0.1.0`,
+            model_version: `${task.module}@pending`,
             measurements: [],
             features: {},
           };
@@ -280,7 +294,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
           <CardHeader title={queue.length || sent.length ? `1 · Add your capture (${sent.length + 1} of ${sent.length + 1 + queue.length})` : "1 · Add your capture"} actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw className="h-3.5 w-3.5" /> Start over</Button> : undefined} />
           <CardBody>
             {!file && live ? (
-              <LiveCapture onCapture={(f, trim) => void onFile(f, trim)} onCancel={() => setLive(false)} />
+              <LiveCapture module={task.module as LiveCaptureModule} onCapture={(f, trim) => void onFile(f, trim)} onCancel={() => setLive(false)} />
             ) : !file ? (
               <div className="space-y-3">
                 <Dropzone
@@ -379,8 +393,9 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         </Card>
 
         <Card className={cn(!(phase === "ready" || phase === "submitting") && "opacity-50")}>
-          <CardHeader title="2 · A few quick questions" />
+          <CardHeader title="2 · Clinical questionnaire" description="Answer after a usable capture. These items come from your study's patient-reported form." />
           <CardBody className="space-y-5">
+            {task.report_questions.length === 0 && <p className="text-sm text-slate-500">No questionnaire for this task — you can send the capture as is.</p>}
             {task.report_questions.map((q) => (
               <fieldset key={q.key} disabled={!(phase === "ready")}>
                 <legend className="mb-2 text-sm font-medium text-slate-900">{q.prompt}</legend>

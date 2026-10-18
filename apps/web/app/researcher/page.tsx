@@ -20,7 +20,7 @@ export default async function OverviewPage() {
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Stat label="Active participants" value={k.active} hint={`${k.enrolled} enrolled`} />
         <Stat label="Check-ins, last 7 days" value={k.checkins7d} hint="usable submissions" />
-        <Stat label="Completion, 30 days" value={pct(k.completion30d)} hint="of due check-ins" tone={k.completion30d < 0.75 ? "warn" : "default"} />
+        <Stat label="Completion, 30 days" value={pct(k.completion30d)} hint="of due check-ins" tone={k.completion30d != null && k.completion30d < 0.75 ? "warn" : "default"} />
         <Stat label="Usable on first try" value={pct(k.firstTry30d)} hint="quality gate, 30 days" />
         <Stat label="Awaiting review" value={k.pendingReviews} hint="CV results" tone={k.pendingReviews > 10 ? "warn" : "default"} />
       </div>
