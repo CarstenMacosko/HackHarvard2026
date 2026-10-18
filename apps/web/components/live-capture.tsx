@@ -21,12 +21,11 @@ const LOST_MS = 1_500;
 const PRE_ROLL_S = 0.5;
 const VIDEO_BITRATE = 1_200_000;
 
-export type LiveCaptureModule = "finger_tapping" | "hand_tremor" | "writing_posture";
+export type LiveCaptureModule = string;
 
-const MODULE_UI: Record<
-  LiveCaptureModule,
-  { durationMs: number; readyHint: string; recordingLabel: string; steps: [string, string, string]; restartHint: string }
-> = {
+type LiveUi = { durationMs: number; readyHint: string; recordingLabel: string; steps: [string, string, string]; restartHint: string };
+
+const MODULE_UI: Record<string, LiveUi> = {
   finger_tapping: {
     durationMs: 10_000,
     readyHint: "Ready: start tapping your index finger and thumb",
@@ -49,6 +48,13 @@ const MODULE_UI: Record<
     restartHint: "Frame your hand again, then write.",
   },
 };
+
+/** Writing / generated FHD modules share the pen-hold coaching UI. */
+function liveUiFor(module: string): LiveUi {
+  if (MODULE_UI[module]) return MODULE_UI[module];
+  if (module.startsWith("gen_")) return MODULE_UI.writing_posture;
+  return MODULE_UI.hand_tremor;
+}
 
 const COLORS: Record<GuidanceLevel, string> = {
   good: "#10b981",
@@ -75,7 +81,7 @@ interface Segment {
   start: number;
 }
 
-function makeCoach(module: LiveCaptureModule, durationMs: number): TappingCoach | TimedCaptureCoach {
+function makeCoach(module: string, durationMs: number): TappingCoach | TimedCaptureCoach {
   return module === "finger_tapping" ? new TappingCoach(durationMs) : new TimedCaptureCoach(durationMs);
 }
 
@@ -92,7 +98,7 @@ export function LiveCapture({
   onCapture: (file: File, trimStartS: number) => void;
   onCancel: () => void;
 }) {
-  const ui = MODULE_UI[module];
+  const ui = liveUiFor(module);
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const [facing, setFacing] = useState<"user" | "environment">("user");

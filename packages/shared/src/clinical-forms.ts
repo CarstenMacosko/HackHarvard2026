@@ -161,14 +161,17 @@ export function clinicalFormForCondition(condition: string): ClinicalFormInstrum
 /** Default clinical form questions for a CV module (task library defaults). */
 export function clinicalQuestionsForModule(module: string): ReportQuestion[] {
   if (module === "eczema_photo") return structuredClone(AD_POEM_PRO.questions);
-  if (module === "writing_posture") return structuredClone(FHD_ADDS_PRO.questions);
+  if (module === "writing_posture" || module.startsWith("gen_")) return structuredClone(FHD_ADDS_PRO.questions);
   // finger_tapping, hand_tremor, and other motor video modules
   return structuredClone(PD_MOTOR_PRO.questions);
 }
 
-/** Suggested evaluation module for a study condition. */
+/**
+ * Suggested foundational evaluation module for a study condition.
+ * Focal hand dystonia uses a Created (generated) module — callers should pick from approved gen_* ids.
+ */
 export function defaultModuleForCondition(condition: string): string {
   if (condition === "eczema") return "eczema_photo";
-  if (condition === "focal_hand_dystonia") return "writing_posture";
+  if (condition === "focal_hand_dystonia") return "";
   return "finger_tapping";
 }

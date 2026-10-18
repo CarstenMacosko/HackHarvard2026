@@ -65,7 +65,9 @@ interface Outcome {
 type Phase = "capture" | "analyzing" | "rejected" | "ready" | "submitting" | "done";
 
 /** Modules with live camera coaching (components/live-capture.tsx). */
-const LIVE_MODULES = new Set(["finger_tapping", "hand_tremor", "writing_posture"]);
+function supportsLiveCapture(module: string): boolean {
+  return module === "finger_tapping" || module === "hand_tremor" || module === "writing_posture" || module.startsWith("gen_");
+}
 /** On-device CV (browser) — must match the task's condition module, never a PD fallback. */
 const ON_DEVICE_VIDEO = new Set(["finger_tapping", "hand_tremor"]);
 
@@ -88,7 +90,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
   const [live, setLive] = useState(false);
   const [canLive, setCanLive] = useState(false);
   useEffect(() => {
-    const ok = LIVE_MODULES.has(task.module) && liveCaptureSupported();
+    const ok = supportsLiveCapture(task.module) && liveCaptureSupported();
     setCanLive(ok);
     setLive(ok);
   }, [task.module]);
@@ -265,7 +267,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         <CardBody className="space-y-4">
           <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{task.instructions}</p>
           <ol className="space-y-2 text-sm text-slate-700">
-            {(GUIDE[task.module] ?? GUIDE[task.media_type]).map((g, i) => (
+            {(GUIDE[task.module] ?? (task.module.startsWith("gen_") ? GUIDE.writing_posture : GUIDE[task.media_type])).map((g, i) => (
               <li key={g} className="flex gap-2.5">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">{i + 1}</span>
                 {g}
