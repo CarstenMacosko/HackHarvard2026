@@ -77,12 +77,12 @@ export default async function ParticipantPage({ params }: { params: Promise<{ id
             <tbody>
               {[...submissions].reverse().map((s) => (
                 <Tr key={s.id}>
-                  <Td className="whitespace-nowrap text-slate-600">{dateTime(s.created_at)}</Td>
+                  <Td className="whitespace-nowrap text-slate-600 dark:text-slate-400">{dateTime(s.created_at)}</Td>
                   <Td className="tabular">{s.attempt}</Td>
                   <Td>{s.accepted ? <Badge tone="green">usable</Badge> : <Badge tone="amber">retry</Badge>}</Td>
-                  <Td className="text-slate-600">{s.quality.checks.filter((c) => !c.passed && !c.advisory).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ") || "—"}</Td>
-                  <Td className="text-slate-600">Web upload</Td>
-                  <Td className="text-slate-600">{s.analysis_runtime === "on-device" ? "On-device" : "CV service"}</Td>
+                  <Td className="text-slate-600 dark:text-slate-400">{s.quality.checks.filter((c) => !c.passed && !c.advisory).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ") || "—"}</Td>
+                  <Td className="text-slate-600 dark:text-slate-400">Web upload</Td>
+                  <Td className="text-slate-600 dark:text-slate-400">{s.analysis_runtime === "on-device" ? "On-device" : "CV service"}</Td>
                 </Tr>
               ))}
             </tbody>

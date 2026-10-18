@@ -26,22 +26,22 @@ export default async function ParticipantHome() {
       <PageHeader title={`Hi, ${p.display_name}`} description={study.name} />
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
-          <Card className={due.length ? "border-brand-200 bg-brand-50/50" : undefined}>
+          <Card className={due.length ? "border-brand-200 bg-brand-50/50 dark:border-brand-800 dark:bg-brand-900/30" : undefined}>
             <CardHeader title={due.length ? "Tests due now" : "Your tests"} description="Each test uses its own CV model and instructions." />
             {availableTasks.length === 0 ? (
               <EmptyState title="No tests assigned yet">Your study team will assign check-ins here.</EmptyState>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                 {availableTasks.map(({ task, dueNow, scheduled }) => (
                   <li key={task.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
                         <CalendarClock className="h-4 w-4 text-brand-600" strokeWidth={1.75} />
                         {task.label}
                         {dueNow && <Badge tone="amber">due</Badge>}
                       </div>
-                      <p className="mt-1 line-clamp-2 text-sm text-slate-600">{task.instructions}</p>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">{task.instructions}</p>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {scheduled ? (dueNow ? `Due ${relTime(scheduled.due_at)}` : `Next ${shortDate(scheduled.due_at)}`) : "Available"}
                         {" · "}
                         <span className="font-mono">{task.module}</span>
@@ -68,7 +68,7 @@ export default async function ParticipantHome() {
             {submissions.length === 0 ? (
               <EmptyState title="No check-ins yet">Complete your first check-in when it opens.</EmptyState>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                 {[...submissions]
                   .reverse()
                   .slice(0, 6)
@@ -77,8 +77,8 @@ export default async function ParticipantHome() {
                     return (
                       <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
                         <div>
-                          <div className="text-slate-900">{dateTime(s.created_at)}</div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-slate-900 dark:text-slate-100">{dateTime(s.created_at)}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
                             {s.accepted
                               ? "Usable capture"
                               : `Retake requested: ${s.quality.checks
@@ -108,21 +108,21 @@ export default async function ParticipantHome() {
 
         <div className="space-y-6">
           <Card>
-            <div className="grid grid-cols-2 divide-x divide-slate-100">
+            <div className="grid grid-cols-2 divide-x divide-slate-100 dark:divide-slate-800">
               {[
                 { icon: Flame, color: "text-orange-500", value: p.streak, label: "streak" },
                 { icon: ShieldCheck, color: "text-emerald-600", value: pct(p.completion_rate), label: "completed" },
               ].map((s) => (
                 <div key={s.label} className="flex flex-col items-center px-2 py-4 text-center">
                   <s.icon className={`h-4 w-4 ${s.color}`} strokeWidth={1.75} />
-                  <div className="tabular mt-1 text-xl font-semibold text-slate-900">{s.value}</div>
-                  <div className="text-xs text-slate-500">{s.label}</div>
+                  <div className="tabular mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{s.value}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{s.label}</div>
                 </div>
               ))}
             </div>
           </Card>
           <Card>
-            <CardBody className="text-sm text-slate-600">
+            <CardBody className="text-sm text-slate-600 dark:text-slate-400">
               Every check-in is checked automatically for quality, then reviewed by your study team.
             </CardBody>
           </Card>

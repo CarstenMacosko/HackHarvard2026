@@ -62,11 +62,11 @@ export default async function OverviewPage() {
               {o.studies.map((s) => (
                 <Tr key={s.id}>
                   <Td>
-                    <Link href={`/researcher/studies/${s.id}`} className="font-medium text-slate-900 hover:text-brand-700">
+                    <Link href={`/researcher/studies/${s.id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100">
                       {s.name}
                     </Link>
                   </Td>
-                  <Td className="text-slate-600">{conditionLabel(s.condition)}</Td>
+                  <Td className="text-slate-600 dark:text-slate-400">{conditionLabel(s.condition)}</Td>
                   <Td className="tabular text-right">
                     {s.active}/{s.participants}
                   </Td>
@@ -96,17 +96,17 @@ export default async function OverviewPage() {
               {o.recent.map((s) => (
                 <Tr key={s.id}>
                   <Td>
-                    <Link href={`/researcher/participants/${s.participant_id}`} className="font-medium text-slate-900 hover:text-brand-700">
+                    <Link href={`/researcher/participants/${s.participant_id}`} className="font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100">
                       {s.participant_name}
                     </Link>
                     <span className="ml-2 text-xs text-slate-400">{s.study_name}</span>
                   </Td>
                   <Td>{s.accepted ? <Badge tone="green">usable</Badge> : <Badge tone="amber">retry requested</Badge>}</Td>
-                  <Td className="text-slate-600">
+                  <Td className="text-slate-600 dark:text-slate-400">
                     {s.accepted ? "—" : s.quality.checks.filter((c) => !c.passed && !c.advisory).map((c) => CHECK_LABEL[c.name] ?? c.name).join(", ")}
                   </Td>
                   <Td className="tabular">{s.attempt}</Td>
-                  <Td className="text-slate-600">{s.source === "web" ? "Web upload" : "Upload"}</Td>
+                  <Td className="text-slate-600 dark:text-slate-400">{s.source === "web" ? "Web upload" : "Upload"}</Td>
                   <Td className="text-right text-slate-500">{relTime(s.created_at)}</Td>
                 </Tr>
               ))}

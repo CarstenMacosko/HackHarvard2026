@@ -163,7 +163,7 @@ export function DroidJobs({ initialJobs }: { initialJobs?: DroidJobsRow[] }) {
         }
       />
       {!data ? (
-        <CardBody className="flex items-center gap-2 text-sm text-slate-500">
+        <CardBody className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </CardBody>
       ) : data.jobs.length ? (
@@ -182,7 +182,7 @@ export function DroidJobs({ initialJobs }: { initialJobs?: DroidJobsRow[] }) {
               return (
                 <Tr key={j.id}>
                   <Td>
-                    <Link href="/researcher/generate" className="inline-flex items-center gap-1 font-medium text-slate-900 hover:underline">
+                    <Link href="/researcher/generate" className="inline-flex items-center gap-1 font-medium text-slate-900 hover:underline dark:text-slate-100">
                       {title} <ExternalLink className="h-3 w-3 text-slate-400" />
                     </Link>
                     <span className="text-slate-400"> · {j.request?.condition ?? "—"}</span>
@@ -194,12 +194,12 @@ export function DroidJobs({ initialJobs }: { initialJobs?: DroidJobsRow[] }) {
                   </Td>
                   <Td>
                     {j.progress?.module_id ? (
-                      <span className="font-mono text-xs text-brand-700">{j.progress.module_id}</span>
+                      <span className="font-mono text-xs text-brand-700 dark:text-brand-300">{j.progress.module_id}</span>
                     ) : (
                       <span className="text-slate-400">–</span>
                     )}
                   </Td>
-                  <Td className="tabular text-right text-xs text-slate-500">{new Date(j.created_at).toLocaleString()}</Td>
+                  <Td className="tabular text-right text-xs text-slate-500 dark:text-slate-400">{new Date(j.created_at).toLocaleString()}</Td>
                 </Tr>
               );
             })}
@@ -208,7 +208,7 @@ export function DroidJobs({ initialJobs }: { initialJobs?: DroidJobsRow[] }) {
       ) : (
         <EmptyState title="No Droid jobs yet">
           Open{" "}
-          <Link href="/researcher/generate" className="font-medium text-brand-700 hover:underline">
+          <Link href="/researcher/generate" className="font-medium text-brand-700 hover:underline dark:text-brand-300">
             Generate module
           </Link>{" "}
           or click <span className="font-medium">Generate with Droid</span> in the workflow builder.

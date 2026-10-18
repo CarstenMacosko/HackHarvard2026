@@ -47,7 +47,7 @@ const CADENCES: { id: Cadence; label: string }[] = [
   { id: "biweekly", label: "Every two weeks" },
 ];
 
-const input = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm";
+const input = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100";
 
 type EvalRow = {
   module: string;
@@ -177,11 +177,11 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
         <Card>
           <CardHeader title="Study" description="Created as active so you can enroll someone immediately." />
           <CardBody className="space-y-4">
-            <label className="block text-sm font-medium text-slate-900">
+            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
               Name
               <input className={cn(input, "mt-1")} value={name} onChange={(e) => setName(e.target.value)} placeholder="PD-FOLLOW: post-visit motor checks" required />
             </label>
-            <label className="block text-sm font-medium text-slate-900">
+            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
               Condition
               <select className={cn(input, "mt-1")} value={condition} onChange={(e) => setConditionAndDefaults(e.target.value as Condition)}>
                 {conditionOptions.map((o) => (
@@ -191,7 +191,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                 ))}
               </select>
             </label>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Conditions you type in Generate module appear here after you approve the module.
             </p>
           </CardBody>
@@ -230,7 +230,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
               </p>
             )}
             {evals.map((ev, i) => (
-              <div key={`${ev.module}-${i}`} className="space-y-3 rounded-md bg-slate-50 p-3">
+              <div key={`${ev.module}-${i}`} className="space-y-3 rounded-md bg-slate-50 p-3 dark:bg-slate-900">
                 <div className="flex flex-wrap items-center gap-2">
                   <select
                     className={cn(input, "max-w-xs")}
@@ -258,7 +258,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                   </Button>
                 </div>
                 {createdModules.find((m) => m.id === ev.module)?.measurements?.length ? (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Measurements from module:{" "}
                     {createdModules
                       .find((m) => m.id === ev.module)!
@@ -267,12 +267,12 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                   </p>
                 ) : null}
 
-                <div className="rounded-md border border-slate-200 bg-white p-3 space-y-3">
+                <div className="rounded-md border border-slate-200 bg-white p-3 space-y-3 dark:border-slate-700 dark:bg-slate-900/60">
                   <div>
-                    <div className="text-sm font-medium text-slate-900">Capture instructions</div>
-                    <p className="mb-2 text-xs text-slate-500">Shown to the participant before recording. Edit freely for this study.</p>
+                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100">Capture instructions</div>
+                    <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">Shown to the participant before recording. Edit freely for this study.</p>
                     <textarea
-                      className="min-h-[72px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                      className="min-h-[72px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                       value={ev.instructions}
                       onChange={(e) => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, instructions: e.target.value } : x)))}
                     />
@@ -280,8 +280,8 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                   <div>
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <div className="text-sm font-medium text-slate-900">Numbered capture steps</div>
-                        <p className="text-xs text-slate-500">The checklist on the check-in page (for example how to prop the phone and hold the pen).</p>
+                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">Numbered capture steps</div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">The checklist on the check-in page (for example how to prop the phone and hold the pen).</p>
                       </div>
                       <Button
                         type="button"
@@ -299,7 +299,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                     <div className="space-y-2">
                       {ev.guide_steps.map((step, si) => (
                         <div key={si} className="flex gap-2">
-                          <span className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
+                          <span className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                             {si + 1}
                           </span>
                           <input
@@ -341,11 +341,11 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                   </div>
                 </div>
 
-                <div className="rounded-md border border-slate-200 bg-white p-3">
+                <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/60">
                   <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <div className="text-sm font-medium text-slate-900">Post-capture clinical form</div>
-                      <p className="text-xs text-slate-500">
+                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100">Post-capture clinical form</div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         Default:{" "}
                         {
                           clinicalFormForCondition(
@@ -380,7 +380,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                   </div>
                   <div className="space-y-2">
                     {ev.report_questions.map((q, qi) => (
-                      <div key={`${q.key}-${qi}`} className="grid gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-[1fr_auto]">
+                      <div key={`${q.key}-${qi}`} className="grid gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-[1fr_auto] dark:bg-slate-900">
                         <input
                           className={input}
                           value={q.prompt}
