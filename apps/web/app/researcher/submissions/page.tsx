@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { FunnelBars } from "@/components/funnel";
-import { ScoreBadge } from "@/components/score";
 import { Badge, Card, CardBody, CardHeader, EmptyState, PageHeader, Table, Tabs, Td, Th, THead, Tr } from "@/components/ui";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
 import { listStudies, submissionsInbox } from "@/lib/queries";
@@ -51,7 +50,6 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
                   <Th>Task</Th>
                   <Th>Attempt</Th>
                   <Th>Result</Th>
-                  <Th>Score</Th>
                   <Th>Quality gate</Th>
                   <Th>Channel</Th>
                   <Th>Analysed</Th>
@@ -68,15 +66,6 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
                       <Td className="text-slate-600">{s.task_label}</Td>
                       <Td className="tabular">{s.attempt}</Td>
                       <Td>{s.accepted ? <Badge tone="green">usable</Badge> : s.escalated ? <Badge tone="red">escalated</Badge> : <Badge tone="amber">retry</Badge>}</Td>
-                      <Td>
-                        {s.observation_id ? (
-                          <Link href={`/researcher/review?id=${s.observation_id}`}>
-                            <ScoreBadge value={s.score} />
-                          </Link>
-                        ) : (
-                          <ScoreBadge value={null} />
-                        )}
-                      </Td>
                       <Td>
                         <div className="flex flex-wrap gap-1">
                           {s.quality.checks

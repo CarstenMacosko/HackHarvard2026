@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ObservationDetail } from "@/components/observation-detail";
 import { ReviewActions } from "@/components/review-actions";
-import { ScoreBadge, scoreOf } from "@/components/score";
 import { Badge, Card, CardBody, CardHeader, EmptyState, PageHeader, Tabs, cn } from "@/components/ui";
 import { relTime } from "@/lib/format";
 import { listStudies, reviewQueue } from "@/lib/queries";
@@ -42,7 +41,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
                   <Link href={href(o.id)} className={cn("block px-5 py-2.5 hover:bg-slate-50", o.id === selected.id && "bg-brand-50/70 hover:bg-brand-50")}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                        <ScoreBadge value={scoreOf(o)} /> {o.participant_name}
+                        {o.participant_name}
                       </span>
                       <span className="text-xs text-slate-400">{relTime(o.captured_at)}</span>
                     </div>

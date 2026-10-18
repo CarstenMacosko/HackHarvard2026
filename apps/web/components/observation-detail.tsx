@@ -1,6 +1,5 @@
 import type { Observation } from "@vf/shared";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
-import { ScoreCard } from "./score";
 import { Badge, KeyValues, REVIEW_TONE, SectionLabel, ValidationBadge } from "./ui";
 
 const trimmed = (url: string, start: unknown) => (typeof start === "number" && start > 0 ? `${url}#t=${start}` : url);
@@ -17,8 +16,6 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
         <span className="text-slate-600">{dateTime(o.captured_at)}</span>
         <span className="text-slate-400">· {o.task_label}</span>
       </div>
-
-      <ScoreCard o={o} />
 
       <div
         className={

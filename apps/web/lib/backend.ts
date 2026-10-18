@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { CvModel as CvModelSchema, Protocol, isOpen, withSeverityScore, type Observation, type RewardEvent, type SchedulePlan } from "@vf/shared";
+import { CvModel as CvModelSchema, Protocol, isOpen, type Observation, type RewardEvent, type SchedulePlan } from "@vf/shared";
 import { BUILTIN_MODELS, demoState } from "./demo-data";
 import type {
   AuditEntry,
@@ -83,6 +83,11 @@ export const MEDIA_BUCKET = "media";
 const byTime = <T extends { created_at: string }>(a: T, b: T) => a.created_at.localeCompare(b.created_at);
 const now = () => new Date().toISOString();
 const sameCode = (a: string, b: string) => a.trim().toUpperCase() === b.trim().toUpperCase();
+// Older observations may contain the retired heuristic score. Keep it out of reviews and exports.
+const withoutSeverityScore = (o: Observation): Observation => ({
+  ...o,
+  measurements: o.measurements.filter((m) => m.name !== "severity_score"),
+});
 
 const demoBackend: Backend = {
   mode: "demo",
@@ -101,7 +106,7 @@ const demoBackend: Backend = {
           (!f.id || o.id === f.id),
       )
       .sort((a, b) => a.captured_at.localeCompare(b.captured_at))
-      .map(withSeverityScore),
+      .map(withoutSeverityScore),
   submissions: async (f = {}) =>
     demoState()
       .submissions.filter((s) => (!f.participantId || s.participant_id === f.participantId) && (!f.studyId || s.study_id === f.studyId) && (!f.id || s.id === f.id))
@@ -264,7 +269,6 @@ function supabaseBackend(db: SupabaseClient): Backend {
       });
     },
     async observations(f = {}) {
-      // captures recorded before scoring existed are scored on read
       return (await all<Observation>(() => {
         let q = db.from("observations").select("*").order("captured_at").order("id");
         if (f.participantId) q = q.eq("participant_id", f.participantId);
@@ -272,7 +276,7 @@ function supabaseBackend(db: SupabaseClient): Backend {
         if (f.status) q = q.eq("review_status", f.status);
         if (f.id) q = q.eq("id", f.id);
         return q;
-      })).map(withSeverityScore);
+      })).map(withoutSeverityScore);
     },
     async submissions(f = {}) {
       return all<Submission>(() => {
