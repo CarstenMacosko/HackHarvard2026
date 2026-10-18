@@ -1,177 +1,166 @@
-# Visual Follow-Up Platform
+# StreamCare
 
 Remote, clinician-verified visual follow-up for longitudinal studies. Built at HackHarvard 2026.
 
-Participants complete short photo and video check-ins from home **by upload** in the participant portal. The messaging-agent conversation flow is implemented with a local dev adapter; the Photon adapter for live texting is still unfinished.
-- Modular computer vision checks each capture **on the participant's device** and gives specific retake instructions when it isn't usable.
-- Usable captures are measured, and every result is accepted, corrected or rejected by a clinician on a longitudinal timeline that traces each point back to its source media.
-- Researchers can **train and plug in their own measurement models** from labelled captures in the browser, or ask **Factory Droid + Daytona** to generate a new CV module. The result is saved to the model registry in the database for review and approval.
-- A simulated reward system is designed to encourage participation; its effect on retention has not been measured.
+Participants complete short photo and video check-ins from home. Modular computer vision scores each capture, and clinicians verify every result on a longitudinal timeline.
 
-The three built-in modules are:
-- **Parkinson's finger tapping** (video, MediaPipe hand landmarks);
-- **hand tremor** (video, a Welch spectrum of hand landmarks);
-- **skin photos** (CIELAB redness and affected area, plus a MobileNet image embedding).
+## How it works
 
-Five study models are trained and shipped:
-- eczema and psoriasis likelihood, and rough/flaky skin, from 6,500 dermatologist-labelled SCIN photos;
-- MDS-UPDRS-style tapping and rest-tremor scores, on synthetic data.
+```
+Participant portal          On-device CV                 Backend                      Researcher portal
+─────────────────          ───────────                 ───────                      ─────────────────
+Join with invite code  →   Quality gate (blur,     →   /api/submissions         →   Review queue
+Pick assigned test         light, framing)             (+ optional server           Accept / correct / reject
+Live or upload capture     Measure + features          CV re-analysis)              Timeline + export CSV
+Patient report form        Retake if unusable          Observation + audit          Studies / participants
+```
 
-- 🗺️ Team plan, division of labor and timeline: [`docs/HACKATHON_PLAN.md`](docs/HACKATHON_PLAN.md)
-- 🧠 Next steps toward a generalized CV model: [`docs/GENERALIZED_CV.md`](docs/GENERALIZED_CV.md)
-- 🚀 Deploying to Vercel: [`docs/DEPLOY.md`](docs/DEPLOY.md)
-- 🤖 Droid model generation (setup + flow): [`docs/DROID.md`](docs/DROID.md)
-- 🧪 Droid + Daytona live module generation: [`docs/MODULE_GENERATION.md`](docs/MODULE_GENERATION.md) · `/researcher/generate`
-- 🏋️ Training kit, datasets and model cards: [`training/README.md`](training/README.md), [`training/DATASETS.md`](training/DATASETS.md)
-- 🔬 Background research: [`idea research/`](idea%20research/)
+1. **Researcher** creates a study, invites participants, and assigns capture tasks (finger tapping, tremor, skin photo, clinical forms, or custom modules).
+2. **Participant** signs up with an invite code, records a check-in in the browser, and gets live quality feedback before anything is uploaded.
+3. **CV modules** run on-device first (`packages/cv`). If `CV_SERVICE_URL` is set, the server re-runs the reference module for an authoritative score.
+4. **Clinician** reviews each pending observation (media + measurements), then accepts, corrects, or rejects it. Reviewed data appears on the participant timeline and in CSV/JSON export.
 
-## Team guide and current scope
+### Built-in modules
 
-Start with the [documentation hub](docs/README.md) for the [feature inventory](docs/product/FEATURES.md), [project strengths and limitations](docs/product/ASSESSMENT.md), [frontend/backend map](docs/architecture/README.md), and [recommended delivery priorities](docs/delivery/ROADMAP.md).
+| Module | Media | What it measures |
+|---|---|---|
+| Parkinson's finger tapping | Video | Hand landmarks (MediaPipe), tap rate / amplitude |
+| Hand tremor | Video | Welch spectrum of hand landmarks |
+| Skin photos | Photo | CIELAB redness, affected area, MobileNet embedding |
 
-Current boundaries: identities use demo placeholders; hosted persistence and service integrations need verification; the Photon adapter is unfinished; model outputs remain experimental. The recommended demo focuses on one complete capture-to-review flow. See [demo scope and verification](docs/delivery/DEMO.md).
+Researchers can also **generate new modules** with Factory Droid + Daytona (`/researcher/generate`), or attach trained study models from the offline training kit.
 
-## What's in the app
+### Portals
 
-**Researcher portal** (`/researcher`), a full-width workspace with a sidebar:
-- **Overview:** KPIs, weekly completion per study, a quality-gate funnel, participants at risk, recent submissions.
-- **Studies:** per-study overview, participants (with invite links), protocol (capture instructions, quality gate, rewards, attached models), and **data export** (long-format CSV/JSON of reviewed results).
-- **Participants:** filterable list; each participant has a longitudinal timeline (click any point to see its media, quality checks, patient report and provenance) and their full capture-attempt history.
-- **Review queue:** split view with accept / correct / reject; it advances to the next item automatically.
-- **Submissions:** every attempt, usable or not, with what the quality gate caught.
-- **Model registry:**
-  - built-in modules with their on-device and server status;
-  - every trained model with its training data, label type, out-of-fold metrics and worst skin-type subgroup, plus a page per model with its model card;
-  - **Droid jobs**: in-process generation runs (progress + Daytona experiments) stored in the database.
-- **Generate module:** `/researcher/generate` — Droid drafts a writing-posture candidate. Daytona runs the shared index-angle feature on landmark tracks; the candidate stays in its job record for review.
-- **Offline training kit:** `training/vfcv` remains available for later clinician-labelled datasets. The researcher browser training page and registration API have been removed.
-- **Workflow builder:** drafts a protocol for a new condition from catalog components (Claude, with an offline fallback). Next to each measurement that needs a new model, **Generate with Droid** starts in-process generation.
-- **Audit log** and **System status.**
+| Path | Who | What |
+|---|---|---|
+| `/` | Anyone | Landing page |
+| `/auth/sign-in`, `/auth/sign-up` | Both | Email/password accounts (researcher or participant + invite code) |
+| `/researcher` | Study team | Studies, participants, review queue, submissions, CV modules, export, audit, system status |
+| `/participant` | Patients | Check-in, history, join flow |
 
-**Participant portal** (`/participant`), mobile-first with a desktop sidebar:
-- invite-code **join** flow with consent;
-- **check-in** with drag-and-drop or camera capture, on-device quality feedback, a guided retake and patient-report questions;
-- **live guided recording** for finger tapping (`components/live-capture.tsx`):
-  - the webcam view shows one instruction at a time while the participant sets up ("Too dark: turn on a light or face a window", "Move a little closer", "Show your whole hand to the camera, wrist included"), with the tracked hand drawn over the video;
-  - recording is rolling: set-up footage is discarded, the clip locks when tapping starts, and it stops by itself after 10 s;
-  - `trim_start_s` marks where the task begins, so the on-device analysis, the server re-analysis and the clinician's player all skip the set-up;
-  - guidance is about the capture only (light, framing, distance, steadiness), never about how to tap. The rules live in `packages/cv/src/live.ts`;
-- **history**;
-- **rewards** with tiers, badges and simulated redemption.
+Theme (system / light / dark) is available in both portals and is session-only.
 
 ## Repo layout
 
 ```
-apps/web/            Next.js app: researcher + participant portals, API routes, browser CV client (MediaPipe)
-packages/shared/     Shared contracts (zod): Observation, Submission, CvModel, Protocol; rewards engine; ridge models
-packages/cv/         On-device CV: TypeScript port of the modules (OpenCV-exact image math), parity-tested vs Python
-services/cv/         FastAPI CV service: CVModule registry, quality gates, finger-tapping + eczema modules (reference)
-services/agent/      Messaging agent: conversation state machine, Photon 2.0 + dev adapters, scheduler
-training/            Training kit: study specs → trained, evaluated models with model cards (SCIN, synthetic, any folder)
-supabase/            Postgres schema (RLS) + migrations + synthetic seed
-adroit/              Princeton Adroit: dataset download + Slurm training jobs
-.github/             CI
-docs/                Plan, deploy guide, Droid+Daytona generation, generalized-CV roadmap
+apps/web/          Next.js app — both portals, API routes, browser CV client
+packages/shared/   Shared Zod contracts, protocols, rewards helpers, ridge models
+packages/cv/       On-device CV (TypeScript), parity-tested against Python
+services/cv/       FastAPI reference CV service (optional locally)
+services/agent/    Messaging agent (dev adapter; Photon path optional)
+training/          Offline training kit → model cards + web bundle
+supabase/          Postgres schema, migrations, seed
+docs/              Deploy, Droid, architecture, product notes
 ```
 
-## How a capture flows
+## Prerequisites
 
-```
-participant ──► browser: @vf/cv module (quality gate → measure → features)  ──► unusable: retake instructions, attempt logged
-                         │ usable
-                         ▼
-               /api/submissions ──► (CV_SERVICE_URL set? re-run reference module on the server: authoritative)
-                         │
-                         ▼
-          ingest: submission + pending observation + custom-model measurements + reward points + audit
-                         │
-                         ▼
-          researcher review queue ──► accepted/corrected results ──► timeline + export
-```
+- **Node.js 20+**
+- **npm** (workspaces)
+- Optional: **Python 3.12** (CV service / training), **Supabase** project (durable data)
 
-The messaging agent follows the same path: services/cv analyses the media, and `/api/cv-callback` performs the ingest.
-
-## Quick start (local)
-
-Prerequisites: Node 20+ and Python 3.12. MediaPipe 1.x needs `libegl1` and `libgles2` on Linux. Supabase CLI is optional.
+## Quick start
 
 ```bash
-cp .env.example .env.local        # everything works with the blanks; fill in as services come online
-npm install                       # installs all JS workspaces
+# 1. Clone and install
+git clone <repo-url>
+cd HackHarvard2026
+cp .env.example .env.local
+npm install
 
-# 1. Web app: runs on built-in synthetic data until Supabase env vars are set
-npm run dev                       # http://localhost:3000 (fetches the MediaPipe model into public/ first)
+# 2. Run the web app
+npm run dev
+# → http://localhost:3000
+```
 
-# 2. CV service (optional: uploads are analysed on-device without it)
+With empty Supabase vars, the app runs on **in-memory / demo data** (fine for local UI work; data does not survive serverless restarts).
+
+### Useful scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start Next.js (fetches MediaPipe assets first) |
+| `npm run dev:refresh` | Fresh demo session (clears saved demo state) |
+| `npm run build` | Production build of `apps/web` |
+| `npm test` | Workspace tests (shared, cv, agent, …) |
+| `npm run typecheck` | TypeScript across workspaces |
+
+### Demo paths
+
+- Researcher: sign in / create account with role **researcher**, or follow the demo continue link when running without auth.
+- Participant invite codes (seed / demo): try codes from your Supabase seed or the demo studies shown in the researcher UI.
+- Direct participant view (demo mode): `/participant/view-as?id=…` when using in-memory data.
+
+## Environment variables
+
+Copy `.env.example` → `.env.local` at the **repo root**. Symlink or copy into `apps/web/.env.local` if Next does not pick up the root file automatically.
+
+| Variable | Needed for |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Durable DB + storage |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser uploads via signed URLs |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server writes (secret — never expose client-side) |
+| `CV_SERVICE_URL` | Server-side CV re-analysis |
+| `FACTORY_API_KEY` / `DAYTONA_API_KEY` | Live module generation on `/researcher/generate` |
+| `ANTHROPIC_API_KEY` | Optional LLM assists (offline fallback without it) |
+| `CV_CALLBACK_SECRET` | Agent → web callbacks |
+
+See [`.env.example`](.env.example) for the full list.
+
+## Optional: Supabase
+
+For durable studies, participants, and media:
+
+1. Create a Supabase project.
+2. Run [`supabase/setup.sql`](supabase/setup.sql) in the SQL editor (or `supabase db push` with the CLI).
+3. Optionally load [`supabase/seed.sql`](supabase/seed.sql).
+4. Set the three Supabase env vars above.
+5. Create a private Storage bucket named `media` if setup did not already.
+
+Details: [`docs/DATABASE.md`](docs/DATABASE.md).
+
+## Optional: CV service
+
+Uploads already run CV **in the browser**. The Python service is the reference re-analysis path for production.
+
+```bash
 cd services/cv
-python3.12 -m venv .venv && . .venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt -r requirements-mediapipe.txt
-pytest                            # quality gates, kinematics, eczema metrics, parity fixtures, real-video tests
-uvicorn app.main:app --reload     # http://localhost:8000/docs  → then set CV_SERVICE_URL=http://localhost:8000
+uvicorn app.main:app --reload   # http://localhost:8000/docs
+```
 
-# 3. Messaging agent: a local chat in your terminal plays the patient
+Then set `CV_SERVICE_URL=http://localhost:8000` in `.env.local`.
+
+## Optional: messaging agent
+
+```bash
 cd services/agent
 MOCK_CV=1 WEB_URL=http://localhost:3000 npm run dev
-#   you> /due                     (agent sends the finger-tapping prompt)
-#   you> /video dark.mp4          (mock CV fails it → retry instructions, attempt logged in the web app)
-#   you> /video good.mp4          (accepted → report questions → points from the web app's ledger)
 ```
-
-Demo shortcuts: `/participant/view-as?id=p_001` (Parkinson's tapping, video), `?id=p_201` (rest tremor, video) and `?id=p_101` (eczema, photo). Invite codes `PD-006J`, `TR-204J` and `AD-106J` are unused, so you can test joining.
-
-### Training kit (study models)
-
-```bash
-pip install -r training/requirements.txt          # CV service deps + MediaPipe + PyYAML
-cd training
-python -m vfcv.run studies/* --check              # validate every study spec
-python -m vfcv.run studies/tremor_updrs_synthetic # train one (writes model.json + model_card.md, refreshes the web bundle)
-python -m pytest -q
-```
-
-### Supabase
-
-The table design, storage layout and full DDL are in [`docs/DATABASE.md`](docs/DATABASE.md). The web app and the messaging agent both persist there; the CV service stays stateless.
-
-```bash
-# fresh project: paste supabase/setup.sql into the SQL editor, or with the CLI:
-supabase link --project-ref <ref>
-supabase db push                                             # supabase/migrations 0001–0004
-psql "$DATABASE_URL" -f supabase/seed.sql                    # studies, protocols, empty test accounts, open check-ins
-psql "$DATABASE_URL" -f supabase/cleanup_synthetic.sql       # only for projects that still hold the old synthetic history
-supabase/test/run.sh                                         # database tests on a throwaway local Postgres
-```
-
-Then set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` for the web app, and the URL plus the service role key for the agent. Media goes to the private `media` bucket under `studies/<study>/<participant>/`; large videos upload directly to storage through signed URLs.
 
 ## Deploy
 
-| Piece | Command / host |
+| Piece | Where |
 |---|---|
-| Web | **Vercel**, root directory `apps/web`. Step-by-step: [`docs/DEPLOY.md`](docs/DEPLOY.md) |
-| CV | `cd services/cv && modal deploy modal_app.py` (or the Dockerfile on Railway); set `CV_SERVICE_URL` on web + agent |
-| Agent | **Railway** service from `services/agent`, start command `npm start`, `AGENT_CHANNEL=photon`, `WEB_URL=<vercel url>` |
+| Web | **Vercel**, root directory `apps/web` — see [`docs/DEPLOY.md`](docs/DEPLOY.md) |
+| CV | Modal (`modal deploy modal_app.py`) or Docker; set `CV_SERVICE_URL` on Vercel |
+| Agent | Railway / similar; point `WEB_URL` at the Vercel URL |
 
-## Tests
+## Further reading
 
-```bash
-npm test                          # rewards + ridge models + bundled models (shared), on-device CV parity (cv), agent
-cd services/cv && pytest          # Python modules, API, real MediaPipe on synthesized tapping and tremor videos, fixture freshness
-cd training && pytest             # ridge parity with TypeScript, specs, dataset parsers, Droid request + gate
-```
-
-The on-device port in `packages/cv` reproduces OpenCV's integer colour conversions, bit-exact Gaussian blur, software cube root, and SciPy's Savitzky–Golay filter and peak finding. `packages/cv/test/parity.test.ts` checks every quality value, measurement and feature against fixtures exported by the Python modules, and the Python suite fails if those fixtures go stale.
-
-## Adding a new condition module
-
-1. Add a `CVModule` subclass in `services/cv/app/modules/` (see `base.py`) that implements `prepare`, `quality_checks` and `measure` (returning measurements and a feature vector). Decorate it with `@register` and import it in `registry.py`.
-2. If it should run on-device, port it to `packages/cv/src/`, add cases to `app/parity.py`, and run `python scripts/export_parity_fixtures.py`.
-3. Add a `TaskConfig` (instructions, quality criteria, report questions, measurements) to the study protocol, and add any reusable components to `packages/shared/src/catalog.ts` so the workflow builder can propose them.
-4. For a future labelled study, write a study spec for the offline training kit.
-5. For the writing-posture demo, **Generate module** / **Workflow builder → Generate with Droid** drafts a candidate and checks shared feature behavior in Daytona ([`docs/MODULE_GENERATION.md`](docs/MODULE_GENERATION.md)).
+| Doc | Topic |
+|---|---|
+| [`docs/README.md`](docs/README.md) | Documentation hub |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Vercel deploy |
+| [`docs/DROID.md`](docs/DROID.md) | Droid setup |
+| [`docs/MODULE_GENERATION.md`](docs/MODULE_GENERATION.md) | Generate module flow |
+| [`docs/DATABASE.md`](docs/DATABASE.md) | Schema and storage |
+| [`training/README.md`](training/README.md) | Offline training kit |
 
 ## Disclaimer
 
-This is a hackathon prototype. Measurements are **not clinically validated**, and every result carries its validation status. All demo data is synthetic or comes from consenting team members. It is not for use with real patients without the consent, security and validation work described in the PRD (§7).
+Hackathon prototype. Measurements are **not clinically validated**. Demo data is synthetic or from consenting team members. Not for use with real patients without proper consent, security, and validation work.
 
 MIT licensed.
