@@ -152,9 +152,10 @@ export const CLINICAL_FORMS: ClinicalFormInstrument[] = [PD_MOTOR_PRO, AD_POEM_P
 
 /** Default clinical form for a study condition. */
 export function clinicalFormForCondition(condition: string): ClinicalFormInstrument {
-  if (condition === "eczema") return AD_POEM_PRO;
-  if (condition === "focal_hand_dystonia") return FHD_ADDS_PRO;
-  if (condition === "parkinsons") return PD_MOTOR_PRO;
+  const key = condition.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  if (condition === "eczema" || key === "eczema" || key.includes("dermatitis")) return AD_POEM_PRO;
+  if (condition === "focal_hand_dystonia" || key.includes("dystonia") || key.includes("writer")) return FHD_ADDS_PRO;
+  if (condition === "parkinsons" || key.includes("parkinson")) return PD_MOTOR_PRO;
   return PD_MOTOR_PRO;
 }
 
@@ -171,7 +172,11 @@ export function clinicalQuestionsForModule(module: string): ReportQuestion[] {
  * Focal hand dystonia uses a Created (generated) module — callers should pick from approved gen_* ids.
  */
 export function defaultModuleForCondition(condition: string): string {
-  if (condition === "eczema") return "eczema_photo";
-  if (condition === "focal_hand_dystonia") return "";
-  return "finger_tapping";
+  const key = condition.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  if (condition === "eczema" || key.includes("dermatitis")) return "eczema_photo";
+  if (condition === "focal_hand_dystonia" || key.includes("dystonia") || key.includes("writer")) return "";
+  if (condition === "other") return "finger_tapping";
+  if (condition === "parkinsons" || key.includes("parkinson")) return "finger_tapping";
+  // Custom conditions from Generate — caller should pick a created gen_* module.
+  return "";
 }

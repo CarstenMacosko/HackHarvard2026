@@ -16,19 +16,21 @@ import {
   type ModuleResult,
   type PreparedHandTrack,
 } from "@vf/cv";
-import { loadHandLandmarker, loadImageEmbedder } from "./mediapipe";
+import { allocVideoTimestamps, loadHandLandmarker, loadImageEmbedder } from "./mediapipe";
 
 /** Video modules that run on-device from the same hand track (gen_* uses writing-posture metrics). */
 export type VideoModuleId = "finger_tapping" | "hand_tremor" | "writing_posture" | (string & {});
 
 /** True when the browser can fully measure this module (not quality-only). */
-export function isOnDeviceVideoModule(module: string, measurementNames: string[] = []): boolean {
-  if (module === "finger_tapping" || module === "hand_tremor" || module === "writing_posture") return true;
-  // Approved FHD gen_* modules expose writing-posture measurement names; other gen_* still need the CV service.
-  if (module.startsWith("gen_")) {
-    return measurementNames.some((n) => n.includes("index_straight") || n.includes("pip_angle") || n.includes("writing"));
-  }
-  return false;
+export function isOnDeviceVideoModule(module: string, _measurementNames: string[] = []): boolean {
+  // Every approved gen_* module uses the on-device hand-landmark pipeline; custom
+  // measurement names are mapped from writing-posture features at check-in time.
+  return (
+    module === "finger_tapping" ||
+    module === "hand_tremor" ||
+    module === "writing_posture" ||
+    module.startsWith("gen_")
+  );
 }
 
 function analyzeHandTrack(module: string, track: PreparedHandTrack, criteria: Record<string, number>): ModuleResult {
@@ -47,9 +49,6 @@ export const ANALYSIS_MAX_SIDE = 1024; // matches services/cv load_photo()
 const UPLOAD_MAX_SIDE = 1600;
 const VIDEO_SAMPLE_FPS = 30;
 const VIDEO_MAX_SECONDS = 30;
-// The landmarker is shared for the whole page, and VIDEO mode requires timestamps that keep
-// increasing across calls, so each new clip continues from where the previous one stopped.
-let nextTimestampMs = 0;
 
 export interface PhotoAnalysis {
   result: ModuleResult;
@@ -212,8 +211,7 @@ export async function analyzeVideoFile(
     let prev: Uint8ClampedArray | null = null;
     let duplicates = 0;
 
-    const tsBase = nextTimestampMs;
-    nextTimestampMs = tsBase + Math.ceil((n * 1000) / VIDEO_SAMPLE_FPS) + 1000;
+    const { startMs: tsBase } = allocVideoTimestamps(Math.ceil((n * 1000) / VIDEO_SAMPLE_FPS) + 1);
     for (let i = 0; i < n; i++) {
       // the middle of each frame interval: seeking to a frame boundary can decode the previous frame
       await seek(video, start + (i + 0.5) / VIDEO_SAMPLE_FPS);

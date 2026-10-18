@@ -14,6 +14,7 @@ export const WRITING_POSTURE_MODULE = {
     "index_straight_fraction",
     "index_pip_angle_deg",
     "hold_index_pip_angle_deg",
+    "knuckle_palm_angle_deg",
     "posture_change_deg",
     "example_frame_s",
     "index_visible_fraction",
@@ -32,15 +33,13 @@ export const WRITING_POSTURE_MODULE = {
   } as Record<string, number>,
 };
 
+const WRIST = 0;
 const INDEX_MCP = 5;
 const INDEX_PIP = 6;
 const INDEX_DIP = 7;
 
-function indexPipAngle(frame: number[][]): number | null {
+function jointAngle(a: number[], b: number[], c: number[]): number | null {
   try {
-    const a = frame[INDEX_MCP];
-    const b = frame[INDEX_PIP];
-    const c = frame[INDEX_DIP];
     if (!a || !b || !c) return null;
     if ([a, b, c].some((p) => p.some((v) => !Number.isFinite(v)))) return null;
     const ux = a[0] - b[0];
@@ -54,6 +53,25 @@ function indexPipAngle(frame: number[][]): number | null {
   } catch {
     return null;
   }
+}
+
+function indexPipAngle(frame: number[][]): number | null {
+  return jointAngle(frame[INDEX_MCP], frame[INDEX_PIP], frame[INDEX_DIP]);
+}
+
+/** Angle at index MCP between wrist and PIP — knuckle / palm posture (not PIP flexion). */
+function knucklePalmAngle(frame: number[][]): number | null {
+  return jointAngle(frame[WRIST], frame[INDEX_MCP], frame[INDEX_PIP]);
+}
+
+function meanAngle(
+  frames: number[][][],
+  start: number,
+  angleFn: (frame: number[][]) => number | null,
+): number | null {
+  const vals = frames.slice(start).map(angleFn).filter((a): a is number => a != null);
+  if (!vals.length) return null;
+  return vals.reduce((s, a) => s + a, 0) / vals.length;
 }
 
 export function evaluateWritingTrack(
@@ -158,12 +176,15 @@ export function analyzeWritingPosture(track: PreparedHandTrack, criteria: Record
       const straight = result.straight_fraction!;
       const writingAngle = result.writing_angle_deg!;
       const holdAngle = result.hold_angle_deg!;
+      const split = Math.max(1, Math.round(c.hold_s * (track.sample_fps ?? track.fps)));
+      const knuckle = meanAngle(track.landmarks, split, knucklePalmAngle);
       return {
         measurements: [measurement(straightSpec, straight, null), measurement(pipSpec, writingAngle, null)],
         features: {
           index_straight_fraction: straight,
           index_pip_angle_deg: writingAngle,
           hold_index_pip_angle_deg: holdAngle,
+          ...(knuckle != null ? { knuckle_palm_angle_deg: knuckle } : {}),
           posture_change_deg: writingAngle - holdAngle,
           example_frame_s: result.example_frame_s!,
           index_visible_fraction: result.visible_fraction,

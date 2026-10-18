@@ -22,11 +22,22 @@ export const dateTime = (iso: string) =>
 export const CONDITION_LABEL: Record<string, string> = {
   parkinsons: "Parkinson's disease",
   eczema: "Atopic dermatitis",
+  focal_hand_dystonia: "Focal hand dystonia",
   other: "Other",
 };
 
+/** Normalize free-text / Generate-module conditions to a stable study key. */
+export function conditionKey(condition: string): string {
+  return (
+    condition
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "") || "other"
+  );
+}
+
 /** Studies created in the builder or the New study form can name any condition; show it as written. */
-export const conditionLabel = (condition: string) => CONDITION_LABEL[condition] ?? condition;
+export const conditionLabel = (condition: string) => CONDITION_LABEL[condition] ?? CONDITION_LABEL[conditionKey(condition)] ?? condition;
 
 export const studyShortName = (name: string) => name.split(":")[0];
 

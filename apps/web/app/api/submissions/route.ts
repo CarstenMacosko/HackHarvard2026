@@ -16,8 +16,8 @@ const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "
 
 /**
  * Participant upload from the web portal. The browser has already run the on-device CV module
- * (instant feedback for finger_tapping, hand_tremor, writing_posture, and gen_*). When
- * CV_SERVICE_URL is configured the server re-runs the reference module and that result wins.
+ * (finger_tapping, hand_tremor, writing_posture, and every gen_*). CV_SERVICE_URL is optional:
+ * when set, the server re-runs the reference module and that result wins.
  */
 export async function POST(req: Request) {
   const form = await req.formData();
@@ -59,13 +59,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No photo or video received." }, { status: 400 });
   }
 
-  // Prefer the CV service when configured; otherwise accept on-device analysis for modules
-  // that @vf/cv can fully measure (PD hand video, writing_posture, writing-style gen_*).
-  const writingOnDevice =
-    task.module === "writing_posture" ||
-    (task.module.startsWith("gen_") &&
-      task.measurements.some((m) => m.name.includes("index_straight") || m.name.includes("pip_angle") || m.name.includes("writing")));
-  const needsServerModule = task.module.startsWith("gen_") && !writingOnDevice;
+  // Prefer the CV service when configured; otherwise accept the browser's on-device result.
+  // All gen_* / writing_posture modules measure on-device via @vf/cv hand landmarks — never
+  // require CV_SERVICE_URL for check-in (service is optional re-analysis only).
   let analysis: AnalysisResult | null = null;
   let runtime: "server" | "on-device" = "on-device";
   let serverError: string | null = null;
@@ -88,16 +84,6 @@ export async function POST(req: Request) {
       serverError = e instanceof Error ? e.message : String(e);
       console.error("server analysis failed, falling back to on-device result:", serverError);
     }
-  }
-  if (needsServerModule && !failedAttempt && (!analysis || runtime !== "server")) {
-    return NextResponse.json(
-      {
-        error: serverError
-          ? `CV service could not run ${task.module}: ${serverError}`
-          : `CV_SERVICE_URL must be set and serving ${task.module} for this check-in.`,
-      },
-      { status: 422 },
-    );
   }
   if (!analysis) {
     const parsed = AnalysisResult.safeParse(JSON.parse(String(form.get("analysis") ?? "null")));

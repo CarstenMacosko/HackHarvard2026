@@ -1,0 +1,758 @@
+import { D as DaemonClientTransport, a as DaemonIpcMessageChannel, b as DaemonClientTransportKind, c as DaemonClientTransportEvents, I as InProcessDaemonClientTransportOptions, S as SessionNotificationEvent, R as RequestPermissionEvent, A as AskUserEvent, L as LogMetadata, d as DroidObservability, e as DroidClientOptions, f as InitializeSessionRequestParams, g as InitializeSessionResponse, h as LoadSessionRequestParams, i as LoadSessionResponse, j as AddUserMessageParams, k as AddUserMessageResponse, l as AppendMessagesParams, m as AppendMessagesResponse, n as ResolveQueuedUserMessageParams, o as ResolveQueuedUserMessageResponse, p as InterruptSessionParams, q as InterruptSessionResponse, C as CloseSessionParams, r as CloseSessionResponse, K as KillWorkerSessionParams, s as KillWorkerSessionResponse, U as UpdateSessionSettingsRequestParams, t as UpdateSessionSettingsResponse, u as ChangeWorkingDirectoryParams, v as ChangeWorkingDirectoryResponse, w as SettingsLevel, T as ToggleMcpServerResponseSchema, x as AuthenticateMcpServerResponseSchema, y as CancelMcpAuthResponseSchema, z as ClearMcpAuthResponseSchema, B as AddMcpServerRequest, E as AddMcpServerResponseSchema, F as RemoveMcpServerResponseSchema, G as ListModelsOptions, H as ListModelsResponseSchema, J as ListMcpRegistryResponseSchema, M as ListMcpToolsResponseSchema, N as ListToolsRequestParams, O as ListToolsResponseSchema, P as ListMcpServersResponseSchema, Q as ToggleMcpToolResponseSchema, V as SubmitMcpAuthCodeRequestParamsSchema, W as SubmitMcpAuthCodeResponseSchema, X as SubmitMcpAuthErrorRequestParamsSchema, Y as SubmitMcpAuthErrorResponseSchema, Z as ListSkillsResponseSchema, _ as SetSkillDisabledRequest, $ as SetSkillDisabledResponseSchema, a0 as ListCommandsResponseSchema, a1 as GetContextStatsResponseSchema, a2 as GetContextBreakdownResponseSchema, a3 as SubmitBugReportRequest, a4 as SubmitBugReportResponseSchema, a5 as GetRewindInfoResponseSchema, a6 as ExecuteRewindResponseSchema, a7 as CompactSessionResponseSchema, a8 as ForkSessionRequestParamsSchema, a9 as ForkSessionResponseSchema, aa as RenameSessionRequestParams, ab as RenameSessionResponseSchema, ac as WarmupCacheResponseSchema, ad as RequestPermissionHandlerResult, ae as ToolConfirmationOutcome, af as RequestPermissionResult, ag as AskUserResult, ah as StringFramedDroidClientTransport, ai as ProcessTransportOptions, aj as McpServerConfig, ak as HttpMcpConfig, al as ToolSelectionOverrides, am as AutonomyLevel, an as DroidInteractionMode, ao as ReasoningEffort, ap as SystemPromptConfig, aq as SessionSource, ar as SessionTag, as as HandlerOptions, at as DroidResultMessage, au as SessionSettings, av as MessageOptions, aw as DroidStreamMessage, ax as DroidStreamEvent, ay as UpdateSessionSettingsResult, az as AddMcpServerRequestParams, aA as AddMcpServerResult, aB as RemoveMcpServerRequestParams, aC as RemoveMcpServerResult, aD as ToggleMcpServerRequestParams, aE as ToggleMcpServerResult, aF as ListMcpServersResult, aG as McpToolInfo, aH as ExecToolInfo, aI as AuthenticateMcpServerRequestParams, aJ as AuthenticateMcpServerResult, aK as ListSkillsResult, aL as SetSkillDisabledRequestParams, aM as SetSkillDisabledResult, aN as GetRewindInfoRequestParams, aO as GetRewindInfoResult, aP as ExecuteRewindRequestParams, aQ as SessionRewindOutcome, aR as CompactSessionRequestParams, aS as SessionCompactionOutcome, aT as ForkSessionRequestParams, aU as GetContextStatsResult, aV as RenameSessionRequestParams$1, aW as ListSessionsOptions, aX as SessionMetadata, aY as ModelInfo } from './index-C06W9tbN.mjs';
+export { aZ as AbortError, kM as AddMcpServerRequest, a_ as AddMcpServerRequestParamsSchema, a$ as AddMcpServerRequestSchema, kN as AddMcpServerResponse, b0 as AddMcpServerResultSchema, jX as AddMessageResult, kO as AddUserMessageRequest, kP as AddUserMessageRequestParams, b1 as AddUserMessageRequestParamsSchema, b2 as AddUserMessageRequestSchema, kQ as AddUserMessageResponse, b3 as AddUserMessageResponseSchema, kR as AddUserMessageResult, b4 as AddUserMessageResultSchema, mJ as ApplyPatchToolConfirmationDetails, b5 as ApplyPatchToolConfirmationDetailsSchema, io as ArchiveSessionOptions, mY as AskUserCollectedAnswer, b6 as AskUserCollectedAnswerSchema, mF as AskUserConfirmationDetails, b7 as AskUserConfirmationDetailsSchema, mV as AskUserQuestion, b8 as AskUserQuestionSchema, mW as AskUserRequest, k8 as AskUserRequestHandlerEvents, mX as AskUserRequestParams, b9 as AskUserRequestParamsSchema, ba as AskUserRequestSchema, m_ as AskUserResponse, bb as AskUserResponseSchema, mZ as AskUserResult, bc as AskUserResultSchema, hI as AssistantMessageRetracted, mm as AssistantMessageRetractedNotification, bd as AssistantMessageRetractedNotificationSchema, hK as AssistantTextComplete, ml as AssistantTextCompleteNotification, be as AssistantTextCompleteNotificationSchema, hJ as AssistantTextDelta, mk as AssistantTextDeltaNotification, bf as AssistantTextDeltaNotificationSchema, jp as Attribute, jq as Attributes, kS as AuthenticateMcpServerRequest, bg as AuthenticateMcpServerRequestParamsSchema, bh as AuthenticateMcpServerRequestSchema, kT as AuthenticateMcpServerResponse, bi as AuthenticateMcpServerResultSchema, ip as AutomationsResource, kB as AvailableModelConfig, bj as AvailableModelConfigSchema, nD as Base64ImageSource, bk as Base64ImageSourceSchema, hq as BaseDroidHookInput, kp as BaseNotification, bl as BaseNotificationSchema, km as BaseRequest, bm as BaseRequestSchema, ko as BaseResponseFailure, bn as BaseResponseFailureSchema, kn as BaseResponseSuccess, bo as BaseResponseSuccessSchema, bp as COMPACTION_TIMEOUT, kU as CancelMcpAuthRequest, kV as CancelMcpAuthRequestParams, bq as CancelMcpAuthRequestParamsSchema, br as CancelMcpAuthRequestSchema, kW as CancelMcpAuthResponse, kX as CancelMcpAuthResult, bs as CancelMcpAuthResultSchema, kY as ChangeWorkingDirectoryRequest, kZ as ChangeWorkingDirectoryRequestParams, bt as ChangeWorkingDirectoryRequestParamsSchema, bu as ChangeWorkingDirectoryRequestSchema, k_ as ChangeWorkingDirectoryResponse, bv as ChangeWorkingDirectoryResponseSchema, k$ as ChangeWorkingDirectoryResult, bw as ChangeWorkingDirectoryResultSchema, l0 as ClearMcpAuthRequest, l1 as ClearMcpAuthRequestParams, bx as ClearMcpAuthRequestParamsSchema, by as ClearMcpAuthRequestSchema, l2 as ClearMcpAuthResponse, l3 as ClearMcpAuthResult, bz as ClearMcpAuthResultSchema, mU as CliRequestOrNotification, bA as CliRequestOrNotificationSchema, h9 as ClientAskUserHandler, bB as ClientDestroyedError, ha as ClientPermissionHandler, l4 as ClientRequest, bC as ClientRequestSchema, bD as ClientUiSurface, l5 as CloseSessionRequest, l6 as CloseSessionRequestParams, bE as CloseSessionRequestParamsSchema, bF as CloseSessionRequestSchema, l7 as CloseSessionResponse, bG as CloseSessionResponseSchema, l8 as CloseSessionResult, bH as CloseSessionResultSchema, iq as CommandsResource, l9 as CompactSessionRequest, bI as CompactSessionRequestParamsSchema, bJ as CompactSessionRequestSchema, la as CompactSessionResponse, lb as CompactSessionResult, bK as CompactSessionResultSchema, bL as ComputeLimitExceededError, j2 as Computer, j1 as ComputerApiOptions, jy as ComputerConnectAttemptContext, bM as ComputerConnectAttemptTrigger, jz as ComputerConnectSliOptions, jA as ComputerConnectSliRunContext, bN as ComputerConnectStartType, j3 as ComputerListResponse, bO as ComputerListResponseSchema, j4 as ComputerMetric, bP as ComputerMetricSchema, j5 as ComputerMetricsResponse, bQ as ComputerMetricsResponseSchema, bR as ComputerSchema, bS as ConcurrentStreamError, ic as ConnectToDaemonOptions, ia as ConnectedDroid, ib as ConnectedDroidSession, bT as ConnectionClosedError, h1 as ConnectionError, bU as ConnectionFailureReason, nL as ContentBlock, bV as ContentBlockSchema, bW as ContextBreakdownCategorySchema, kA as ContextBreakdownResult, bX as ContextBreakdownResultSchema, kC as ContextStats, bY as ContextStatsAccuracy, bZ as ContextStatsSchema, j6 as CreateComputerOptions, ir as CreateCronOptions, id as CreateDaemonSessionOptions, hT as CreateMessage, md as CreateMessageNotification, b_ as CreateMessageNotificationSchema, mE as CreateToolConfirmationDetails, b$ as CreateToolConfirmationDetailsSchema, is as CronOperationsResource, it as CronsResource, iu as CustomModelsResource, c0 as DEFAULT_LOCAL_DAEMON_WS_URL, c1 as DEFAULT_REQUEST_TIMEOUT, ie as DaemonAuth, jG as DaemonAuthenticationCredential, c2 as DaemonAuthenticationMode, c3 as DaemonClient, jC as DaemonClientConfig, c4 as DaemonClientMetaError, jr as DaemonCoreDeps, c5 as DaemonDroidEvent, k0 as DaemonRequest, c6 as DaemonRequestPermissionSchema, iv as DaemonResources, c7 as DaemonSessionController, ig as DaemonSessionSummary, js as DaemonSpan, c8 as DecompSessionType, jc as DeleteComputerOptions, nf as DiscoveredIssue, c9 as DiscoveredIssueSchema, np as DismissalRecord, ca as DismissalRecordSchema, cb as DismissalType, nJ as DocumentBlock, cc as DocumentBlockSchema, nI as DocumentSource, cd as DocumentSourceSchema, hD as DroidAssistantMessage, hh as DroidAttributeValue, hi as DroidAttributes, h2 as DroidClientError, ce as DroidClientMethod, hH as DroidErrorMessage, cf as DroidErrorType, cg as DroidEvent, hr as DroidHookEvent, ch as DroidHookEventSchema, hg as DroidHookExecutionResult, ci as DroidHookExecutionResultSchema, hs as DroidHookInput, ht as DroidHookOutput, cj as DroidHookOutputSchema, ck as DroidHookSpecificOutputSchema, hj as DroidLogEvent, hk as DroidLogger, i9 as DroidMessage, cl as DroidMessageType, hl as DroidMetricEvent, hm as DroidMetricSink, hu as DroidPermissionMode, hn as DroidSerializedError, cm as DroidServerMethod, hF as DroidToolCallMessage, hG as DroidToolResultMessage, ho as DroidTraceContextCarrier, hp as DroidTraceContextProvider, hE as DroidUserMessage, cn as DroidWorkingState, mf as DroidWorkingStateChangedNotification, co as DroidWorkingStateChangedNotificationSchema, mC as EditToolConfirmationDetails, cp as EditToolConfirmationDetailsSchema, ki as EmptyResult, cq as EmptyResultSchema, mO as ErrorDetail, cr as ErrorDetailSchema, i8 as ErrorEvent, me as ErrorNotification, cs as ErrorNotificationSchema, ct as ExecToolInfoSchema, lc as ExecuteRewindRequest, cu as ExecuteRewindRequestParamsSchema, cv as ExecuteRewindRequestSchema, ld as ExecuteRewindResponse, le as ExecuteRewindResult, cw as ExecuteRewindResultSchema, mD as ExecuteToolConfirmationDetails, cx as ExecuteToolConfirmationDetailsSchema, mG as ExitSpecModeConfirmationDetails, cy as ExitSpecModeConfirmationDetailsSchema, cz as FACTORY_CLIENT_HEADER, cA as FACTORY_CLIENT_VERSION, cB as FACTORY_PROTOCOL_VERSION, j0 as FactoryApiOptions, jH as FactoryDaemonConfig, cC as FactoryDaemonTransport, jI as FactoryDroidEvents, nM as FactoryDroidMessage, cD as FactoryDroidMessageRole, cE as FactoryDroidMessageSchema, cF as FeatureStatus, cG as FeatureSuccessState, cH as FeatureSuccessStateSchema, iw as FeedbackResource, ix as FileTransfersResource, ih as ForkSessionOptions, lf as ForkSessionRequest, cI as ForkSessionRequestSchema, lg as ForkSessionResponse, lh as ForkSessionResult, cJ as ForkSessionResultSchema, j9 as GetComputerByNameOptions, ja as GetComputerMetricsOptions, j8 as GetComputerOptions, li as GetContextStatsRequest, lj as GetContextStatsRequestParams, cK as GetContextStatsRequestParamsSchema, cL as GetContextStatsRequestSchema, lk as GetContextStatsResponse, bZ as GetContextStatsResultSchema, jk as GetMachineTemplateOptions, ll as GetRewindInfoRequest, cM as GetRewindInfoRequestParamsSchema, cN as GetRewindInfoRequestSchema, lm as GetRewindInfoResponse, cO as GetRewindInfoResultSchema, iy as GetSessionMessagesOptions, kD as GitRepoInfo, cP as GitRepoInfoSchema, iz as GitResource, no as Handoff, nz as HandoffItemsDismissedEntry, cQ as HandoffItemsDismissedEntrySchema, cR as HandoffSchema, m$ as HookCommand, cS as HookCommandSchema, i5 as HookExecution, mt as HookExecutionCompletedNotification, cT as HookExecutionCompletedNotificationSchema, ms as HookExecutionStartedNotification, cU as HookExecutionStartedNotificationSchema, n0 as HookResult, cV as HookResultSchema, kE as HttpHeader, cW as HttpHeaderSchema, cX as HttpMcpConfigSchema, jD as IDaemonClient, g$ as IPC_DAEMON_URL, jQ as IToolProgressStore, nE as ImageBlock, cY as ImageBlockSchema, h0 as InProcessMessageHandler, jV as InitializeResult, ln as InitializeSessionRequest, cZ as InitializeSessionRequestParamsSchema, c_ as InitializeSessionRequestSchema, c$ as InitializeSessionResponseSchema, lo as InitializeSessionResult, d0 as InitializeSessionResultSchema, nh as InteractiveCheck, d1 as InteractiveCheckSchema, jY as InterruptResult, lp as InterruptSessionRequest, lq as InterruptSessionRequestParams, d2 as InterruptSessionRequestParamsSchema, d3 as InterruptSessionRequestSchema, lr as InterruptSessionResponse, d4 as InterruptSessionResponseSchema, ls as InterruptSessionResult, d5 as InterruptSessionResultSchema, h3 as InvalidSessionCwdError, d6 as IssueSeverity, d7 as JSONRPC_VERSION, kf as JsonArray, d8 as JsonArraySchema, ke as JsonObject, d9 as JsonObjectSchema, kd as JsonPrimitive, kk as JsonRpcEnvelope, da as JsonRpcEnvelopeSchema, kl as JsonRpcError, db as JsonRpcErrorCode, dc as JsonRpcErrorSchema, kv as JsonRpcMessage, dd as JsonRpcMessageSchema, de as JsonRpcMessageType, kt as JsonRpcNotification, df as JsonRpcNotificationSchema, kq as JsonRpcRequest, dg as JsonRpcRequestError, dh as JsonRpcRequestSchema, ku as JsonRpcResponse, ks as JsonRpcResponseFailure, di as JsonRpcResponseFailureSchema, dj as JsonRpcResponseSchema, kr as JsonRpcResponseSuccess, dk as JsonRpcResponseSuccessSchema, kg as JsonValue, dl as JsonValueSchema, lt as KillWorkerSessionRequest, lu as KillWorkerSessionRequestParams, dm as KillWorkerSessionRequestParamsSchema, dn as KillWorkerSessionRequestSchema, lv as KillWorkerSessionResponse, dp as KillWorkerSessionResponseSchema, lw as KillWorkerSessionResult, dq as KillWorkerSessionResultSchema, dr as LEGACY_FACTORY_API_VERSION, ds as LOCAL_MACHINE_ID, j7 as ListComputersOptions, ii as ListDaemonSessionsOptions, jj as ListMachineTemplatesOptions, lx as ListMcpRegistryRequest, ly as ListMcpRegistryRequestParams, dt as ListMcpRegistryRequestParamsSchema, du as ListMcpRegistryRequestSchema, lz as ListMcpRegistryResponse, lA as ListMcpRegistryResult, dv as ListMcpRegistryResultSchema, lB as ListMcpServersRequest, lC as ListMcpServersRequestParams, dw as ListMcpServersRequestParamsSchema, dx as ListMcpServersRequestSchema, lD as ListMcpServersResponse, dy as ListMcpServersResultSchema, lE as ListMcpToolsRequest, lF as ListMcpToolsRequestParams, dz as ListMcpToolsRequestParamsSchema, dA as ListMcpToolsRequestSchema, lG as ListMcpToolsResponse, lH as ListMcpToolsResult, dB as ListMcpToolsResultSchema, dC as ListModelsOptionsSchema, hb as ListModelsResult, dD as ListModelsResultSchema, jo as ListRemoteSessionsOptions, lL as ListSkillsRequest, lM as ListSkillsRequestParams, dE as ListSkillsRequestParamsSchema, dF as ListSkillsRequestSchema, lN as ListSkillsResponse, dG as ListSkillsResultSchema, lI as ListToolsRequest, dH as ListToolsRequestParamsSchema, dI as ListToolsRequestSchema, lJ as ListToolsResponse, lK as ListToolsResult, dJ as ListToolsResultSchema, jW as LoadResult, lQ as LoadSessionRequest, dK as LoadSessionRequestParamsSchema, dL as LoadSessionRequestSchema, dM as LoadSessionResponseSchema, lR as LoadSessionResult, dN as LoadSessionResultSchema, jt as LogMetadata, dO as MACHINE_TYPE_WEBSOCKET_OVERRIDES, dP as MANAGED_COMPUTER_MAX_RETRIES, dQ as MCP_AUTH_TIMEOUT, jM as MachineConnectionConfig, jL as MachineInfo, jh as MachineTemplate, ji as MachineTemplateBuildStatus, dR as MachineTemplateBuildStatusSchema, jl as MachineTemplateListResponse, dS as MachineTemplateListResponseSchema, dT as MachineTemplateSchema, dU as MachineType, iA as MarketplacesResource, i4 as McpAuthCompleted, mr as McpAuthCompletedNotification, dV as McpAuthCompletedNotificationSchema, dW as McpAuthOutcome, i3 as McpAuthRequired, mq as McpAuthRequiredNotification, dX as McpAuthRequiredNotificationSchema, n6 as McpHttpServerConfigFields, dY as McpHttpServerConfigFieldsSchema, na as McpRegistryServer, dZ as McpRegistryServerSchema, iB as McpResource, d_ as McpServerConfigSchema, d$ as McpServerStatus, n8 as McpServerStatusInfo, e0 as McpServerStatusInfoSchema, e1 as McpServerType, nc as McpSseServerConfigFields, e2 as McpSseServerConfigFieldsSchema, e3 as McpStatus, hY as McpStatusChanged, mj as McpStatusChangedNotification, e4 as McpStatusChangedNotificationSchema, n9 as McpStatusSummary, e5 as McpStatusSummarySchema, n7 as McpStdioServerConfigFields, e6 as McpStdioServerConfigFieldsSchema, mK as McpToolConfirmationDetails, e7 as McpToolConfirmationDetailsSchema, e8 as McpToolInfoSchema, nd as McpToolInputSchema, e9 as McpToolInputSchemaSchema, j_ as MessageRouterEvents, ea as MessageVisibility, eb as Metric, ju as MetricLabels, nA as MilestoneValidationTriggeredEntry, ec as MilestoneValidationTriggeredEntrySchema, nq as MissionAcceptedEntry, ed as MissionAcceptedEntrySchema, ne as MissionFeature, ee as MissionFeatureSchema, h_ as MissionFeaturesChanged, mx as MissionFeaturesChangedNotification, ef as MissionFeaturesChangedNotificationSchema, i0 as MissionHeartbeat, mz as MissionHeartbeatNotification, eg as MissionHeartbeatNotificationSchema, nr as MissionPausedEntry, eh as MissionPausedEntrySchema, h$ as MissionProgressEntry, my as MissionProgressEntryNotification, ei as MissionProgressEntryNotificationSchema, ns as MissionResumedEntry, ej as MissionResumedEntrySchema, nt as MissionRunStartedEntry, ek as MissionRunStartedEntrySchema, kz as MissionSnapshot, el as MissionSnapshotSchema, jT as MissionSnapshotStore, em as MissionState, hZ as MissionStateChanged, mw as MissionStateChangedNotification, en as MissionStateChangedNotificationSchema, jR as MissionStoreInterface, i2 as MissionWorkerCompleted, mB as MissionWorkerCompletedNotification, eo as MissionWorkerCompletedNotificationSchema, i1 as MissionWorkerStarted, mA as MissionWorkerStartedNotification, ep as MissionWorkerStartedNotificationSchema, iC as MissionsResource, eq as ModelInfoSchema, hc as ModelMetadata, er as ModelMetadataSchema, es as ModelProvider, iD as ModelsResource, et as MultiMissionStateManager, eu as MultiSessionStateManager, k4 as NotificationDispatcherEvents, hv as NotificationHookInput, iF as OpenedSessionSummary, ev as OtelTracing, k1 as OutgoingMessage, kF as OutputFormat, ew as OutputFormatSchema, ex as OutputFormatType, k7 as PendingAskUserRequest, k5 as PendingPermission, jE as PendingRequest, k9 as PendingUserAction, k6 as PermissionRequestHandlerEvents, hU as PermissionResolved, mg as PermissionResolvedNotification, ey as PermissionResolvedNotificationSchema, iE as PluginsResource, hw as PreCompactHookInput, h4 as ProcessExitError, nB as ProgressLogEntry, ez as ProgressLogEntrySchema, eA as ProgressLogEntryType, mH as ProposeMissionConfirmationDetails, eB as ProposeMissionConfirmationDetailsSchema, h5 as ProtocolError, iG as ProxyResource, eC as QueuedUserMessageDisplayGroup, eD as QueuedUserMessageKind, k3 as QueuedUserMessageState, eE as REWIND_TIMEOUT, nG as RedactedThinkingBlock, eF as RedactedThinkingBlockSchema, je as RefreshComputerOptions, jf as RefreshComputerResponse, eG as RefreshComputerResponseSchema, eH as RelayConnectionError, iH as RelayResource, jm as RemoteSession, jn as RemoteSessionListResponse, eI as RemoteSessionListResponseSchema, eJ as RemoteSessionSchema, lS as RemoveMcpServerRequest, eK as RemoveMcpServerRequestParamsSchema, eL as RemoveMcpServerRequestSchema, lT as RemoveMcpServerResponse, eM as RemoveMcpServerResultSchema, lU as RenameSessionRequest, eN as RenameSessionRequestParamsSchema, eO as RenameSessionRequestSchema, lV as RenameSessionResponse, lW as RenameSessionResult, eP as RenameSessionResultSchema, k2 as RequestManagerEvents, n1 as RequestPermissionRequest, n2 as RequestPermissionRequestParams, eQ as RequestPermissionRequestParamsSchema, eR as RequestPermissionRequestSchema, n4 as RequestPermissionResponse, eS as RequestPermissionResponseSchema, n3 as RequestPermissionResult, eT as RequestPermissionResultSchema, n5 as RequestPermissionSelection, jd as RestartComputerOptions, ij as ResumeDaemonSessionOptions, jg as RetryInstallDepsOptions, jw as RetryOptions, jx as RetryWarnLogger, kG as RewindEvictedFile, eU as RewindEvictedFileSchema, kH as RewindFileCreation, eV as RewindFileCreationSchema, kI as RewindFileSnapshot, eW as RewindFileSnapshotSchema, ik as RewindSessionParams, il as RewindSessionResult, eX as SDK_TAG, eY as SDK_VERSION, eZ as SESSION_INIT_TIMEOUT, e_ as SLACK_DELEGATION_MAX_RETRIES, iK as SearchSessionSummary, iJ as SearchSessionsResult, iI as SemanticDiffResource, e$ as ServerRequestHandlerType, jJ as Session, hx as SessionEndHookInput, h6 as SessionError, jN as SessionInitializedOutcome, jK as SessionManagerConfig, iL as SessionMessage, f0 as SessionMetadataSchema, h7 as SessionNotFoundError, mT as SessionNotification, mS as SessionNotificationParams, f1 as SessionNotificationParamsSchema, mR as SessionNotificationPayload, f2 as SessionNotificationPayloadSchema, f3 as SessionNotificationSchema, f4 as SessionNotificationSchemaList, f5 as SessionNotificationType, iM as SessionOperationsResource, j$ as SessionPendingRequest, f6 as SessionPlatform, f7 as SessionReplacedError, f8 as SessionReplacementError, he as SessionSettingsFile, f9 as SessionSettingsFileSchema, fa as SessionSettingsSchema, fb as SessionSourceSchema, hf as SessionStartEvent, fc as SessionStartEventSchema, hy as SessionStartHookInput, hd as SessionSummary, fd as SessionTagSchema, hW as SessionTitleUpdated, mi as SessionTitleUpdatedNotification, fe as SessionTitleUpdatedNotificationSchema, mv as SessionTokenUsageChangedNotification, ff as SessionTokenUsageChangedNotificationSchema, jZ as SessionWebSocketConnectionEvents, hX as SessionWorkingDirectoryChanged, im as SessionsResource, lO as SetSkillDisabledRequest, fg as SetSkillDisabledRequestParamsSchema, fh as SetSkillDisabledRequestSchema, lP as SetSkillDisabledResponse, fi as SetSkillDisabledResultSchema, iN as SettingsResource, hV as SettingsUpdated, mh as SettingsUpdatedNotification, fj as SettingsUpdatedNotificationSchema, mP as SettingsUpdatedPayload, fk as SettingsUpdatedPayloadSchema, nm as SkillDeviation, fl as SkillDeviationSchema, nn as SkillFeedback, fm as SkillFeedbackSchema, kJ as SkillInfo, fn as SkillInfoSchema, fo as SkillLocation, kK as SkillResource, fp as SkillResourceSchema, iO as SkillsResource, iP as SoftwareFactoryActivitiesResource, iQ as SoftwareFactoryChangesResource, iR as SoftwareFactoryEventsResource, iS as SoftwareFactoryResource, iT as SoftwareFactorySignalsResource, iU as SoftwareFactoryWorkstreamsResource, fq as SpanAttribute, fr as SpanEvent, fs as SpanName, ky as SseMcpConfig, ft as SseMcpConfigSchema, iV as SshResource, mI as StartMissionRunConfirmationDetails, fu as StartMissionRunConfirmationDetailsSchema, kx as StdioMcpConfig, fv as StdioMcpConfigSchema, hz as StopHookInput, kb as StoredAskUserAction, ka as StoredPermissionAction, fw as StreamStateTracker, i6 as StructuredOutput, mQ as StructuredOutputError, fx as StructuredOutputErrorSchema, i7 as StructuredOutputFields, mn as StructuredOutputNotification, fy as StructuredOutputNotificationSchema, hA as SubagentStopHookInput, lX as SubmitBugReportRequest, lY as SubmitBugReportRequestParams, fz as SubmitBugReportRequestParamsSchema, fA as SubmitBugReportRequestSchema, lZ as SubmitBugReportResponse, l_ as SubmitBugReportResult, fB as SubmitBugReportResultSchema, l$ as SubmitMcpAuthCodeRequest, m0 as SubmitMcpAuthCodeRequestParams, fC as SubmitMcpAuthCodeRequestSchema, m1 as SubmitMcpAuthCodeResponse, m2 as SubmitMcpAuthCodeResult, fD as SubmitMcpAuthCodeResultSchema, kj as SuccessResult, fE as SuccessResultSchema, jP as TerminalMetadata, jO as TerminalSerializedState, iW as TerminalsResource, nj as TestCase, fF as TestCaseSchema, nk as TestFile, fG as TestFileSchema, nl as Tests, fH as TestsSchema, nC as TextBlock, fI as TextBlockSchema, nF as ThinkingBlock, fJ as ThinkingBlockSchema, hM as ThinkingTextComplete, mp as ThinkingTextCompleteNotification, fK as ThinkingTextCompleteNotificationSchema, hL as ThinkingTextDelta, mo as ThinkingTextDeltaNotification, fL as ThinkingTextDeltaNotificationSchema, h8 as TimeoutError, m3 as ToggleMcpServerRequest, fM as ToggleMcpServerRequestParamsSchema, fN as ToggleMcpServerRequestSchema, m4 as ToggleMcpServerResponse, fO as ToggleMcpServerResultSchema, m5 as ToggleMcpToolRequest, m6 as ToggleMcpToolRequestParams, fP as ToggleMcpToolRequestParamsSchema, fQ as ToggleMcpToolRequestSchema, m7 as ToggleMcpToolResponse, m8 as ToggleMcpToolResult, fR as ToggleMcpToolResultSchema, kw as TokenUsage, fS as TokenUsageSchema, hS as TokenUsageUpdate, hN as ToolCallDelta, mu as ToolCallNotification, fT as ToolCallNotificationSchema, mL as ToolConfirmationDetails, fU as ToolConfirmationDetailsSchema, mM as ToolConfirmationInfo, fV as ToolConfirmationInfoSchema, nb as ToolConfirmationListItem, fW as ToolConfirmationListItemSchema, fX as ToolConfirmationType, hB as ToolHookInput, hQ as ToolProgress, jS as ToolProgressNotifier, mN as ToolProgressUpdate, mc as ToolProgressUpdateNotification, fY as ToolProgressUpdateNotificationSchema, fZ as ToolProgressUpdateSchema, hP as ToolResult, nK as ToolResultBlock, f_ as ToolResultBlockSchema, mb as ToolResultNotification, f$ as ToolResultNotificationSchema, g0 as ToolSelectionOverridesSchema, hO as ToolUse, nH as ToolUseBlock, g1 as ToolUseBlockSchema, g2 as ToolUseSchema, jv as TraceContext, kh as TraceContextMeta, g3 as TraceContextMetaSchema, g4 as TunnelConnection, jB as TunnelConnectionOptions, iX as UnstableResource, jb as UpdateComputerOptions, iY as UpdateCronOptions, iZ as UpdateSessionSettingsOptions, m9 as UpdateSessionSettingsRequest, g5 as UpdateSessionSettingsRequestParamsSchema, g6 as UpdateSessionSettingsRequestSchema, ma as UpdateSessionSettingsResponse, g7 as UpdateSessionSettingsResponseSchema, g8 as UpdateSessionSettingsResultSchema, i_ as UpdatesResource, jU as UseMissionStoreSnapshotParams, hC as UserPromptSubmitHookInput, ni as Verification, ng as VerificationCommand, g9 as VerificationCommandSchema, ga as VerificationSchema, jF as WebSocketConnectionConfig, gb as WebSocketConnectionError, jZ as WebSocketConnectionEvents, gc as WebSocketDaemonTransport, kc as WebSocketDaemonTransportConfig, nw as WorkerCompletedEntry, gd as WorkerCompletedEntrySchema, nx as WorkerFailedEntry, ge as WorkerFailedEntrySchema, ny as WorkerPausedEntry, gf as WorkerPausedEntrySchema, nv as WorkerSelectedFeatureEntry, gg as WorkerSelectedFeatureEntrySchema, nu as WorkerStartedEntry, gh as WorkerStartedEntrySchema, kL as WorkerStateInfo, gi as WorkerStateInfoSchema, hR as WorkingStateChanged, i$ as WorkspaceResource, gj as buildUserMessageContentBlocks, gk as configureDaemonCoreDeps, gl as connectAndAuthenticate, gm as connectToDaemon, gn as connectWithRetry, go as convertNotificationToStreamMessage, gp as createComputer, gq as createResponseSchema, gr as createWebSocketDaemonClient, gs as defaultDaemonCoreDeps, gt as deleteComputer, gu as filterMessagesForUI, gv as getComputer, gw as getComputerByName, gx as getComputerMetrics, gy as getMachineTemplate, gz as getPermissionToolInputForDisplay, gA as getQueuedUserMessageDisplayGroup, gB as getQueuedUserMessageReviewPriority, gC as getSubagentCallingMetadata, gD as getToolResultBlocks, gE as getToolResultToolUseId, gF as hasDecoupledInteractionSettings, gG as hasSubagentSessionTag, gH as inspectJsonRpcEnvelope, gI as isDaemonQueuedMessageKind, gJ as isPendingToolResultMarker, gK as isPersistedHookMessage, gL as isReviewableQueuedMessageKind, gM as listComputers, gN as listMachineTemplates, gO as listRemoteSessions, gP as machineTypeToMachineConnectionType, gQ as orderMessagesByParentChain, gR as recordComputerConnectSli, gS as refreshComputer, gT as repairParentChainCorruption, gU as restartComputer, gV as retryInstallDeps, gW as retryWithLogger, gX as sumTokenUsage, gY as summarizeSessionToolUsage, gZ as toError, g_ as updateComputer } from './index-C06W9tbN.mjs';
+import EventEmitter from 'events';
+import { z } from 'zod';
+import { ChildProcess, StdioOptions } from 'child_process';
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import '@opentelemetry/api';
+import 'eventemitter3';
+
+declare class IpcDaemonClientTransport implements DaemonClientTransport {
+    private readonly connectionId;
+    private connected;
+    private readonly channel;
+    private unsubscribeMessage;
+    private unsubscribeDisconnect;
+    private readonly handlers;
+    private readonly handleChannelMessage;
+    private readonly handleChannelDisconnect;
+    constructor(channel?: DaemonIpcMessageChannel);
+    connect(_url: string): Promise<void>;
+    disconnect(): void;
+    isConnected(): boolean;
+    getConnectionId(): string | null;
+    isRelayConnection(): boolean;
+    getTransportKind(): DaemonClientTransportKind.Ipc;
+    send(data: string): void;
+    on<T extends keyof DaemonClientTransportEvents>(event: T, handler: DaemonClientTransportEvents[T]): void;
+    off<T extends keyof DaemonClientTransportEvents>(event: T, handler: DaemonClientTransportEvents[T]): void;
+    private cleanupSubscriptions;
+    private isChannelAvailable;
+    private sendWhenAvailable;
+    private normalizeError;
+}
+
+/**
+ * A DaemonClientTransport that forwards JSON-RPC frames directly to an
+ * in-process runtime instead of crossing an IPC/WS boundary.
+ *
+ * Why this exists: the TUI's "parent" mode previously plugged
+ * `InProcessDaemonClient` straight into `DaemonSessionController`, which
+ * meant every method had to re-implement DaemonClient's envelope/error
+ * handling. That's how the recent `/bug` and `/compact` regressions
+ * happened (`response.result` returned without `if (response.error)`).
+ *
+ * Routing the same calls through `DaemonClient(transport: this)` means
+ * envelope construction, schema validation, timeouts, and error
+ * propagation live in exactly one place; the runtime handles frames.
+ */
+declare class InProcessDaemonClientTransport implements DaemonClientTransport {
+    private readonly connectionId;
+    private readonly options;
+    private connected;
+    private readonly unsubscribeFns;
+    private readonly handlers;
+    constructor(options: InProcessDaemonClientTransportOptions);
+    connect(url: string): Promise<void>;
+    disconnect(): void;
+    isConnected(): boolean;
+    getConnectionId(): string | null;
+    isRelayConnection(): boolean;
+    getTransportKind(): DaemonClientTransportKind.InProcess;
+    send(data: string): void;
+    on<T extends keyof DaemonClientTransportEvents>(event: T, handler: DaemonClientTransportEvents[T]): void;
+    off<T extends keyof DaemonClientTransportEvents>(event: T, handler: DaemonClientTransportEvents[T]): void;
+    /**
+     * Escape hatch for the in-process-only `setPendingSessionReady`
+     * coordination hook. Routed via the transport so DaemonSessionController
+     * can share in-flight session initialization/loading with the in-process
+     * runtime after it moves behind `DaemonClient`.
+     */
+    setPendingSessionReady(sessionId: string, promise: Promise<unknown>): void;
+    private sendWhenAvailable;
+    private registerUnsubscribe;
+    private cleanupSubscriptions;
+    private emitMessage;
+    private emitError;
+    private handleClose;
+    private normalizeError;
+}
+
+declare enum DroidClientEvent {
+    SESSION_NOTIFICATION = "session_notification",
+    REQUEST_PERMISSION = "request_permission",
+    ASK_USER = "ask_user",
+    ERROR = "error"
+}
+/**
+ * CLI mode for spawning droid processes
+ */
+declare enum DroidProcessMode {
+    /** ACP child mode (`droid --acp`) */
+    Acp = "acp",
+    /** SDK mode (`droid exec --input-format stream-jsonrpc`) */
+    StreamJsonRpc = "stream-jsonrpc"
+}
+/**
+ * Direction of a JSON-RPC transport message when written to the
+ * droid-transport.log file.
+ */
+declare enum TransportDirection {
+    /** Inbound: from droid process to host (daemon / CLI / host app). */
+    In = "in",
+    /** Outbound: from host to droid process, written successfully. */
+    Out = "out",
+    /**
+     * Outbound attempt that failed to reach the child process (e.g. EPIPE,
+     * ECONNRESET). Logged so frame loss is visible without conflating it
+     * with successfully sent frames.
+     */
+    OutFailed = "out_failed"
+}
+
+/** Observability logger interface for the exec core. */
+interface Logger {
+    info(message: string, metadata?: LogMetadata): void;
+    warn(message: string, metadata?: LogMetadata): void;
+    exception(error: unknown, message: string, metadata?: LogMetadata): void;
+}
+/** Metrics emitter interface for the exec core. */
+interface Metrics {
+    addToCounter(metric: string, value: number, tags?: Record<string, string>): void;
+    /**
+     * Record a millisecond-valued duration. Distinct from {@link addToCounter}
+     * so downstream sinks can model it as a histogram with a `ms` unit rather
+     * than a unitless counter.
+     */
+    recordDuration(metric: string, valueMs: number, tags?: Record<string, string>): void;
+}
+/** Tracing context interface for the exec core. */
+interface Tracing {
+    getCurrentContext(): unknown;
+    injectContext(meta: Record<string, unknown>, context: unknown): void;
+}
+/** Result of resolving the droid executable path and prefix arguments. */
+interface ResolvedDroidCommand {
+    execPath: string;
+    prefixArgs: string[];
+}
+/** Resolves the droid executable command for spawn. */
+interface CommandResolver {
+    resolveDroidCommand(isDevelopment: boolean): ResolvedDroidCommand;
+}
+/** Resolves Factory home directory and directory name for path construction. */
+interface FactoryPathResolver {
+    getFactoryHome(): string;
+    getFactoryDirName(): string;
+}
+/** Resolves environment values used by the exec core. */
+interface EnvironmentResolver {
+    resolveTransportLogEnvValue(): string | undefined;
+    /**
+     * Sanitize the environment handed to a spawned droid child. The default
+     * implementation is identity; Factory wiring injects a strip that removes
+     * whole-process sandbox bridge material so it never crosses into a child.
+     */
+    sanitizeSpawnEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv;
+}
+/** Bundle of injectable dependencies for the exec core. */
+interface ExecCoreDeps {
+    logger: Logger;
+    metrics: Metrics;
+    tracing: Tracing;
+    commandResolver: CommandResolver;
+    factoryPathResolver: FactoryPathResolver;
+    environmentResolver: EnvironmentResolver;
+}
+interface DroidProcessManagerOptions {
+    observability?: DroidObservability;
+}
+type DroidEventMap = {
+    [DroidClientEvent.SESSION_NOTIFICATION]: [SessionNotificationEvent];
+    [DroidClientEvent.REQUEST_PERMISSION]: [RequestPermissionEvent];
+    [DroidClientEvent.ASK_USER]: [AskUserEvent];
+    [DroidClientEvent.ERROR]: [Error];
+};
+type DroidEventType = keyof DroidEventMap;
+/**
+ * Configuration for spawning a droid process
+ */
+interface DroidProcessConfig {
+    /** Path to the droid executable (defaults to 'droid' or 'droid-dev') */
+    execPath?: string;
+    /** Whether to use development mode (droid-dev) */
+    isDevelopment?: boolean;
+    /** CLI mode for the spawned process */
+    mode: DroidProcessMode;
+    /** Working directory for the process */
+    cwd?: string;
+    /** Additional environment variables */
+    env?: Record<string, string>;
+    /** Trusted env merged after sanitizer strips inherited process env. */
+    trustedEnv?: Record<string, string>;
+    /** Extra CLI arguments to pass */
+    extraArgs?: string[];
+    /** Whether to allocate a Node IPC channel for this child process. */
+    enableIpc?: boolean;
+    /** Override stdio for trusted process topologies. */
+    stdio?: StdioOptions;
+}
+/**
+ * Represents a managed droid child process
+ */
+interface ManagedProcess {
+    /** The underlying child process */
+    readonly childProcess: ChildProcess;
+    /** Send a message to the process (newline-delimited) */
+    send(message: string): Promise<void>;
+    /** Register a handler for incoming messages */
+    onMessage(handler: (message: string) => void): void;
+    /** Register a handler for errors */
+    onError(handler: (error: Error) => void): void;
+    /** Close the process gracefully */
+    close(): Promise<void>;
+    /** Check if the process is still connected */
+    readonly isConnected: boolean;
+}
+/**
+ * Options controlling the Windows Job Object spawn retry wrapper.
+ */
+interface SpawnWithRetryOptions {
+    /** Max number of retries after the initial spawn. */
+    maxRetries?: number;
+    /** Backoff schedule in ms between attempts. */
+    backoffMs?: readonly number[];
+    /**
+     * How long to wait for early failure signals before committing to the
+     * spawn. On happy path this adds this much latency to spawn completion,
+     * so keep it short.
+     */
+    gracePeriodMs?: number;
+    /** Overrides `setTimeout` (primarily for tests). */
+    sleep?: (ms: number) => Promise<void>;
+    /**
+     * Overrides the platform check (primarily for tests). When `false`, retry
+     * machinery is skipped entirely and the spawn factory runs once.
+     */
+    enabled?: boolean;
+    /**
+     * Best-effort cleanup for children that exited early but we're NOT
+     * returning to the caller.
+     */
+    disposeEarlyExited?: (child: ChildProcess) => void | Promise<void>;
+    /** Used to tag log lines for easier correlation. */
+    logPrefix?: string;
+    /** Injected logger; defaults to no-op when not provided. */
+    logger?: Logger;
+}
+
+type McpSettingsLevel = SettingsLevel.User;
+type PermissionHandlerResult = RequestPermissionHandlerResult | ToolConfirmationOutcome | RequestPermissionResult;
+/**
+ * Derive the JSON-RPC error code for an outgoing failure response. An error can
+ * opt into a specific code by setting `metadata.code` on a {@link DroidClientError}
+ * (e.g. {@link JsonRpcErrorCode.CONFLICT} for a duplicate request); anything
+ * else falls back to INTERNAL_ERROR.
+ */
+declare class DroidClient extends EventEmitter<DroidEventMap> {
+    private transport;
+    private requestTimeout;
+    private sessionInitTimeout;
+    private pendingRequests;
+    private permissionHandlers;
+    private askUserHandlers;
+    private pendingPermissionRequests;
+    private pendingAskUserRequests;
+    private currentSessionId;
+    private peerProtocolVersion;
+    /**
+     * Sticky error from a transport failure. Once set, all subsequent
+     * `sendRequest()` calls throw this error immediately, preventing
+     * requests from hanging on a dead transport.
+     */
+    private transportError;
+    private completedTurnObserved;
+    private readonly logger;
+    private readonly tracing;
+    private readonly onRequestSettled;
+    private readonly getRequestAttribution;
+    constructor(options: DroidClientOptions, deps?: ExecCoreDeps);
+    get sessionId(): string | null;
+    get isConnected(): boolean;
+    private requireMcpOAuthOptOutSupport;
+    private validateMcpServersProtocolSupport;
+    initializeSession(params: InitializeSessionRequestParams): Promise<InitializeSessionResponse>;
+    loadSession(params: LoadSessionRequestParams): Promise<LoadSessionResponse>;
+    addUserMessage(params: AddUserMessageParams, requestId?: string): Promise<AddUserMessageResponse>;
+    /**
+     * Persists user-only messages without starting an agent turn.
+     *
+     * Use for daemon-owned activity that belongs in session history but was not
+     * produced by the agent, such as commands run while a session starts.
+     */
+    appendMessages(params: AppendMessagesParams, requestId?: string): Promise<AppendMessagesResponse>;
+    resolveQueuedUserMessage(params: ResolveQueuedUserMessageParams): Promise<ResolveQueuedUserMessageResponse>;
+    interruptSession(params?: InterruptSessionParams): Promise<InterruptSessionResponse>;
+    closeSession(params?: CloseSessionParams): Promise<CloseSessionResponse>;
+    killWorkerSession(params: KillWorkerSessionParams): Promise<KillWorkerSessionResponse>;
+    updateSessionSettings(params: UpdateSessionSettingsRequestParams, requestId?: string): Promise<UpdateSessionSettingsResponse>;
+    changeWorkingDirectory(params: ChangeWorkingDirectoryParams): Promise<ChangeWorkingDirectoryResponse>;
+    toggleMcpServer(params: {
+        serverName: string;
+        enabled: boolean;
+        settingsLevel: McpSettingsLevel;
+    }): Promise<z.infer<typeof ToggleMcpServerResponseSchema>>;
+    authenticateMcpServer(params: {
+        serverName: string;
+    }): Promise<z.infer<typeof AuthenticateMcpServerResponseSchema>>;
+    cancelMcpAuth(params: {
+        serverName: string;
+    }): Promise<z.infer<typeof CancelMcpAuthResponseSchema>>;
+    clearMcpAuth(params: {
+        serverName: string;
+    }): Promise<z.infer<typeof ClearMcpAuthResponseSchema>>;
+    addMcpServer(params: AddMcpServerRequest['params']): Promise<z.infer<typeof AddMcpServerResponseSchema>>;
+    removeMcpServer(params: {
+        serverName: string;
+        settingsLevel: McpSettingsLevel;
+    }): Promise<z.infer<typeof RemoveMcpServerResponseSchema>>;
+    listModels(params?: ListModelsOptions): Promise<z.infer<typeof ListModelsResponseSchema>>;
+    listMcpRegistry(): Promise<z.infer<typeof ListMcpRegistryResponseSchema>>;
+    listMcpTools(): Promise<z.infer<typeof ListMcpToolsResponseSchema>>;
+    listTools(params?: ListToolsRequestParams): Promise<z.infer<typeof ListToolsResponseSchema>>;
+    listMcpServers(): Promise<z.infer<typeof ListMcpServersResponseSchema>>;
+    toggleMcpTool(serverName: string, toolName: string, enabled: boolean): Promise<z.infer<typeof ToggleMcpToolResponseSchema>>;
+    submitMcpAuthCode(params: z.infer<typeof SubmitMcpAuthCodeRequestParamsSchema>): Promise<z.infer<typeof SubmitMcpAuthCodeResponseSchema>>;
+    submitMcpAuthError(params: z.infer<typeof SubmitMcpAuthErrorRequestParamsSchema>): Promise<z.infer<typeof SubmitMcpAuthErrorResponseSchema>>;
+    listSkills(): Promise<z.infer<typeof ListSkillsResponseSchema>>;
+    setSkillDisabled(skillName: string, disabled: boolean, settingsLevel?: SetSkillDisabledRequest['params']['settingsLevel']): Promise<z.infer<typeof SetSkillDisabledResponseSchema>>;
+    listCommands(): Promise<z.infer<typeof ListCommandsResponseSchema>>;
+    getContextStats(): Promise<z.infer<typeof GetContextStatsResponseSchema>>;
+    getContextBreakdown(): Promise<z.infer<typeof GetContextBreakdownResponseSchema>>;
+    submitBugReport(userComment: string, clientLogs?: string, source?: SubmitBugReportRequest['params']['source']): Promise<z.infer<typeof SubmitBugReportResponseSchema>>;
+    getRewindInfo(params: {
+        messageId: string;
+    }, timeout?: number): Promise<z.infer<typeof GetRewindInfoResponseSchema>>;
+    executeRewind(params: {
+        messageId: string;
+        filesToRestore: Array<{
+            filePath: string;
+            contentHash: string;
+            size: number;
+        }>;
+        filesToDelete: Array<{
+            filePath: string;
+        }>;
+        forkTitle: string;
+    }): Promise<z.infer<typeof ExecuteRewindResponseSchema>>;
+    compactSession(params: {
+        customInstructions?: string;
+    }): Promise<z.infer<typeof CompactSessionResponseSchema>>;
+    forkSession(params?: z.infer<typeof ForkSessionRequestParamsSchema>): Promise<z.infer<typeof ForkSessionResponseSchema>>;
+    renameSession(params: RenameSessionRequestParams, requestId?: string): Promise<z.infer<typeof RenameSessionResponseSchema>>;
+    warmupCache(): Promise<z.infer<typeof WarmupCacheResponseSchema>>;
+    onNotification(callback: (notification: Record<string, unknown>) => void, filter?: {
+        type?: string;
+    }): () => void;
+    onError(callback: (error: Error) => void): () => void;
+    setPermissionHandler(handler: (event: RequestPermissionEvent) => Promise<PermissionHandlerResult> | PermissionHandlerResult): void;
+    clearPermissionHandler(): void;
+    setAskUserHandler(handler: (event: AskUserEvent) => Promise<AskUserResult> | AskUserResult): void;
+    clearAskUserHandler(): void;
+    close(): Promise<void>;
+    private rejectAllPending;
+    private settleRequest;
+    private notifyRequestSettled;
+    private sendRequest;
+    private handleMessage;
+    private handleResponse;
+    private handleEvent;
+    /**
+     * When an incoming CLI->client request fails to parse, send back a
+     * structurally valid JsonRpcBaseResponseFailure so the peer's pending
+     * request doesn't hang. No-ops for notifications (no id to reply on)
+     * or events we can't correlate.
+     */
+    private replyWithParseFailureIfRequest;
+    /**
+     * Invariant: parsing failures for incoming events (notifications or
+     * server-initiated requests) must NEVER surface as user-visible ERROR
+     * notifications. Version skew, unknown inner enum values, missing
+     * fields, or malformed shapes all degrade to a log-and-drop so the
+     * session continues quietly instead of flashing a synthetic error on
+     * every
+     */
+    private logDroppedEventParseError;
+    private handlePermissionRequest;
+    private handleAskUserRequest;
+    private static getErrorType;
+    private static createErrorNotification;
+    private static getNestedString;
+    private static isRecord;
+    /**
+     * Create a full SessionNotificationEvent for locally-generated notifications.
+     * Used when the SDK needs to emit error notifications that weren't received from the CLI.
+     */
+    private static createNotificationEvent;
+}
+
+/**
+ * Internal implementation of ManagedProcess
+ */
+declare class ManagedProcessImpl implements ManagedProcess {
+    private readonly logPrefix;
+    private readonly spawnContext;
+    private readonly transportLoggerDeps;
+    private _childProcess;
+    private messageHandler;
+    private errorHandler;
+    private readlineInterface;
+    private isClosing;
+    /** Latch so exit teardown/classification runs exactly once per process. */
+    private exitFinalized;
+    private exitDrainTimer;
+    /**
+     * Sticky error from a process error or unexpected exit event. Once set,
+     * all subsequent `send()` calls throw this error immediately instead of
+     * hanging on a dead transport.
+     */
+    private processError;
+    private queuedSendPromise;
+    private readonly logger;
+    constructor(childProcess: ChildProcess, logPrefix: string, spawnContext: {
+        cwd?: string;
+        execPath?: string;
+    } | undefined, deps: ExecCoreDeps, transportLoggerDeps?: ExecCoreDeps);
+    get childProcess(): ChildProcess;
+    private setupHandlers;
+    private finalizeExit;
+    send(message: string): Promise<void>;
+    onMessage(handler: (message: string) => void): void;
+    onError(handler: (error: Error) => void): void;
+    close(): Promise<void>;
+    private killProcessTree;
+    get isConnected(): boolean;
+}
+
+/**
+ * ProcessTransport implements the StringFramedDroidClientTransport interface using a spawned
+ * droid child process. It uses DroidProcessManager internally for process management.
+ *
+ * This is a thin wrapper that maintains the existing API while delegating to
+ * the more general-purpose DroidProcessManager.
+ */
+declare class ProcessTransport implements StringFramedDroidClientTransport {
+    private managedProcess;
+    private processManager;
+    private options;
+    private messageHandler;
+    private errorHandler;
+    private metrics;
+    constructor(options?: ProcessTransportOptions, deps?: ExecCoreDeps);
+    connect(): Promise<void>;
+    send(message: string): Promise<void>;
+    onMessage(handler: (message: string) => void): void;
+    onError(handler: (error: Error) => void): void;
+    close(): Promise<void>;
+    get isConnected(): boolean;
+    getManagedProcess(): ManagedProcess | null;
+}
+
+/**
+ * DroidProcessManager handles spawning and managing droid child processes.
+ * This is a generalized process manager that can spawn processes in different modes:
+ * - 'acp': For ACP child mode (`droid exec --output-format acp`)
+ * - 'stream-jsonrpc': For SDK mode (`droid exec --input-format stream-jsonrpc`)
+ */
+declare class DroidProcessManager {
+    private readonly deps;
+    private readonly transportLoggerDeps;
+    private readonly logger;
+    private readonly commandResolver;
+    constructor(options?: DroidProcessManagerOptions, deps?: ExecCoreDeps);
+    /**
+     * Spawn a new droid process with the given configuration.
+     *
+     * Returns a synchronous ManagedProcess as soon as the OS reports the child
+     * as spawned. This does not retry Windows Job Object spawn failures — use
+     * {@link DroidProcessManager#spawnWithWindowsRetry} for that.
+     */
+    spawn(config: DroidProcessConfig): ManagedProcess;
+    /**
+     * Spawn a droid process with automatic retry for the Windows Job Object
+     * spawn error class (FAC-19070). On non-Windows platforms this behaves
+     * identically to {@link DroidProcessManager#spawn} but returns a promise.
+     *
+     * When a Windows child process exits within the startup grace period and
+     * the exit looks like the `AssignProcessToJobObject` failure pattern, the
+     * dead child is disposed and a fresh spawn is attempted, up to the
+     * configured retry cap.
+     */
+    spawnWithWindowsRetry(config: DroidProcessConfig, retryOptions?: SpawnWithRetryOptions): Promise<ManagedProcess>;
+    private prepareSpawn;
+    private invokeNodeSpawn;
+    private spawnChildProcess;
+}
+
+/**
+ * Check whether transport logging is enabled via env var. The result is
+ * cached on first access for performance (env vars don't change mid-run).
+ *
+ * @public
+ */
+declare function isTransportLoggingEnabled(deps?: ExecCoreDeps): boolean;
+/**
+ * Log a single JSON-RPC transport message. This is the hot path and is
+ * designed to be as cheap as possible when logging is disabled:
+ *   - Single boolean check when the env var is unset.
+ *   - No JSON serialisation (messages are already strings on the wire).
+ *   - Fire-and-forget writes via `WriteStream.write()`: Node buffers
+ *     internally and never blocks the caller.
+ *   - Any I/O error disables the logger for the remainder of the process
+ *     instead of propagating up into the transport.
+ */
+declare function logTransportMessage(direction: TransportDirection, message: string, childPid?: number, deps?: ExecCoreDeps): void;
+/**
+ * Test-only: reset the cached state so subsequent tests can re-read env vars.
+ * Waits for the underlying write stream to flush before resolving.
+ *
+ * @public
+ */
+declare function __resetTransportLoggerForTests(deps?: ExecCoreDeps): Promise<void>;
+
+declare function resolveExecCoreDeps(observability: DroidObservability | undefined, fallback?: ExecCoreDeps): ExecCoreDeps;
+
+/**
+ * Wraps a Node `child_process.spawn` factory with automatic retries on the
+ * Windows Job Object spawn failure class. On non-Windows platforms (or when
+ * `enabled: false`) this simply invokes `spawnFactory()` once.
+ *
+ * On Windows, after each spawn we watch for early exits within
+ * `gracePeriodMs`. If the child exits early AND the exit looks like a Job
+ * Object failure (stderr marker, or non-zero exit without an explicit
+ * permanent-failure 'error' event), we dispose the dead child and respawn
+ * up to `maxRetries`.
+ */
+declare function spawnWithWindowsJobObjectRetry(spawnFactory: () => ChildProcess, options?: SpawnWithRetryOptions): Promise<ChildProcess>;
+
+/**
+ * Default timeout values for DroidClient
+ */
+
+/**
+ * Windows kernel error string emitted to a child process's stderr when
+ * libuv's `uv_spawn` calls `AssignProcessToJobObject` on an
+ * already-terminated child handle. Used by the Windows spawn retry wrapper
+ * (FAC-19070) to identify the retryable failure class.
+ */
+declare const WINDOWS_JOB_OBJECT_ERROR_MARKER = "AssignProcessToJobObject";
+/**
+ * Metric key for child-process spawn latency emitted by the process
+ * transport. Kept byte-identical to the value historically sourced from the
+ * `@factory/logging` metric enum so downstream telemetry stays continuous.
+ */
+declare const CLI_JSONRPC_CHILD_SPAWN_LATENCY_METRIC = "cli_jsonrpc_child_spawn_latency";
+/** No-op logger used when no real logger is injected. Safe because it is observability-only. */
+declare const noopLogger: Logger;
+
+type ToolInputShape = Record<string, z.ZodTypeAny>;
+type DroidToolResult = string | CallToolResult;
+interface DroidTool {
+    name: string;
+    description?: string;
+    inputSchema?: ToolInputShape;
+    handler: (input: Record<string, unknown>) => DroidToolResult | Promise<DroidToolResult>;
+}
+interface SdkMcpServerOptions {
+    name: string;
+    version?: string;
+    tools: DroidTool[];
+}
+type DroidMcpServerConfig = McpServerConfig | SdkMcpServer;
+declare function tool<InputShape extends ToolInputShape>(name: string, description: string, inputSchema: InputShape, handler: (input: z.infer<z.ZodObject<InputShape>>) => DroidToolResult | Promise<DroidToolResult>): DroidTool;
+declare function tool(name: string, description: string, handler: DroidTool['handler']): DroidTool;
+declare class SdkMcpServer {
+    readonly name: string;
+    readonly version: string;
+    readonly tools: DroidTool[];
+    private _httpServer;
+    private _url;
+    private _token;
+    constructor(options: SdkMcpServerOptions);
+    get config(): HttpMcpConfig | null;
+    start(): Promise<HttpMcpConfig>;
+    close(): Promise<void>;
+    private createMcpServer;
+    private handleRequest;
+}
+declare function createSdkMcpServer(options: SdkMcpServerOptions): SdkMcpServer;
+
+interface TransportCreationOptions {
+    /** Defaults to `process.env.FACTORY_API_KEY`. */
+    apiKey?: string;
+    execPath?: string;
+    execArgs?: string[];
+    cwd?: string;
+    env?: Record<string, string>;
+    observability?: DroidObservability;
+    transport?: StringFramedDroidClientTransport;
+}
+interface SessionInitOptions extends ToolSelectionOverrides {
+    /** Defaults to `process.cwd()`. */
+    cwd?: string;
+    machineId?: string;
+    modelId?: string;
+    autonomyLevel?: AutonomyLevel;
+    interactionMode?: DroidInteractionMode;
+    reasoningEffort?: ReasoningEffort;
+    systemPrompt?: SystemPromptConfig;
+    specModeModelId?: string;
+    specModeReasoningEffort?: ReasoningEffort;
+    mcpServers?: DroidMcpServerConfig[];
+    sessionSource?: SessionSource;
+    tags?: SessionTag[];
+    autoRejectPermissionRequests?: boolean;
+    /** When true, Factory-provided builtin skills are unavailable. */
+    disableBuiltinSkills?: boolean;
+}
+
+type NotificationCallback = (notification: Record<string, unknown>) => void;
+interface NotificationFilter {
+    type?: string;
+}
+/** Aggregated result from a one-shot {@link run} call. */
+type DroidResult = DroidResultMessage;
+interface CreateSessionOptions extends SessionInitOptions, HandlerOptions, TransportCreationOptions {
+    abortSignal?: AbortSignal;
+}
+interface ResumeSessionOptions extends Pick<CreateSessionOptions, 'apiKey' | 'execPath' | 'execArgs' | 'env' | 'permissionHandler' | 'askUserHandler' | 'transport' | 'abortSignal' | 'observability' | 'disabledToolIds' | 'autoRejectPermissionRequests' | 'disableBuiltinSkills' | 'sessionSource'> {
+    mcpServers?: DroidMcpServerConfig[];
+}
+
+type ToolInfo = Omit<ExecToolInfo, 'id' | 'llmId' | 'currentlyAllowed'> & {
+    id: ExecToolInfo['llmId'];
+    allowed: ExecToolInfo['currentlyAllowed'];
+};
+type ListToolsOptions = ListToolsRequestParams;
+type DroidSessionUpdateSettingsOptions = UpdateSessionSettingsRequestParams;
+type ReplacementLoadParams = Omit<LoadSessionRequestParams, 'sessionId'>;
+interface SessionRuntime {
+    abortSignal?: AbortSignal;
+    loadParams: ReplacementLoadParams;
+}
+interface SessionMetadataSnapshot {
+    settings: SessionSettings;
+    cwd?: string;
+}
+/** Create instances via {@link createSession} or {@link resumeSession}. */
+declare class DroidSession {
+    private readonly _runtime;
+    private readonly _client;
+    private readonly _sessionId;
+    private _settings;
+    private _cwd;
+    private _settingsRevision;
+    private _status;
+    private _replacementSessionId;
+    private _cleanupAbortSignal;
+    private _cleanupCallbacks;
+    private readonly _activeBridges;
+    private readonly _notificationCleanups;
+    /** @internal */
+    constructor(client: DroidClient, sessionId: string, metadata: SessionMetadataSnapshot, _runtime: SessionRuntime, cleanupCallbacks?: Array<() => Promise<void> | void>);
+    get id(): string;
+    get settings(): Readonly<SessionSettings>;
+    get cwd(): string | undefined;
+    /** Yields message-level events until the final `result` message. */
+    stream(prompt: string, options?: MessageOptions & {
+        includePartialMessages?: false;
+    }): AsyncGenerator<DroidStreamMessage, void, undefined>;
+    /** Yields message-level events plus partial chunks until the final `result` message. */
+    stream(prompt: string, options: MessageOptions & {
+        includePartialMessages: true;
+    }): AsyncGenerator<DroidStreamEvent, void, undefined>;
+    interrupt(): Promise<void>;
+    close(): Promise<void>;
+    updateSettings(params: DroidSessionUpdateSettingsOptions): Promise<UpdateSessionSettingsResult>;
+    enterSpecMode(params?: Pick<UpdateSessionSettingsRequestParams, 'specModeModelId' | 'specModeReasoningEffort'>): Promise<UpdateSessionSettingsResult>;
+    exitSpecMode(): Promise<UpdateSessionSettingsResult>;
+    addMcpServer(params: AddMcpServerRequestParams): Promise<AddMcpServerResult>;
+    removeMcpServer(params: RemoveMcpServerRequestParams): Promise<RemoveMcpServerResult>;
+    toggleMcpServer(params: ToggleMcpServerRequestParams): Promise<ToggleMcpServerResult>;
+    listMcpServers(): Promise<ListMcpServersResult>;
+    listMcpTools(): Promise<McpToolInfo[]>;
+    listTools(params?: ListToolsOptions): Promise<ToolInfo[]>;
+    authenticateMcpServer(params: AuthenticateMcpServerRequestParams): Promise<AuthenticateMcpServerResult>;
+    listSkills(): Promise<ListSkillsResult>;
+    setSkillDisabled(params: SetSkillDisabledRequestParams): Promise<SetSkillDisabledResult>;
+    getRewindInfo(params: Omit<GetRewindInfoRequestParams, 'sessionId'>): Promise<GetRewindInfoResult>;
+    rewind(params: Omit<ExecuteRewindRequestParams, 'sessionId'>): Promise<SessionRewindOutcome<DroidSession>>;
+    compact(params?: CompactSessionRequestParams): Promise<SessionCompactionOutcome<DroidSession>>;
+    fork(params?: ForkSessionRequestParams): Promise<DroidSession>;
+    getContextStats(): Promise<GetContextStatsResult>;
+    rename(params: RenameSessionRequestParams$1): Promise<void>;
+    onNotification(callback: NotificationCallback, filter?: NotificationFilter): () => void;
+    private _ensureNotClosed;
+    private _beginReplacement;
+    private _runReplacement;
+    private _loadReplacement;
+    private _bindAbortSignal;
+    private _bindMetadataNotifications;
+    private _releaseHandleSubscriptions;
+    private _disposeAfterFailedRollback;
+}
+declare function createSession(options?: CreateSessionOptions): Promise<DroidSession>;
+/**
+ * Resumes an existing Droid session.
+ *
+ * The resumed session always runs in the working directory that was persisted
+ * with the session at creation time. `resumeSession()` intentionally does not
+ * accept a `cwd` option: the persisted session cwd is authoritative. The
+ * underlying subprocess is launched in the host process's `process.cwd()`, but
+ * this does not affect the session's working directory as far as the Droid is
+ * concerned. To run in a different directory, create a new session or fork the
+ * existing one.
+ *
+ * @throws {SessionNotFoundError} If the session ID does not exist.
+ */
+declare function resumeSession(sessionId: string, options?: ResumeSessionOptions): Promise<DroidSession>;
+
+interface RunOptions extends CreateSessionOptions, Omit<MessageOptions, 'includePartialMessages'> {
+}
+declare function run(prompt: string, options?: RunOptions): Promise<DroidResult>;
+
+/**
+ * List droid sessions stored on disk.
+ *
+ * Sessions are read from `~/.factory/sessions/` (or the `sessionsDir`
+ * override) by scanning `.jsonl` files, mirroring the logic used by the
+ * `droid` CLI's `SessionService`. No JSON-RPC server calls are made.
+ *
+ * By default, returns sessions for `process.cwd()`. Pass a specific `cwd`
+ * to scope to a different project, or `fetchOutsideCWD: true` to return
+ * every session on disk regardless of working directory. Results are
+ * sorted by `modifiedTime` descending and can be capped with `limit`.
+ *
+ * @example
+ * ```ts
+ * // Sessions for the current project
+ * const sessions = await listSessions();
+ *
+ * // 10 most recent sessions across every project
+ * const recent = await listSessions({
+ *   fetchOutsideCWD: true,
+ *   limit: 10,
+ * });
+ * ```
+ */
+declare function listSessions(options?: ListSessionsOptions): Promise<SessionMetadata[]>;
+
+/**
+ * List models currently selectable by the spawned Droid process.
+ *
+ * Disabled models are hidden by default. Set `includeDisabled` to include
+ * them with their `disabledReason`.
+ */
+declare function listModels(options?: ListModelsOptions & TransportCreationOptions): Promise<ModelInfo[]>;
+
+export { AddMcpServerRequestParams, AddMcpServerResponseSchema, AddMcpServerResult, AuthenticateMcpServerRequestParams, AuthenticateMcpServerResponseSchema, AuthenticateMcpServerResult, AutonomyLevel, CLI_JSONRPC_CHILD_SPAWN_LATENCY_METRIC, CancelMcpAuthResponseSchema, ClearMcpAuthResponseSchema, type CommandResolver, CompactSessionRequestParams, CompactSessionResponseSchema, type CreateSessionOptions, DaemonClientTransport, DaemonClientTransportEvents, DaemonIpcMessageChannel, DroidClient, DroidClientEvent, DroidClientOptions, type DroidEventMap, type DroidEventType, DroidInteractionMode, type DroidMcpServerConfig, DroidObservability, type DroidProcessConfig, DroidProcessManager, type DroidProcessManagerOptions, DroidProcessMode, type DroidResult, DroidResultMessage, DroidSession, type DroidSessionUpdateSettingsOptions, DroidStreamEvent, DroidStreamMessage, type DroidTool, type DroidToolResult, type EnvironmentResolver, type ExecCoreDeps, ExecToolInfo, ExecuteRewindRequestParams, ExecuteRewindResponseSchema, type FactoryPathResolver, ForkSessionRequestParams, ForkSessionRequestParamsSchema, ForkSessionResponseSchema, GetContextStatsResponseSchema, GetContextStatsResult, GetRewindInfoRequestParams, GetRewindInfoResponseSchema, GetRewindInfoResult, HttpMcpConfig, InProcessDaemonClientTransport, InProcessDaemonClientTransportOptions, InitializeSessionRequestParams, InitializeSessionResponse, IpcDaemonClientTransport, ListMcpRegistryResponseSchema, ListMcpServersResponseSchema, ListMcpServersResult, ListMcpToolsResponseSchema, ListModelsOptions, ListSessionsOptions, ListSkillsResponseSchema, ListSkillsResult, type ListToolsOptions, ListToolsRequestParams, ListToolsResponseSchema, LoadSessionRequestParams, LoadSessionResponse, type Logger, type ManagedProcess, ManagedProcessImpl, McpServerConfig, McpToolInfo, MessageOptions, type Metrics, ModelInfo, ProcessTransport, ProcessTransportOptions, ReasoningEffort, RemoveMcpServerRequestParams, RemoveMcpServerResponseSchema, RemoveMcpServerResult, RenameSessionRequestParams$1 as RenameSessionRequestParams, RenameSessionResponseSchema, RequestPermissionHandlerResult, type ResolvedDroidCommand, type ResumeSessionOptions, type RunOptions, SdkMcpServer, type SdkMcpServerOptions, SessionCompactionOutcome, SessionMetadata, SessionRewindOutcome, SessionSettings, SessionSource, SessionTag, SetSkillDisabledRequestParams, SetSkillDisabledResponseSchema, SetSkillDisabledResult, SettingsLevel, type SpawnWithRetryOptions, StringFramedDroidClientTransport, SubmitBugReportResponseSchema, SubmitMcpAuthCodeRequestParamsSchema, SubmitMcpAuthCodeResponseSchema, SystemPromptConfig, ToggleMcpServerRequestParams, ToggleMcpServerResponseSchema, ToggleMcpServerResult, ToggleMcpToolResponseSchema, ToolConfirmationOutcome, type ToolInfo, ToolSelectionOverrides, type Tracing, TransportDirection, UpdateSessionSettingsRequestParams, UpdateSessionSettingsResult, WINDOWS_JOB_OBJECT_ERROR_MARKER, __resetTransportLoggerForTests, createSdkMcpServer, createSession, isTransportLoggingEnabled, listModels, listSessions, logTransportMessage, noopLogger, resolveExecCoreDeps, resumeSession, run, spawnWithWindowsJobObjectRetry, tool };

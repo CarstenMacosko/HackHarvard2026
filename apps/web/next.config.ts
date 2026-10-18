@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const { loadEnvConfig } = require("@next/env") as typeof import("@next/env");
 const configDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(configDir, "..");
+// apps/web → repo root (not apps/)
+const repoRoot = path.resolve(configDir, "../..");
 loadEnvConfig(repoRoot);
 loadEnvConfig(configDir);
 

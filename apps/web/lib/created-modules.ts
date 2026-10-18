@@ -55,24 +55,27 @@ export function normalizeApprovedSource(
   if (!next.includes(`id = "${moduleId}"`) && !next.includes(`id = '${moduleId}'`)) {
     next = next.replace(/id\s*=\s*["'][^"']+["']/, `id = ${JSON.stringify(moduleId)}`);
   }
-  const specs = (
-    measurements?.length
-      ? measurements
-      : [{ name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" }]
-  ).filter((m) => ["index_straight_fraction", "index_pip_angle_deg"].includes(m.name));
-  if (specs.length) {
-    const specLines = specs
-      .map((m) => `        MeasurementSpec(${JSON.stringify(m.name)}, ${JSON.stringify(m.label)}, ${JSON.stringify(m.unit)}),`)
-      .join("\n");
-    next = next.replace(/measurements\s*=\s*\[[^\]]*\]/s, `measurements = [\n${specLines}\n    ]`);
-    const measureCalls = specs
-      .map((m) => {
-        const valueExpr = m.name === "index_pip_angle_deg" ? 'result["writing_angle_deg"]' : 'result["straight_fraction"]';
-        return `self.measurement(${JSON.stringify(m.name)}, ${valueExpr}, None)`;
-      })
-      .join(",\n                          ");
-    next = next.replace(/measurements\s*=\s*\[[^\]]*self\.measurement[^\]]*\]/s, `measurements=[${measureCalls}]`);
-  }
+  const specs = measurements?.length
+    ? measurements
+    : [{ name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" }];
+  const specLines = specs
+    .map((m) => `        MeasurementSpec(${JSON.stringify(m.name)}, ${JSON.stringify(m.label)}, ${JSON.stringify(m.unit)}),`)
+    .join("\n");
+  next = next.replace(/measurements\s*=\s*\[[^\]]*\]/s, `measurements = [\n${specLines}\n    ]`);
+  const measureCalls = specs
+    .map((m) => {
+      const valueExpr =
+        m.name === "index_pip_angle_deg" || m.name.includes("pip_angle") || m.name.includes("index_pip")
+          ? 'result["writing_angle_deg"]'
+          : m.name === "index_straight_fraction" || m.name.includes("straight")
+            ? 'result["straight_fraction"]'
+            : /angle/i.test(m.name) || /deg/i.test(m.unit)
+              ? 'result.get("knuckle_palm_angle_deg")'
+              : 'result["straight_fraction"]';
+      return `self.measurement(${JSON.stringify(m.name)}, ${valueExpr}, None)`;
+    })
+    .join(",\n                          ");
+  next = next.replace(/measurements\s*=\s*\[[^\]]*self\.measurement[^\]]*\]/s, `measurements=[${measureCalls}]`);
   return next;
 }
 
@@ -104,7 +107,8 @@ function createdFromJob(job: {
       (typeof (job.request as { name?: string }).name === "string" && (job.request as { name?: string }).name!.trim()) ||
       measurements[0]?.label ||
       "Generated writing posture",
-    condition: String(job.request.condition ?? "focal_hand_dystonia"),
+    // Keep researcher wording; study form slug-matches this to the condition picker.
+    condition: String(job.request.condition ?? "focal_hand_dystonia").trim() || "focal_hand_dystonia",
     description: p.description || String(job.request.description ?? ""),
     media_type: p.media_type,
     measurements,

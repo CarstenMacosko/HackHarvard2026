@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ObservationDetail } from "@/components/observation-detail";
 import { ReviewActions } from "@/components/review-actions";
-import { Badge, Card, CardBody, CardHeader, EmptyState, PageHeader, Tabs, cn } from "@/components/ui";
+import { Card, CardBody, CardHeader, EmptyState, PageHeader, Tabs, cn } from "@/components/ui";
 import { relTime } from "@/lib/format";
 import { listStudies, reviewQueue } from "@/lib/queries";
 
@@ -45,11 +45,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
                       </span>
                       <span className="text-xs text-slate-400">{relTime(o.captured_at)}</span>
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
-                      <span>{o.study_name}</span>
-                      {Number(o.context.attempts ?? 1) > 1 && <Badge tone="amber">retried</Badge>}
-                      {o.context.analysis_runtime === "on-device" && <Badge>on-device</Badge>}
-                    </div>
+                    <div className="mt-0.5 text-xs text-slate-500">{o.study_name}</div>
                   </Link>
                 </li>
               ))}

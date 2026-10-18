@@ -12,9 +12,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-white">
       <div className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs font-bold text-white">VF</span>
-          <span className="font-semibold text-slate-900">Visual Follow-Up</span>
+        <div className="flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/streamcare-logo.png" alt="StreamCare" className="h-8 w-auto" />
         </div>
         <h1 className="mt-10 max-w-3xl text-4xl font-semibold tracking-tight text-slate-900 lg:text-5xl">Longitudinal follow-up that comes to the patient.</h1>
         <p className="mt-5 max-w-2xl text-lg text-slate-600">
@@ -22,14 +22,12 @@ export default function Home() {
         </p>
         <div className="mt-10 grid gap-4 md:grid-cols-2">
           <Link href="/auth/sign-in?role=researcher" className="group rounded-xl border border-slate-200 p-6 transition-colors hover:border-brand-500 hover:bg-brand-50/40">
-            <div className="text-sm text-slate-500">For study teams</div>
             <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-slate-900">
               Researcher sign in <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </div>
             <p className="mt-2 text-sm text-slate-600">Create studies, invite participants, assign tests, and review captures with notes.</p>
           </Link>
           <Link href="/auth/sign-in" className="group rounded-xl border border-slate-200 p-6 transition-colors hover:border-brand-500 hover:bg-brand-50/40">
-            <div className="text-sm text-slate-500">For participants</div>
             <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-slate-900">
               Participant sign in <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </div>
@@ -45,9 +43,6 @@ export default function Home() {
             </div>
           ))}
         </div>
-        <p className="mt-16 border-t border-slate-100 pt-6 text-xs text-slate-400">
-          HackHarvard 2026 prototype. Measurements are not clinically validated.
-        </p>
       </div>
     </main>
   );

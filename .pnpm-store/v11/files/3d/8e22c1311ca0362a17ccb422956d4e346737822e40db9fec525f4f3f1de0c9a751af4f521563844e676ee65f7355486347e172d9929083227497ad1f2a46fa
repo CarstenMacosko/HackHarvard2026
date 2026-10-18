@@ -1,0 +1,35 @@
+/**
+ * Custom system prompt example.
+ *
+ * Usage:
+ *   npx tsx examples/node/custom-system-prompt.ts
+ */
+
+import { createSession, DroidMessageType } from '@factory/droid-sdk/node';
+
+const session = await createSession({
+  systemPrompt: {
+    type: 'preset',
+    preset: 'droid',
+    append: 'Keep answers concise and cite relevant files.',
+  },
+});
+
+try {
+  let text = '';
+  for await (const message of session.stream(
+    'Summarize the main entry points in this project.'
+  )) {
+    if (message.type === DroidMessageType.Assistant) {
+      text += message.text;
+    }
+    if (message.type === DroidMessageType.Result && !message.success) {
+      throw new Error(
+        message.error?.message ?? `Turn ended: ${message.subtype}`
+      );
+    }
+  }
+  console.log(text);
+} finally {
+  await session.close();
+}

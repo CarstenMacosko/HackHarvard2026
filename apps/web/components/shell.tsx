@@ -165,14 +165,18 @@ export function AppShell({
   );
 }
 
+export function BrandLogo({ className }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/streamcare-logo.png" alt="StreamCare" className={cn("h-7 w-auto", className)} />
+  );
+}
+
 export function Brand({ suffix }: { suffix: string }) {
   return (
-    <Link href="/" className="flex min-w-0 items-center gap-2.5">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-600 text-[11px] font-bold text-white">VF</span>
-      <span className="min-w-0 leading-tight">
-        <span className="block truncate text-sm font-semibold text-slate-900">Visual Follow-Up</span>
-        <span className="block truncate text-[11px] text-slate-500">{suffix}</span>
-      </span>
+    <Link href="/" className="flex min-w-0 flex-col gap-0.5">
+      <BrandLogo className="h-6 w-auto max-w-full" />
+      <span className="truncate text-[11px] text-slate-500">{suffix}</span>
     </Link>
   );
 }

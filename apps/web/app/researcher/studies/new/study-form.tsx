@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  DEFAULT_CONSENT,
   TASK_LIBRARY,
   WRITING_POSTURE_TASK,
   clinicalFormForCondition,
@@ -15,8 +14,16 @@ import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { Button, Card, CardBody, CardHeader, cn } from "@/components/ui";
+import { conditionKey } from "@/lib/format";
 import type { Condition } from "@/lib/types";
 import { createStudy } from "./actions";
+
+const BUILTIN_CONDITIONS: { value: string; label: string }[] = [
+  { value: "parkinsons", label: "Parkinson's disease" },
+  { value: "focal_hand_dystonia", label: "Focal hand dystonia" },
+  { value: "eczema", label: "Atopic dermatitis" },
+  { value: "other", label: "Other" },
+];
 
 const FOUNDATIONAL_EVALS = [
   { module: "finger_tapping", label: "Finger tapping (video)", conditions: ["parkinsons", "other"] },
@@ -64,10 +71,19 @@ function defaultsForModule(module: string, created: CreatedModuleOption[]): Pick
   };
 }
 
+function modulesForCondition(condition: string, created: CreatedModuleOption[]): CreatedModuleOption[] {
+  const key = conditionKey(condition);
+  if (condition === "other") return created;
+  return created.filter((m) => {
+    const mk = conditionKey(m.condition);
+    return mk === key || mk === condition || m.condition === condition;
+  });
+}
+
 function defaultEval(condition: Condition, created: CreatedModuleOption[]): EvalRow | null {
-  if (condition === "focal_hand_dystonia") {
-    const first = created[0];
-    if (!first) return null;
+  const matched = modulesForCondition(condition, created);
+  if (matched.length) {
+    const first = matched[0];
     return { module: first.id, ...defaultsForModule(first.id, created) };
   }
   const module = defaultModuleForCondition(condition);
@@ -78,27 +94,54 @@ function defaultEval(condition: Condition, created: CreatedModuleOption[]): Eval
 export function StudyForm({ createdModules = [] }: { createdModules?: CreatedModuleOption[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [condition, setCondition] = useState<Condition>("parkinsons");
-  const [consentTitle, setConsentTitle] = useState(DEFAULT_CONSENT.title);
-  const [consentBody, setConsentBody] = useState(DEFAULT_CONSENT.body);
+  const [condition, setCondition] = useState<Condition>(() => {
+    // Prefer a generated condition when Created Modules exist for a non-builtin label.
+    const fromCreated = createdModules[0]?.condition?.trim();
+    if (fromCreated) return conditionKey(fromCreated) as Condition;
+    return "parkinsons";
+  });
   const [evals, setEvals] = useState<EvalRow[]>(() => {
-    const row = defaultEval("parkinsons", createdModules);
+    const initial = createdModules[0]?.condition?.trim() ? (conditionKey(createdModules[0].condition) as Condition) : "parkinsons";
+    const row = defaultEval(initial, createdModules);
     return row ? [row] : [];
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const taskModules = useMemo(() => new Set(evals.map((e) => e.module)), [evals]);
-  const formMeta = clinicalFormForCondition(condition);
+
+  const conditionOptions = useMemo(() => {
+    const opts = [...BUILTIN_CONDITIONS];
+    const seen = new Set(opts.map((o) => o.value));
+    for (const m of createdModules) {
+      const raw = m.condition?.trim();
+      if (!raw) continue;
+      const key = conditionKey(raw);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      // Use the researcher’s Generate wording when it isn’t a built-in slug label.
+      const builtin = BUILTIN_CONDITIONS.find((b) => b.value === key);
+      opts.push({ value: key, label: builtin?.label ?? raw });
+    }
+    return opts;
+  }, [createdModules]);
+
   const availableEvals = useMemo(() => {
-    const foundational = FOUNDATIONAL_EVALS.filter((e) => (e.conditions as readonly string[]).includes(condition)).map((e) => ({
+    const key = conditionKey(condition);
+    const foundational = FOUNDATIONAL_EVALS.filter((e) => (e.conditions as readonly string[]).includes(key) || condition === "other").map((e) => ({
       module: e.module,
       label: e.label,
     }));
-    const created = createdModules
-      .filter((m) => condition === "focal_hand_dystonia" || condition === "other" || m.condition.toLowerCase().includes("dystonia"))
-      .map((m) => ({ module: m.id, label: `${m.label} (created)` }));
-    return [...foundational, ...created];
+    // Always surface approved Generate modules for this condition (and all of them under "other").
+    const created = modulesForCondition(condition, createdModules).map((m) => ({
+      module: m.id,
+      label: `${m.label} (created)`,
+    }));
+    // Deduplicate by module id (created wins).
+    const byId = new Map<string, { module: string; label: string }>();
+    for (const e of foundational) byId.set(e.module, e);
+    for (const e of created) byId.set(e.module, e);
+    return [...byId.values()];
   }, [condition, createdModules]);
 
   function setConditionAndDefaults(next: Condition) {
@@ -109,15 +152,13 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
 
   return (
     <form
-      className="grid gap-6 xl:grid-cols-[1fr_minmax(280px,360px)]"
+      className="mx-auto max-w-3xl space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
         start(async () => {
           const r = await createStudy({
             name,
             condition,
-            consentTitle,
-            consentBody,
             evals: evals.map((ev) => ({
               module: ev.module,
               cadence: ev.cadence,
@@ -133,7 +174,6 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
         });
       }}
     >
-      <div className="space-y-6">
         <Card>
           <CardHeader title="Study" description="Created as active so you can enroll someone immediately." />
           <CardBody className="space-y-4">
@@ -144,36 +184,23 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
             <label className="block text-sm font-medium text-slate-900">
               Condition
               <select className={cn(input, "mt-1")} value={condition} onChange={(e) => setConditionAndDefaults(e.target.value as Condition)}>
-                <option value="parkinsons">Parkinson&apos;s disease</option>
-                <option value="focal_hand_dystonia">Focal hand dystonia</option>
-                <option value="eczema">Atopic dermatitis</option>
-                <option value="other">Other</option>
+                {conditionOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </select>
             </label>
             <p className="text-xs text-slate-500">
-              CV module and clinical questionnaire default to this condition ({formMeta.name}).
+              Conditions you type in Generate module appear here after you approve the module.
             </p>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader title="Consent form" description="Shown on the join link during enrollment." />
-          <CardBody className="space-y-4">
-            <label className="block text-sm font-medium text-slate-900">
-              Title
-              <input className={cn(input, "mt-1")} value={consentTitle} onChange={(e) => setConsentTitle(e.target.value)} />
-            </label>
-            <label className="block text-sm font-medium text-slate-900">
-              Body
-              <textarea className="mt-1 min-h-[220px] w-full rounded-md border border-slate-300 bg-white p-3 text-sm leading-relaxed" value={consentBody} onChange={(e) => setConsentBody(e.target.value)} />
-            </label>
           </CardBody>
         </Card>
 
         <Card>
           <CardHeader
             title="Required evaluations"
-            description="Each evaluation uses its condition-specific CV module. Participants fill the clinical form after a usable capture."
+            description="Created modules from Generate show up here for the matching condition. Participants fill the clinical form after a usable capture."
             actions={
               <Button
                 type="button"
@@ -192,13 +219,14 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
             }
           />
           <CardBody className="space-y-4">
-            {condition === "focal_hand_dystonia" && createdModules.length === 0 && (
+            {modulesForCondition(condition, createdModules).length === 0 &&
+              !FOUNDATIONAL_EVALS.some((e) => (e.conditions as readonly string[]).includes(conditionKey(condition))) && (
               <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                No created modules yet.{" "}
+                No evaluations for this condition yet.{" "}
                 <a href="/researcher/generate" className="font-medium underline">
                   Generate and approve
                 </a>{" "}
-                a writing-posture module for focal hand dystonia first.
+                a module first, or pick Parkinson&apos;s / eczema for foundational tests.
               </p>
             )}
             {evals.map((ev, i) => (
@@ -460,24 +488,11 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
             ))}
           </CardBody>
         </Card>
-      </div>
 
-      <div className="space-y-6">
-        <Card>
-          <CardHeader title="Clinical form defaults" description={formMeta.summary} />
-          <CardBody className="space-y-2 text-sm text-slate-600">
-            <p>
-              <span className="font-medium text-slate-900">{formMeta.name}</span>
-            </p>
-            <p className="text-xs text-slate-500">{formMeta.citation}</p>
-            <p>Participants complete this questionnaire after a usable video or photo. Edit prompts above; reset restores the verified default.</p>
-          </CardBody>
-        </Card>
         {error && <p className="text-sm text-rose-600">{error}</p>}
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? "Creating…" : "Create study"}
         </Button>
-      </div>
     </form>
   );
 }

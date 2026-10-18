@@ -12,7 +12,7 @@ export default async function NewStudyPage() {
       <PageHeader
         breadcrumbs={[{ label: "Studies", href: "/researcher/studies" }, { label: "New" }]}
         title="Create a study"
-        description="Consent form, required evaluations, and how often each test should be completed."
+        description="Pick a condition, required evaluations, and how often each test should be completed. Conditions and modules from Generate appear here after approval."
       />
       <StudyForm
         createdModules={created.map((m) => ({

@@ -34,9 +34,6 @@ export function FunnelBars({ funnel: f }: { funnel: Funnel }) {
           </div>
         </div>
       ))}
-      <p className="pt-1 text-xs text-slate-500">
-        {pct(f.afterRetry / Math.max(1, f.accepted))} of usable data was recovered by a guided retry. {f.onDevice} attempts were analysed on-device.
-      </p>
     </div>
   );
 }

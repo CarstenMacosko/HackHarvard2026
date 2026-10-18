@@ -10,17 +10,37 @@ import { researcherName } from "@/lib/session";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+/** Strip bulky fields so the jobs list stays fast to poll. */
+function summarizeJob(job: Awaited<ReturnType<ReturnType<typeof backend>["droidJobs"]>>[number]) {
+  const progress = job.progress;
+  if (!progress || typeof progress !== "object") return job;
+  const { source_code: _src, logs, ...rest } = progress;
+  return {
+    ...job,
+    progress: {
+      ...rest,
+      // Keep a short tail of logs for status context; full source lives on the generate detail route.
+      logs: Array.isArray(logs) ? logs.slice(-8) : logs,
+    },
+  };
+}
+
 /** List Droid+Daytona generation jobs from the database. */
 export async function GET() {
-  const jobs = await backend().droidJobs(30);
-  const live = liveIntegrationStatus();
-  return NextResponse.json({
-    jobs,
-    daytona: live.daytona,
-    droid: live.droid,
-    mode: live.mode,
-    droid_exec: live.droid_exec,
-  });
+  try {
+    const jobs = (await backend().droidJobs(30)).map(summarizeJob);
+    const live = liveIntegrationStatus();
+    return NextResponse.json({
+      jobs,
+      daytona: live.daytona,
+      droid: live.droid,
+      mode: live.mode,
+      droid_exec: live.droid_exec,
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Could not load Droid jobs.";
+    return NextResponse.json({ jobs: [], error: message }, { status: 500 });
+  }
 }
 
 /**

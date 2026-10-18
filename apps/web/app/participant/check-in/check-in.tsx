@@ -111,16 +111,45 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         if (!isMediaKind(f, "video")) throw new Error("Please choose a video.");
         const measurementNames = task.measurements.map((m) => m.name);
         if (!isOnDeviceVideoModule(task.module, measurementNames)) {
-          throw new Error(
-            `This check-in uses module ${task.module}, which needs the CV service (CV_SERVICE_URL). Writing-posture modules run on-device.`,
-          );
+          throw new Error(`This check-in uses module ${task.module}, which is not available on-device.`);
         }
         const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);
-        const allowed = new Set(measurementNames);
-        r =
-          allowed.size > 0
-            ? { ...a.result, measurements: a.result.measurements.filter((m) => allowed.has(m.name)) }
-            : a.result;
+        // Align on-device outputs to the study’s accepted measurement plan (incl. custom names).
+        if (task.measurements.length) {
+          const byName = new Map(a.result.measurements.map((m) => [m.name, m]));
+          r = {
+            ...a.result,
+            measurements: task.measurements.map((spec) => {
+              const hit = byName.get(spec.name);
+              if (hit) return { ...hit, label: spec.label, unit: spec.unit };
+              // Map features only to matching metrics — PIP stays exclusive to PIP / straightness.
+              let fromFeat = a.result.features[spec.name];
+              if (fromFeat == null && spec.name === "index_pip_angle_deg") fromFeat = a.result.features.index_pip_angle_deg;
+              if (fromFeat == null && spec.name === "index_straight_fraction") fromFeat = a.result.features.index_straight_fraction;
+              if (fromFeat == null && (spec.name.includes("pip_angle") || spec.name.includes("index_pip"))) {
+                fromFeat = a.result.features.index_pip_angle_deg;
+              }
+              if (fromFeat == null && spec.name.includes("straight")) fromFeat = a.result.features.index_straight_fraction;
+              // Custom angle names (e.g. knuckle_to_palm) → knuckle–palm geometry, not index PIP.
+              if (fromFeat == null && /angle/i.test(spec.name) && !/pip/i.test(spec.name)) {
+                fromFeat = a.result.features.knuckle_palm_angle_deg;
+              }
+              if (fromFeat == null && /deg/i.test(spec.unit) && !/pip/i.test(spec.name) && !/straight/i.test(spec.name)) {
+                fromFeat = a.result.features.knuckle_palm_angle_deg;
+              }
+              return {
+                name: spec.name,
+                label: spec.label,
+                unit: spec.unit,
+                value: typeof fromFeat === "number" ? fromFeat : 0,
+                uncertainty: null,
+                validation_status: "reusable_needs_validation" as const,
+              };
+            }),
+          };
+        } else {
+          r = a.result;
+        }
         up = { poster: a.poster };
       }
       setResult(r);

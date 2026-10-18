@@ -1,0 +1,94 @@
+/**
+ * Hook execution example.
+ *
+ * Creates a temporary project with a PreToolUse hook and prints its stream
+ * events.
+ * User-level hooks still apply to the temporary project.
+ *
+ * Usage:
+ *   npx tsx examples/node/hook-execution.ts
+ */
+
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import {
+  DroidMessageType,
+  ToolConfirmationOutcome,
+  ToolConfirmationType,
+  createSession,
+} from '@factory/droid-sdk/node';
+
+const hookSettings = {
+  hooksDisabled: false,
+  PreToolUse: [
+    {
+      matcher: 'Execute',
+      hooks: [{ type: 'command', command: 'echo hook-from-sdk-example' }],
+    },
+  ],
+};
+
+const projectDir = await mkdtemp(join(tmpdir(), 'droid-sdk-hook-project-'));
+
+let hookCount = 0;
+const expectedCommand = 'echo hello';
+
+try {
+  await mkdir(join(projectDir, '.factory'), { recursive: true });
+  await writeFile(
+    join(projectDir, '.factory', 'hooks.json'),
+    JSON.stringify(hookSettings, null, 2)
+  );
+
+  const session = await createSession({
+    cwd: projectDir,
+    permissionHandler({ toolUses, options }) {
+      const approvesExpectedCommand =
+        toolUses.length === 1 &&
+        toolUses[0].details.type === ToolConfirmationType.Execute &&
+        toolUses[0].details.fullCommand === expectedCommand;
+      const desired = approvesExpectedCommand
+        ? ToolConfirmationOutcome.ProceedOnce
+        : ToolConfirmationOutcome.Cancel;
+
+      if (!options.some((option) => option.value === desired)) {
+        throw new Error(`Outcome not offered: ${desired}`);
+      }
+      return desired;
+    },
+  });
+
+  try {
+    for await (const message of session.stream(
+      `Run the shell command \`${expectedCommand}\` using the Execute tool.`
+    )) {
+      if (message.type === DroidMessageType.Result && !message.success) {
+        throw new Error(
+          message.error?.message ?? `Turn ended: ${message.subtype}`
+        );
+      }
+      if (message.type === DroidMessageType.Hook) {
+        hookCount++;
+        if (message.status === 'started') {
+          console.log(
+            `[hook started] ${message.eventName}: ${message.command}`
+          );
+        } else {
+          console.log(
+            `[hook ${message.status}] exit code ${String(message.exitCode)}: ${(message.stdout ?? '').trim()}`
+          );
+        }
+      }
+    }
+  } finally {
+    await session.close();
+  }
+} finally {
+  await rm(projectDir, { recursive: true, force: true });
+}
+
+if (hookCount === 0) {
+  throw new Error('The PreToolUse hook did not run.');
+}

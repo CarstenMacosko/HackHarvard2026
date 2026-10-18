@@ -1,0 +1,50 @@
+/**
+ * Lists recent daemon sessions and their messages.
+ *
+ * Runs in a real browser (no `process`, no Node builtins). From a source
+ * checkout of this repository:
+ *   npm run build
+ *   FACTORY_API_KEY=... npm run serve:browser-example
+ *   open http://127.0.0.1:8420/?example=list-sessions
+ *
+ * Never commit a real API key or deploy it in browser code.
+ */
+
+import { connectToDaemon } from '@factory/droid-sdk';
+
+const { daemonUrl, apiKey } = (
+  globalThis as typeof globalThis & {
+    __DROID_SDK_EXAMPLE_CONFIG__: {
+      daemonUrl: string;
+      apiKey: string;
+    };
+  }
+).__DROID_SDK_EXAMPLE_CONFIG__;
+if (!apiKey) {
+  throw new Error('Set FACTORY_API_KEY.');
+}
+
+const droid = await connectToDaemon({
+  url: daemonUrl,
+  auth: { apiKey },
+});
+
+try {
+  const sessions = await droid.sessions.list({ limit: 10 });
+
+  if (sessions.length === 0) {
+    console.log('No sessions found.');
+  }
+
+  for (const session of sessions) {
+    const messages = await session.getMessages({ limit: 20 });
+
+    console.log(
+      session.id,
+      session.title ?? '(untitled)',
+      `${messages.length} messages`
+    );
+  }
+} finally {
+  droid.disconnect();
+}

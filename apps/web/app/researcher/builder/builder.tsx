@@ -78,7 +78,7 @@ export function Builder() {
         {draft && (
           <>
             <Card>
-              <CardHeader title={draft.condition} actions={<Badge tone={draft.source === "claude" ? "blue" : "slate"}>{draft.source === "claude" ? "Drafted by Claude" : "Offline template"}</Badge>} />
+              <CardHeader title={draft.condition} />
               <CardBody>
                 <p className="text-sm text-slate-600">{draft.summary}</p>
                 <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">

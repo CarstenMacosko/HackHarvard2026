@@ -1,0 +1,47 @@
+/**
+ * Lists canonical model metadata through a daemon connection.
+ *
+ * Runs in a real browser (no `process`, no Node builtins). From a source
+ * checkout of this repository:
+ *   npm run build
+ *   FACTORY_API_KEY=... npm run serve:browser-example
+ *   open http://127.0.0.1:8420/?example=daemon-model-discovery
+ *
+ * Never commit a real API key or deploy it in browser code.
+ */
+
+import { connectToDaemon } from '@factory/droid-sdk';
+
+const { daemonUrl, apiKey } = (
+  globalThis as typeof globalThis & {
+    __DROID_SDK_EXAMPLE_CONFIG__: {
+      daemonUrl: string;
+      apiKey: string;
+    };
+  }
+).__DROID_SDK_EXAMPLE_CONFIG__;
+if (!apiKey) {
+  throw new Error('Set FACTORY_API_KEY.');
+}
+
+const droid = await connectToDaemon({
+  url: daemonUrl,
+  auth: { apiKey },
+});
+
+try {
+  const models = await droid.models.list({ includeDisabled: true });
+
+  for (const model of models) {
+    const status = model.disabled
+      ? `disabled: ${model.disabledReason}`
+      : 'available';
+    console.log(
+      `${model.displayName} (${model.id})\n` +
+        `  status: ${status}\n` +
+        `  reasoning: ${model.supportedReasoningEfforts.join(', ')}`
+    );
+  }
+} finally {
+  droid.disconnect();
+}

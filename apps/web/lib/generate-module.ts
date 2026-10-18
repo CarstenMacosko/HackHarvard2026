@@ -59,8 +59,11 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
   });
 
   try {
-    if (input.media_type !== "video" || !input.measurements.some((m) => m.name === "index_straight_fraction")) {
-      throw new Error("Track evaluation currently supports the index_straight_fraction video measurement only. Other candidate modules need task-specific fixtures before evaluation.");
+    if (input.media_type !== "video") {
+      throw new Error("Video modules only for this generator.");
+    }
+    if (!input.measurements.length) {
+      throw new Error("Accept a measurement plan with at least one metric before generating.");
     }
     progress = log(
       { ...progress, step: "inspecting" },

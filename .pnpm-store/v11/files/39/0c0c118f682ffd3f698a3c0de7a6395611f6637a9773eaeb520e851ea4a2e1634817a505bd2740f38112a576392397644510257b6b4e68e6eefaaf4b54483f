@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Droid SDK browser examples</title>
+    <style>
+      body {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        margin: 2rem;
+        line-height: 1.5;
+      }
+      pre {
+        background: #f4f4f5;
+        padding: 0.75rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      #error:empty {
+        display: none;
+      }
+      #error {
+        background: #fee2e2;
+        padding: 0.75rem;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Droid SDK browser examples</h1>
+    <p>
+      Served by <code>npm run serve:browser-example</code>. The example module
+      is bundled for the browser on each request, so a reload picks up edits.
+    </p>
+    <p>
+      Set <code>FACTORY_API_KEY</code> and
+      <code>DROID_SDK_EXAMPLE_CWD</code> before starting the server, then pick
+      one with <code>?example=daemon-session</code> (default),
+      <code>?example=daemon-multi-session</code>,
+      <code>?example=daemon-lifecycle</code>,
+      <code>?example=daemon-model-discovery</code>, or
+      <code>?example=list-sessions</code>.
+    </p>
+
+    <div id="error"></div>
+    <div id="output"></div>
+
+    <script>
+      globalThis.__DROID_SDK_EXAMPLE_CONFIG__ =
+        __INJECTED_DROID_SDK_EXAMPLE_CONFIG__;
+    </script>
+    <script type="module">
+      // Surface load-time failures (for example a missing config value, which
+      // throws during module evaluation) instead of leaving a blank page.
+      const errorBox = document.querySelector('#error');
+      const showError = (err) => {
+        errorBox.textContent = String(
+          (err && (err.stack || err.message)) || err
+        );
+      };
+      window.addEventListener('error', (e) => showError(e.error ?? e.message));
+      window.addEventListener('unhandledrejection', (e) => showError(e.reason));
+
+      const params = new URLSearchParams(location.search);
+      const example = params.get('example') ?? 'daemon-session';
+
+      import(`./${example}.js${location.search}`).catch(showError);
+    </script>
+  </body>
+</html>
