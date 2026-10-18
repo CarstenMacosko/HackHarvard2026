@@ -72,6 +72,11 @@ export function daytonaConfigured(): boolean {
   return Boolean(daytonaApiKey());
 }
 
+/** True on Vercel / Lambda where spawning the ~252MB local `droid` CLI is not viable. */
+export function isServerlessRuntime(): boolean {
+  return Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+}
+
 /** Absolute path to the `droid` CLI from @factory/cli (workspace hoist or local). */
 export function resolveDroidExecPath(): string {
   loadRootEnvOnce();
@@ -92,11 +97,31 @@ export function resolveDroidExecPath(): string {
   return "droid";
 }
 
+/**
+ * Local CLI is only usable when the binary is on disk and we are not on a
+ * serverless host. Otherwise callers should use Factory managed computers.
+ */
+export function factoryCliRunnable(): boolean {
+  if (isServerlessRuntime()) return false;
+  const exec = resolveDroidExecPath();
+  if (exec === "droid") return false;
+  return existsSync(exec);
+}
+
+export function managedComputerName(): string {
+  return env("FACTORY_COMPUTER_NAME") || "vf-streamcare-draft";
+}
+
 export function liveIntegrationStatus() {
+  const cli = factoryCliRunnable();
+  const droid = droidConfigured();
   return {
-    droid: droidConfigured(),
+    droid,
     daytona: daytonaConfigured(),
     droid_exec: resolveDroidExecPath(),
-    mode: droidConfigured() || daytonaConfigured() ? ("live" as const) : ("demo" as const),
+    droid_transport: !droid ? ("none" as const) : cli ? ("local_cli" as const) : ("managed_computer" as const),
+    managed_computer: managedComputerName(),
+    serverless: isServerlessRuntime(),
+    mode: droid || daytonaConfigured() ? ("live" as const) : ("demo" as const),
   };
 }

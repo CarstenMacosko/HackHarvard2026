@@ -65,9 +65,15 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
     if (!input.measurements.length) {
       throw new Error("Accept a measurement plan with at least one metric before generating.");
     }
+    const transport =
+      status.droid_transport === "local_cli"
+        ? status.droid_exec
+        : status.droid_transport === "managed_computer"
+          ? `managed computer (${status.managed_computer})`
+          : "off";
     progress = log(
       { ...progress, step: "inspecting" },
-      `Live integrations · Droid=${status.droid ? "on" : "off"} · Daytona=${status.daytona ? "on" : "off"} · exec=${status.droid_exec}`,
+      `Live integrations · Droid=${status.droid ? "on" : "off"} · Daytona=${status.daytona ? "on" : "off"} · transport=${transport}`,
     );
     await patch(jobId, progress, "running");
     progress = log(progress, "Inspecting existing CV modules (MediaPipe hands, tapping, tremor, skin)…");
@@ -83,7 +89,9 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
 
     progress = log(
       { ...progress, step: "drafting" },
-      droidConfigured() ? `Calling Factory Droid (live) via ${status.droid_exec}…` : "FACTORY_API_KEY unset — drafting from hand-movement template…",
+      droidConfigured()
+        ? `Calling Factory Droid (live) via ${transport}…`
+        : "FACTORY_API_KEY unset — drafting from hand-movement template…",
     );
     await patch(jobId, progress);
 

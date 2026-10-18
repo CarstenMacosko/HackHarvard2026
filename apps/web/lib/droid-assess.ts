@@ -1,4 +1,5 @@
-import { factoryApiKey, resolveDroidExecPath } from "./live-keys";
+import { runPromptOnManagedComputer } from "./droid-managed-computer";
+import { factoryApiKey, factoryCliRunnable, resolveDroidExecPath } from "./live-keys";
 
 export type MeasurementDraft = { name: string; label: string; unit: string };
 
@@ -165,7 +166,6 @@ export async function assessMeasurementPlan(input: AssessPlanInput): Promise<Ass
   if (!apiKey) return demo;
 
   try {
-    const { run } = await import("@factory/droid-sdk/node");
     const history = (input.history ?? [])
       .slice(-8)
       .map((m) => `${m.role}: ${m.text}`)
@@ -194,14 +194,20 @@ Return ONLY JSON (no markdown) with shape:
   "revised_measurements": [{"name":"...","label":"...","unit":"..."}]?
 }`;
 
-    const result = await run(prompt, {
-      apiKey,
-      execPath: resolveDroidExecPath(),
-      cwd: process.cwd(),
-      env: { ...process.env, FACTORY_API_KEY: apiKey },
-      autoRejectPermissionRequests: true,
-    });
-    const text = (result.text ?? "").trim();
+    let text: string;
+    if (factoryCliRunnable()) {
+      const { run } = await import("@factory/droid-sdk/node");
+      const result = await run(prompt, {
+        apiKey,
+        execPath: resolveDroidExecPath(),
+        cwd: process.cwd(),
+        env: { ...process.env, FACTORY_API_KEY: apiKey },
+        autoRejectPermissionRequests: true,
+      });
+      text = (result.text ?? "").trim();
+    } else {
+      text = (await runPromptOnManagedComputer(prompt, apiKey)).trim();
+    }
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return { ...demo, mode: "live", advice: `${demo.advice}\n\n(Live Droid returned no JSON; used heuristic assessor.)` };

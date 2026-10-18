@@ -1,13 +1,16 @@
 import "server-only";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { factoryApiKey, resolveDroidExecPath } from "./live-keys";
+import { runPromptOnManagedComputer, managedComputerLabel } from "./droid-managed-computer";
+import { factoryApiKey, factoryCliRunnable, resolveDroidExecPath } from "./live-keys";
 
 export { droidConfigured } from "./live-keys";
 
 /**
- * Ask Factory Droid to draft a task-specific analyzer via @factory/droid-sdk + @factory/cli.
- * Falls back to the hand-movement template only when FACTORY_API_KEY is unset.
+ * Ask Factory Droid to draft a task-specific analyzer.
+ * - Local: @factory/droid-sdk/node `run()` + CLI when the binary is present.
+ * - Serverless / no CLI: Factory managed computer (e2b) via relay daemon.
+ * - No FACTORY_API_KEY: hand-movement template (Daytona can still tune params).
  */
 
 export interface GenerateModuleInput {
@@ -249,7 +252,8 @@ export async function draftModuleWithDroid(input: GenerateModuleInput): Promise<
     };
   }
 
-  const execPath = resolveDroidExecPath();
+  const useLocalCli = factoryCliRunnable();
+  const transportLabel = useLocalCli ? resolveDroidExecPath() : managedComputerLabel();
   const repoRoot = resolveRepoRoot();
   const prompt = `You are generating a sandboxed CV module for the Visual Follow-Up Platform.
 
@@ -273,42 +277,51 @@ Rules:
 Write the complete Python module now.`;
 
   try {
-    const { run } = await import("@factory/droid-sdk/node");
-    const result = await run(prompt, {
-      apiKey,
-      execPath,
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        FACTORY_API_KEY: apiKey,
-      },
-      autoRejectPermissionRequests: true,
-    });
-    const text = (result.text ?? "").trim();
+    let text: string;
+    let success = true;
+    let errorMessage = "";
+
+    if (useLocalCli) {
+      const { run } = await import("@factory/droid-sdk/node");
+      const result = await run(prompt, {
+        apiKey,
+        execPath: resolveDroidExecPath(),
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          FACTORY_API_KEY: apiKey,
+        },
+        autoRejectPermissionRequests: true,
+      });
+      text = (result.text ?? "").trim();
+      success = result.success;
+      errorMessage = result.error?.message ?? "";
+    } else {
+      text = (await runPromptOnManagedComputer(prompt, apiKey)).trim();
+    }
+
     const code = stripFence(text);
     if (!code || !/class\s+\w+/.test(code)) {
-      // Droid responded but without usable module code — keep the safe template, still mark live.
       return {
         source_code: templateModuleSource(input),
-        summary: `Droid ran live (${execPath}) but returned no CVModule class; kept tuned template. Preview: ${text.slice(0, 160)}`,
+        summary: `Droid ran live (${transportLabel}) but returned no CVModule class; kept tuned template. Preview: ${text.slice(0, 160)}`,
         missing_validation: missing,
         mode: "live",
       };
     }
     return {
       source_code: code,
-      summary: result.success
-        ? `Factory Droid drafted the analyzer (live · ${execPath}).`
-        : `Droid finished with warnings; using returned source. ${result.error?.message ?? ""}`.trim(),
+      summary: success
+        ? `Factory Droid drafted the analyzer (live · ${transportLabel}).`
+        : `Droid finished with warnings; using returned source. ${errorMessage}`.trim(),
       missing_validation: missing,
       mode: "live",
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    // Key is set — do not silently pretend demo succeeded without saying so.
     return {
       source_code: templateModuleSource(input),
-      summary: `Droid live call failed (${msg}); using safe template so Daytona can still tune params.`,
+      summary: `Droid live call failed via ${transportLabel} (${msg}); using safe template so Daytona can still tune params.`,
       missing_validation: missing,
       mode: "live",
     };

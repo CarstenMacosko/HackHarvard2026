@@ -102,7 +102,7 @@ Copy `.env.example` → `.env.local` at the **repo root**. Symlink or copy into 
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser uploads via signed URLs |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server writes (secret — never expose client-side) |
 | `CV_SERVICE_URL` | Server-side CV re-analysis |
-| `FACTORY_API_KEY` / `DAYTONA_API_KEY` | Live module generation on `/researcher/generate` |
+| `FACTORY_API_KEY` / `DAYTONA_API_KEY` | Live module generation on `/researcher/generate` (Droid uses local CLI, or a Factory managed computer on Vercel) |
 | `ANTHROPIC_API_KEY` | Optional LLM assists (offline fallback without it) |
 | `CV_CALLBACK_SECRET` | Agent → web callbacks |
 

@@ -68,8 +68,20 @@ export default async function SettingsPage() {
           <Row
             state={live.droid ? "ok" : "off"}
             title="Factory Droid"
-            detail={live.droid ? `Live drafting via ${live.droid_exec}` : "FACTORY_API_KEY not set — Generate module uses the offline template."}
-            hint={!live.droid && "Set FACTORY_API_KEY for live Droid drafts on /researcher/generate (and on Vercel for deploy)."}
+            detail={
+              live.droid
+                ? live.droid_transport === "managed_computer"
+                  ? `Live drafting via Factory managed computer (${live.managed_computer})`
+                  : `Live drafting via local CLI (${live.droid_exec})`
+                : "FACTORY_API_KEY not set — Generate module uses the offline template."
+            }
+            hint={
+              !live.droid
+                ? "Set FACTORY_API_KEY for live Droid drafts on /researcher/generate (and on Vercel for deploy)."
+                : live.droid_transport === "managed_computer"
+                  ? "Serverless host: Droid runs on a Factory e2b managed computer (no local CLI needed)."
+                  : undefined
+            }
           />
           <Row
             state={live.daytona ? "ok" : "off"}
