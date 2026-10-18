@@ -11,7 +11,7 @@ Factory Droid acts as the AI software engineering agent, creating tests in real 
 
 How it works:
 1. Describe an assessment. Researchers specify a condition, assessment requirements, and desired measurements.
-2. Assess feasibility with Droid. Factory Droid evaluates whether the requested measurements can reasonably be derived from phone video and supported landmarks.
+2. Assess feasibility with Droid. Factory Droid evaluates whether the requested measurements can reasonably be derived from phone video and supported landmarks. Factory Droid then engages with the researcher in a development loop to create a rigorous and medically accurate procedure that correctly incorporates available computer vision inputs.
 3. Generate code with Droid. Droid examines StreamCare's existing modules and produces a candidate Python implementation following the CVModule interface.
 
 ## How it works
