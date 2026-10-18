@@ -29,3 +29,6 @@ training/.cache/
 
 # Droid workflow scratch (request, logs, summary); never committed
 .droid/
+
+# Local demo persistence (`npm run dev` keeps; `npm run dev:refresh` wipes)
+.data/

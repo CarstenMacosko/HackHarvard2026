@@ -38,6 +38,7 @@ export async function POST(req: Request) {
   }
   const input = {
     condition: parsed.data.condition,
+    name: parsed.data.measurement.label || `Writing posture (${parsed.data.condition})`,
     description: parsed.data.description || `${parsed.data.measurement.label} for ${parsed.data.condition}`,
     measurements: [parsed.data.measurement],
     media_type: parsed.data.media_type,

@@ -12,6 +12,8 @@ const MAX_ITERATIONS = 2;
 
 export interface StartGenerateInput {
   condition: string;
+  /** Short display name for Created Modules / study picker. */
+  name: string;
   description: string;
   measurements: { name: string; label: string; unit: string }[];
   media_type: "photo" | "video";
@@ -48,6 +50,7 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
   const status = liveIntegrationStatus();
   const mode = status.mode;
   let progress = emptyProgress({
+    name: input.name,
     description: input.description,
     measurements: input.measurements,
     media_type: input.media_type,
@@ -220,7 +223,10 @@ export async function runModuleGeneration(jobId: string, input: StartGenerateInp
   }
 }
 
-export async function reviewGeneratedCandidate(jobId: string, actor: string): Promise<{ module_id: string; status: "reviewed_candidate" }> {
+export async function reviewGeneratedCandidate(
+  jobId: string,
+  actor: string,
+): Promise<{ module_id: string; status: "approved"; path: string }> {
   const db = backend();
   const job = (await db.droidJobs(50)).find((j) => j.id === jobId);
   if (!job?.progress?.module_id || job.progress.step !== "ready") {
@@ -229,16 +235,26 @@ export async function reviewGeneratedCandidate(jobId: string, actor: string): Pr
   const { module_id, source_code } = job.progress;
   if (!source_code) throw new Error("No generated source code on job");
 
-  const progress = log({ ...job.progress, step: "approved" }, `Reviewed candidate ${module_id}; no model activation or CV-service deployment`);
+  const { normalizeApprovedSource, writeGeneratedModuleFile } = await import("./created-modules");
+  const deployed = normalizeApprovedSource(source_code, module_id);
+  const filePath = writeGeneratedModuleFile(module_id, deployed);
+
+  const progress = log(
+    { ...job.progress, step: "approved", source_code: deployed },
+    `Approved ${module_id} — wrote ${filePath}; module is live for studies and captures`,
+  );
   await db.updateDroidJob(jobId, { progress });
   await db.insertAudit({
     actor,
-    action: "droid.candidate_reviewed",
+    action: "droid.module_approved",
     entity: "droid_job",
     entity_id: jobId,
-    detail: { module_id, job_id: jobId },
+    detail: { module_id, job_id: jobId, path: filePath },
   });
-  return { module_id, status: "reviewed_candidate" };
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/researcher/models");
+  revalidatePath("/researcher/studies/new");
+  return { module_id, status: "approved", path: filePath };
 }
 
 export async function startModuleGeneration(input: StartGenerateInput, actor: string): Promise<DroidJob> {
@@ -260,6 +276,7 @@ export async function startModuleGeneration(input: StartGenerateInput, actor: st
     updated_at: at,
     kind: "module_generate",
     progress: emptyProgress({
+      name: input.name,
       description: input.description,
       measurements: input.measurements,
       media_type: input.media_type,

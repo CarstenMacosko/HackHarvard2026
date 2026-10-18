@@ -57,7 +57,10 @@ class GeneratedWritingPostureModule(CVModule):
     media_type = "video"
     conditions = ["focal_hand_dystonia"]
     components = ["hand_landmarks", "index_joint_angle"]
-    measurements = [MeasurementSpec("index_straight_fraction", ${JSON.stringify(input.measurements[0]?.label ?? "Index finger straight during writing")}, ${JSON.stringify(input.measurements[0]?.unit ?? "fraction")})]
+    measurements = [
+        MeasurementSpec("index_straight_fraction", ${JSON.stringify(input.measurements.find((m) => m.name === "index_straight_fraction")?.label ?? "Index finger straight during writing")}, ${JSON.stringify(input.measurements.find((m) => m.name === "index_straight_fraction")?.unit ?? "fraction")}),
+        MeasurementSpec("index_pip_angle_deg", ${JSON.stringify(input.measurements.find((m) => m.name === "index_pip_angle_deg")?.label ?? "Mean index PIP angle during writing")}, ${JSON.stringify(input.measurements.find((m) => m.name === "index_pip_angle_deg")?.unit ?? "degrees")}),
+    ]
     feature_names = ["index_straight_fraction", "index_pip_angle_deg", "hold_index_pip_angle_deg", "posture_change_deg", "index_visible_fraction", "example_frame_s"]
     default_criteria = {"blur": 20, "exposure_min": 60, "exposure_max": 220, "hand_visible": 0.8,
                         "fps": 20, "duration_s": ${c.min_duration_s ?? 6}, "index_visible": ${c.min_visible ?? 0.7},
@@ -87,7 +90,8 @@ class GeneratedWritingPostureModule(CVModule):
         if not result["accepted"]:
             raise TaskNotCompleted("Keep the index finger visible during writing.")
         return MeasureResult(
-            measurements=[self.measurement("index_straight_fraction", result["straight_fraction"], None)],
+            measurements=[self.measurement("index_straight_fraction", result["straight_fraction"], None),
+                          self.measurement("index_pip_angle_deg", result["writing_angle_deg"], None)],
             features={"index_straight_fraction": result["straight_fraction"],
                       "index_pip_angle_deg": result["writing_angle_deg"],
                       "hold_index_pip_angle_deg": result["hold_angle_deg"],

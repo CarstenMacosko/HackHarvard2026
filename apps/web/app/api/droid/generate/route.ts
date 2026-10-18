@@ -12,6 +12,7 @@ export const maxDuration = 300;
 
 const Body = z.object({
   condition: z.string().min(2).max(80),
+  name: z.string().min(2).max(80),
   description: z.string().min(8).max(2000),
   measurements: z
     .array(
