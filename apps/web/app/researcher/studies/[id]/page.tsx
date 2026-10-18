@@ -7,6 +7,7 @@ import { ParticipantTable } from "@/components/participant-table";
 import { ButtonLink, Card, CardBody, CardHeader, KeyValues, PageHeader, SectionLabel, Stat, Tabs, ValidationBadge } from "@/components/ui";
 import { CHECK_LABEL, conditionLabel, pct } from "@/lib/format";
 import { studyDetail } from "@/lib/queries";
+import { DeleteStudyButton } from "./delete-study-button";
 import { InviteButton } from "./invite-button";
 
 const TABS = ["overview", "participants", "protocol", "data"] as const;
@@ -28,6 +29,7 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
         description={`${conditionLabel(study.condition)} · protocol v${study.protocol.version}, approved by ${study.protocol.approved_by ?? "—"}`}
         actions={
           <>
+            <DeleteStudyButton studyId={id} studyName={study.name} />
             <ButtonLink href={`/researcher/review?study=${id}`} variant="secondary">
               Review queue
             </ButtonLink>

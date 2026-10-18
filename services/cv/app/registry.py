@@ -1,8 +1,8 @@
 """Module registry. Adding a condition = write a CVModule subclass, decorate it with
 @register, and import it in _load_builtin_modules().
 
-Legacy ``gen_*.py`` modules already on disk are loaded dynamically. Current candidate
-review does not write or activate generated modules.
+Approved Droid candidates write ``gen_*.py`` into this package; they are loaded
+dynamically on each catalog/get so a process restart is not required.
 """
 from __future__ import annotations
 

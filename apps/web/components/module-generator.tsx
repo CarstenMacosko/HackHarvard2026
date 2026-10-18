@@ -1,6 +1,8 @@
 "use client";
 
 import { Bot, Boxes, CheckCircle2, FlaskConical, Loader2, Play, Server, Sparkles, XCircle } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { Badge, Button, Card, CardBody, CardHeader, cn } from "@/components/ui";
 import type { DaytonaExperiment, GenerationProgress, GenerationStep } from "@/lib/generation-types";
@@ -13,14 +15,16 @@ const STEPS: { id: GenerationStep; label: string }[] = [
   { id: "iterating", label: "Iterate fixes" },
   { id: "validating", label: "Validate" },
   { id: "ready", label: "Candidate ready" },
-  { id: "approved", label: "Reviewed" },
+  { id: "approved", label: "Approved" },
 ];
 
 const DEMO_PRESET = {
   condition: "Focal hand dystonia",
-  description: "With a fixed side-view camera, hold a pen for two seconds, then write the same short phrase. Measure index-finger straightening during writing from hand landmarks.",
+  description:
+    "With a fixed side-view camera, hold a pen for two seconds, then write the same short phrase. Measure index-finger straightening during writing from hand landmarks (index finger straight during writing; mean index PIP angle during writing).",
   measurements: [
     { name: "index_straight_fraction", label: "Index finger straight during writing", unit: "fraction" },
+    { name: "index_pip_angle_deg", label: "Mean index PIP angle during writing", unit: "degrees" },
   ],
   media_type: "video" as const,
 };
@@ -72,7 +76,9 @@ function Pipeline({ progress }: { progress: GenerationProgress }) {
 }
 
 export function ModuleGenerator() {
+  const router = useRouter();
   const [condition, setCondition] = useState(DEMO_PRESET.condition);
+  const [moduleName, setModuleName] = useState("Writing posture (focal hand dystonia)");
   const [description, setDescription] = useState(DEMO_PRESET.description);
   const [measurementLabel, setMeasurementLabel] = useState(DEMO_PRESET.measurements[0].label);
   const [measurementUnit, setMeasurementUnit] = useState(DEMO_PRESET.measurements[0].unit);
@@ -135,8 +141,12 @@ export function ModuleGenerator() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           condition,
+          name: moduleName.trim() || "Writing posture (focal hand dystonia)",
           description,
-          measurements: [{ name: "index_straight_fraction", label: measurementLabel, unit: measurementUnit }],
+          measurements: [
+            { name: "index_straight_fraction", label: measurementLabel, unit: measurementUnit },
+            { name: "index_pip_angle_deg", label: "Mean index PIP angle during writing", unit: "degrees" },
+          ],
           media_type: "video",
         }),
       });
@@ -160,10 +170,11 @@ export function ModuleGenerator() {
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body.error ?? "Review failed");
+        setError(body.error ?? "Approve failed");
         return;
       }
       await poll(jobId);
+      router.refresh();
     });
   }
 
@@ -175,6 +186,16 @@ export function ModuleGenerator() {
           <label className="block text-sm font-medium text-slate-900">
             Condition
             <input className={cn(input, "mt-1")} value={condition} onChange={(e) => setCondition(e.target.value)} />
+          </label>
+          <label className="block text-sm font-medium text-slate-900">
+            Module name
+            <input
+              className={cn(input, "mt-1")}
+              value={moduleName}
+              onChange={(e) => setModuleName(e.target.value)}
+              placeholder="Writing posture (focal hand dystonia)"
+            />
+            <span className="mt-1 block text-xs font-normal text-slate-500">Shown under Created Modules and in the study builder.</span>
           </label>
           <label className="block text-sm font-medium text-slate-900">
             Assessment description
@@ -235,7 +256,7 @@ export function ModuleGenerator() {
             <Card>
               <CardHeader
                 title="Daytona experiment grid"
-                description={`${progress.experiments.length || 20} checks · ${progress.experiments[0]?.metrics?.fixture_source ?? "synthetic"} landmark tracks · up to ${progress.daytona_parallel || 4} workers`}
+                description={`${progress.experiments.length || 20} checks · ${progress.experiments[0]?.metrics?.fixture_source ?? "synthetic"} landmark tracks`}
                 actions={
                   <div className="flex gap-2 text-xs">
                     <span className="text-emerald-700">{passed} passed</span>
@@ -289,12 +310,25 @@ export function ModuleGenerator() {
                   {progress.step === "ready" && (
                     <Button onClick={review} disabled={reviewing}>
                       {reviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
-                      Mark candidate reviewed
+                      Approve &amp; activate module
                     </Button>
                   )}
                   {progress.step === "approved" && (
-                    <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                      <CheckCircle2 className="h-4 w-4" /> Reviewed candidate <span className="font-mono">{progress.module_id}</span>; no trained model or deployment.
+                    <div className="space-y-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" /> Approved <span className="font-mono">{progress.module_id}</span>
+                      </div>
+                      <p className="text-xs text-emerald-700">
+                        Live under{" "}
+                        <Link href="/researcher/models" className="font-medium underline">
+                          Created Modules
+                        </Link>{" "}
+                        and selectable when you{" "}
+                        <Link href="/researcher/studies/new" className="font-medium underline">
+                          create a study
+                        </Link>
+                        .
+                      </p>
                     </div>
                   )}
                   {progress.step === "failed" && (

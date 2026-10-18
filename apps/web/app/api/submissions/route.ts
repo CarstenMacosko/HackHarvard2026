@@ -59,6 +59,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No photo or video received." }, { status: 400 });
   }
 
+  // Generated / writing modules only measure on the CV service (browser only frames quality).
+  const needsServerModule = task.module.startsWith("gen_") || task.module === "writing_posture";
   // analysis: reference module on the server when available, otherwise the on-device result
   let analysis: AnalysisResult | null = null;
   let runtime: "server" | "on-device" = "on-device";
@@ -82,6 +84,16 @@ export async function POST(req: Request) {
       serverError = e instanceof Error ? e.message : String(e);
       console.error("server analysis failed, falling back to on-device result:", serverError);
     }
+  }
+  if (needsServerModule && !failedAttempt && (!analysis || runtime !== "server")) {
+    return NextResponse.json(
+      {
+        error: serverError
+          ? `CV service could not run ${task.module}: ${serverError}`
+          : `CV_SERVICE_URL must be set and serving ${task.module} for this check-in.`,
+      },
+      { status: 422 },
+    );
   }
   if (!analysis) {
     const parsed = AnalysisResult.safeParse(JSON.parse(String(form.get("analysis") ?? "null")));

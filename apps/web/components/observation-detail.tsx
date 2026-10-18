@@ -2,15 +2,17 @@ import type { Observation } from "@vf/shared";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
 import { ObservationNotes } from "./observation-notes";
 import { Badge, KeyValues, REVIEW_TONE, SectionLabel, ValidationBadge } from "./ui";
+import { VideoReplay } from "./video-replay";
 
-const trimmed = (url: string, start: unknown) => (typeof start === "number" && start > 0 ? `${url}#t=${start}` : url);
-const VIDEO_MODULES = new Set(["finger_tapping", "hand_tremor", "writing_posture"]);
+const isHandVideoModule = (module: string) =>
+  module === "finger_tapping" || module === "hand_tremor" || module === "writing_posture" || module.startsWith("gen_");
 
 /** Everything behind one graphed value: source media, quality checks, measurements, report, provenance. */
 export function ObservationDetail({ o, compact = false }: { o: Observation; compact?: boolean }) {
   const runtime = String(o.context.analysis_runtime ?? "server");
   const attempts = Number(o.context.attempts ?? 1);
-  const isVideo = VIDEO_MODULES.has(o.module) && o.context.media_kind !== "poster";
+  const isVideo = isHandVideoModule(o.module) && o.context.media_kind !== "poster";
+  const trimStart = typeof o.context.trim_start_s === "number" ? o.context.trim_start_s : 0;
   return (
     <div className="space-y-5 text-sm">
       <div className="flex flex-wrap items-center gap-2">
@@ -19,26 +21,23 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
         <span className="text-slate-400">· {o.task_label}</span>
       </div>
 
-      <div
-        className={
-          o.media_url
-            ? "relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-slate-900"
-            : "flex items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-xs text-slate-500"
-        }
-      >
-        {o.media_url ? (
-          isVideo ? (
-            // live captures keep a few seconds of set-up before the task: start playback where the task does
-            <video src={trimmed(o.media_url, o.context.trim_start_s)} controls playsInline className="h-full w-full object-contain" />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={o.media_url} alt={`${o.task_label}, ${dateTime(o.captured_at)}`} className="h-full w-full object-contain" />
-          )
+      {o.media_url ? (
+        isVideo ? (
+          <VideoReplay src={o.media_url} trimStartS={trimStart} />
         ) : (
+          <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-slate-900">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={o.media_url} alt={`${o.task_label}, ${dateTime(o.captured_at)}`} className="h-full w-full object-contain" />
+            {o.context.media_kind === "poster" && (
+              <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">Still frame (video analysed on-device)</span>
+            )}
+          </div>
+        )
+      ) : (
+        <div className="flex items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-xs text-slate-500">
           <span className="px-6 text-center">No media file was kept for submission {o.submission_id}.</span>
-        )}
-        {o.context.media_kind === "poster" && <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">Still frame (video analysed on-device)</span>}
-      </div>
+        </div>
+      )}
 
       <div>
         <SectionLabel>Measurements</SectionLabel>

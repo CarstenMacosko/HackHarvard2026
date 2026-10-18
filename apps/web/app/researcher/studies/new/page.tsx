@@ -1,9 +1,12 @@
 import { PageHeader } from "@/components/ui";
+import { listCreatedModules } from "@/lib/created-modules";
 import { StudyForm } from "./study-form";
 
 export const metadata = { title: "New study" };
+export const dynamic = "force-dynamic";
 
-export default function NewStudyPage() {
+export default async function NewStudyPage() {
+  const created = await listCreatedModules();
   return (
     <>
       <PageHeader
@@ -11,7 +14,14 @@ export default function NewStudyPage() {
         title="Create a study"
         description="Consent form, required evaluations, and how often each test should be completed."
       />
-      <StudyForm />
+      <StudyForm
+        createdModules={created.map((m) => ({
+          id: m.id,
+          label: m.label,
+          condition: m.condition,
+          measurements: m.measurements,
+        }))}
+      />
     </>
   );
 }

@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import type { Observation, RewardEvent } from "@vf/shared";
 import type {
   AuditEntry,
@@ -16,10 +18,15 @@ import type {
 } from "./types";
 
 /**
- * In-memory fallback when Supabase env is not set. Starts empty so the UI only reflects
- * studies, participants, captures and reviews created through product actions in this process.
- * Connect Supabase (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY) for durable shared data.
+ * Demo-mode store when Supabase env is not set.
+ * Persisted under `.data/demo-state.json` so `npm run dev` keeps data across restarts.
+ * `npm run dev:refresh` sets VF_DEMO_FRESH=1: this process starts empty and does not
+ * overwrite the saved file, so the next plain `npm run dev` still has prior data.
  */
+
+function isFreshSession(): boolean {
+  return process.env.VF_DEMO_FRESH === "1" || process.env.VF_DEMO_FRESH === "true";
+}
 
 export interface DemoState {
   studies: Study[];
@@ -60,8 +67,77 @@ export function generate(_NOW = Date.now()): DemoState {
   };
 }
 
-const g = globalThis as typeof globalThis & { __vfDemoState?: DemoState };
+function dataDir(): string {
+  const candidates = [
+    path.resolve(process.cwd(), ".data"),
+    path.resolve(process.cwd(), "../../.data"),
+    path.resolve(process.cwd(), "../.data"),
+  ];
+  for (const dir of candidates) {
+    const parent = path.dirname(dir);
+    if (existsSync(path.join(parent, "package.json")) || existsSync(path.join(parent, "apps"))) return dir;
+  }
+  return candidates[0];
+}
+
+export function demoStatePath(): string {
+  return path.join(dataDir(), "demo-state.json");
+}
+
+function loadFromDisk(): DemoState | null {
+  try {
+    const file = demoStatePath();
+    if (!existsSync(file)) return null;
+    const raw = JSON.parse(readFileSync(file, "utf8")) as Partial<DemoState>;
+    const empty = generate();
+    return { ...empty, ...raw };
+  } catch {
+    return null;
+  }
+}
+
+const g = globalThis as typeof globalThis & { __vfDemoState?: DemoState; __vfDemoPersistTimer?: ReturnType<typeof setTimeout> };
 
 export function demoState(): DemoState {
-  return (g.__vfDemoState ??= generate());
+  if (!g.__vfDemoState) {
+    if (isFreshSession()) {
+      g.__vfDemoState = generate();
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[demo-data] VF_DEMO_FRESH=1 — empty session; not writing .data/demo-state.json");
+      }
+    } else {
+      g.__vfDemoState = loadFromDisk() ?? generate();
+    }
+  }
+  return g.__vfDemoState;
+}
+
+/** Debounced write so bursts of mutations don't thrash disk. Skipped in fresh sessions. */
+export function persistDemoState(): void {
+  if (isFreshSession()) return;
+  if (g.__vfDemoPersistTimer) clearTimeout(g.__vfDemoPersistTimer);
+  g.__vfDemoPersistTimer = setTimeout(() => {
+    try {
+      const dir = dataDir();
+      mkdirSync(dir, { recursive: true });
+      const file = demoStatePath();
+      const tmp = `${file}.${process.pid}.tmp`;
+      writeFileSync(tmp, JSON.stringify(demoState(), null, 0), "utf8");
+      renameSync(tmp, file);
+    } catch (e) {
+      console.warn("[demo-data] persist failed:", e instanceof Error ? e.message : e);
+    }
+  }, 50);
+}
+
+/** Wipe in-memory + on-disk demo state (used by delete-all / tests). */
+export function resetDemoState(): void {
+  g.__vfDemoState = generate();
+  try {
+    const file = demoStatePath();
+    if (existsSync(file)) unlinkSync(file);
+  } catch {
+    /* ignore */
+  }
+  persistDemoState();
 }

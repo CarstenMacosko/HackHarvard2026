@@ -31,6 +31,8 @@ export interface DaytonaExperiment {
 export interface GenerationProgress {
   step: GenerationStep;
   mode: "live" | "demo";
+  /** Display name for Created Modules / study builder (not the protocol description). */
+  name: string;
   description: string;
   measurements: { name: string; label: string; unit: string }[];
   media_type: "photo" | "video";
@@ -49,6 +51,7 @@ export interface GenerationProgress {
 }
 
 export function emptyProgress(input: {
+  name?: string;
   description: string;
   measurements: { name: string; label: string; unit: string }[];
   media_type: "photo" | "video";
@@ -58,6 +61,7 @@ export function emptyProgress(input: {
   return {
     step: "queued",
     mode: input.mode,
+    name: (input.name ?? "").trim() || "Writing posture (focal hand dystonia)",
     description: input.description,
     measurements: input.measurements,
     media_type: input.media_type,
