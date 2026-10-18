@@ -75,7 +75,7 @@ docs/              Deploy, Droid, architecture, product notes
 
 ```bash
 # 1. Clone and install
-git clone <repo-url>
+git clone https://github.com/CarstenMacosko/HackHarvard2026.git
 cd HackHarvard2026
 cp .env.example .env.local
 npm install
@@ -101,7 +101,6 @@ With empty Supabase vars, the app runs on **in-memory / demo data** (fine for lo
 
 - Researcher: sign in / create account with role **researcher**, or follow the demo continue link when running without auth.
 - Participant invite codes (seed / demo): try codes from your Supabase seed or the demo studies shown in the researcher UI.
-- Direct participant view (demo mode): `/participant/view-as?id=…` when using in-memory data.
 
 ## Environment variables
 
@@ -129,4 +128,4 @@ For durable studies, participants, and media:
 
 Details: [`docs/DATABASE.md`](docs/DATABASE.md).
 
-MIT Licensed.
+[MIT Licensed](LICENSE).
