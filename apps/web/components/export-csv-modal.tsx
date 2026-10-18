@@ -2,7 +2,7 @@
 
 import { Download, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Button, cn } from "@/components/ui";
+import { Button, buttonClass, cn, fieldClass } from "@/components/ui";
 
 const OPTIONS = [
   { id: "accepted", label: "Accepted", hint: "Clinician-accepted results" },
@@ -68,32 +68,32 @@ export function ExportCsvModal({
         }}
         disabled={!studyId && !(studies?.length)}
       >
-        <Download className="h-4 w-4" /> {buttonLabel}
+        <Download /> {buttonLabel}
       </Button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="export-csv-title">
           <button type="button" className="absolute inset-0 bg-slate-900/40" aria-label="Close" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+          <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-overlay ring-1 ring-slate-900/5 dark:bg-slate-900 dark:ring-white/10">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 id="export-csv-title" className="text-base font-semibold text-slate-900">
+                <h2 id="export-csv-title" className="text-base font-semibold text-slate-900 dark:text-slate-100">
                   Export submissions (CSV)
                 </h2>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   Long format: one row per measurement. IDs only; clinical answers stay in a single <code className="text-xs">patient_report</code> JSON column.
                 </p>
               </div>
-              <button type="button" className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900" onClick={() => setOpen(false)} aria-label="Close">
+              <button type="button" className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100" onClick={() => setOpen(false)} aria-label="Close">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {needsStudyPicker && studies && (
-              <label className="mt-4 block text-sm font-medium text-slate-900">
+              <label className="mt-4 block text-sm font-medium text-slate-900 dark:text-slate-100">
                 Study
                 <select
-                  className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  className={cn(fieldClass, "mt-1.5 h-10 w-full")}
                   value={pickedStudy}
                   onChange={(e) => setPickedStudy(e.target.value)}
                 >
@@ -107,13 +107,13 @@ export function ExportCsvModal({
             )}
 
             <fieldset className="mt-4 space-y-2">
-              <legend className="text-xs font-medium uppercase tracking-wide text-slate-500">Include review status</legend>
+              <legend className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Include review status</legend>
               {OPTIONS.map((o) => (
                 <label
                   key={o.id}
                   className={cn(
                     "flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 text-sm",
-                    selected[o.id] ? "border-brand-500 bg-brand-50/50" : "border-slate-200 hover:bg-slate-50",
+                    selected[o.id] ? "border-brand-500 bg-brand-50/50 dark:bg-brand-900/40" : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800",
                   )}
                 >
                   <input
@@ -123,14 +123,14 @@ export function ExportCsvModal({
                     onChange={(e) => setSelected((s) => ({ ...s, [o.id]: e.target.checked }))}
                   />
                   <span>
-                    <span className="font-medium text-slate-900">{o.label}</span>
-                    <span className="mt-0.5 block text-xs text-slate-500">{o.hint}</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">{o.label}</span>
+                    <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">{o.hint}</span>
                   </span>
                 </label>
               ))}
             </fieldset>
 
-            {!canDownload && <p className="mt-3 text-sm text-rose-600">{!effectiveStudy ? "Choose a study." : "Select at least one status."}</p>}
+            {!canDownload && <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">{!effectiveStudy ? "Choose a study." : "Select at least one status."}</p>}
 
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
@@ -143,12 +143,9 @@ export function ExportCsvModal({
                   if (!canDownload) e.preventDefault();
                   else setOpen(false);
                 }}
-                className={cn(
-                  "inline-flex h-9 items-center gap-1.5 rounded-md px-3.5 text-sm font-medium text-white",
-                  canDownload ? "bg-brand-600 hover:bg-brand-700" : "cursor-not-allowed bg-slate-300",
-                )}
+                className={cn(buttonClass(), !canDownload && "pointer-events-none opacity-40")}
               >
-                <Download className="h-4 w-4" /> Download CSV
+                <Download /> Download CSV
               </a>
             </div>
           </div>

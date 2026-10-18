@@ -19,25 +19,26 @@ export default async function ParticipantLayout({ children }: { children: React.
     },
   ];
 
-  // Join / session-reset still use this shell; only show account footer when signed in.
   return (
     <AppShell
       brand={<Brand suffix="Participant portal" />}
       sections={sections}
       mobileTabs={signedIn}
       footer={
-        signedIn && p ? (
-          <div className="flex items-center justify-between gap-2 px-1 text-xs text-slate-500">
-            <span>
-              Signed in as <span className="font-medium text-slate-700">{p.display_name}</span>
-            </span>
-            <form action={signOutAction}>
-              <button type="submit" className="hover:text-slate-900">
-                Sign out
-              </button>
-            </form>
-          </div>
-        ) : undefined
+        <div className="space-y-2.5 px-1 text-xs text-slate-500 dark:text-slate-400">
+          {signedIn && p ? (
+            <div className="flex items-center justify-between gap-2">
+              <span>
+                Signed in as <span className="font-medium text-slate-700 dark:text-slate-200">{p.display_name}</span>
+              </span>
+              <form action={signOutAction}>
+                <button type="submit" className="hover:text-slate-900 dark:hover:text-slate-100">
+                  Sign out
+                </button>
+              </form>
+            </div>
+          ) : null}
+        </div>
       }
     >
       {children}

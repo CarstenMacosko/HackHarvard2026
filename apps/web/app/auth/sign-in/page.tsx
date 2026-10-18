@@ -6,19 +6,19 @@ export const metadata = { title: "Sign in" };
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ next?: string; role?: string }> }) {
   const sp = await searchParams;
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white px-6 py-16">
+    <main className="surface-mesh relative min-h-screen px-6 py-16">
       <div className="mx-auto w-full max-w-md">
         <Link href="/" className="inline-flex items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/streamcare-logo.png" alt="StreamCare" className="h-7 w-auto" />
+          <img src="/streamcare-logo.png" alt="StreamCare" className="h-7 w-auto dark:brightness-0 dark:invert" />
         </Link>
-        <h1 className="mt-8 text-2xl font-semibold tracking-tight text-slate-900">Sign in</h1>
+        <h1 className="mt-8 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Sign in</h1>
         <div className="mt-8">
           <SignInForm />
         </div>
-        <p className="mt-6 text-center text-sm text-slate-600">
+        <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
           New here?{" "}
-          <Link href={`/auth/sign-up${sp.role === "researcher" ? "?role=researcher" : ""}`} className="font-medium text-brand-700 hover:underline">
+          <Link href={`/auth/sign-up${sp.role === "researcher" ? "?role=researcher" : ""}`} className="font-medium text-brand-700 hover:underline dark:text-brand-300">
             Create an account
           </Link>
         </p>

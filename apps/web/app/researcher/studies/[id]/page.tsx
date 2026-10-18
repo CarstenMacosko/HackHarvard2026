@@ -86,7 +86,7 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
                 <CardBody className="space-y-5">
                   <div>
                     <SectionLabel>Instructions shown to the participant</SectionLabel>
-                    <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{t.instructions}</p>
+                    <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">{t.instructions}</p>
                   </div>
                   <div>
                     <SectionLabel>Clinical questionnaire (after capture)</SectionLabel>
@@ -133,9 +133,9 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
               description="Researcher-only CSV. One row per measurement, linked by IDs (no display names or media URLs). Clinical answers stay in patient_report JSON."
               actions={<ExportCsvModal studyId={id} />}
             />
-            <CardBody className="space-y-3 text-sm text-slate-600">
+            <CardBody className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
               <p>
-                Use <span className="font-medium text-slate-900">Export CSV</span> to choose which review statuses to include (accepted, corrected, pending, rejected). Defaults to reviewed results only.
+                Use <span className="font-medium text-slate-900 dark:text-slate-100">Export CSV</span> to choose which review statuses to include (accepted, corrected, pending, rejected). Defaults to reviewed results only.
               </p>
               <p className="text-xs text-slate-500">
                 Columns include study/participant/observation/submission IDs, module, measurements, quality failures, review fields, model version, attempt/source, note IDs, and notes JSON.

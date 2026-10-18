@@ -13,7 +13,7 @@ import {
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { Button, Card, CardBody, CardHeader, cn } from "@/components/ui";
+import { Button, Card, CardBody, CardHeader, cn, fieldClass } from "@/components/ui";
 import { conditionKey } from "@/lib/format";
 import type { Condition } from "@/lib/types";
 import { createStudy } from "./actions";
@@ -47,7 +47,7 @@ const CADENCES: { id: Cadence; label: string }[] = [
   { id: "biweekly", label: "Every two weeks" },
 ];
 
-const input = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm";
+const input = cn(fieldClass, "h-10 w-full");
 
 type EvalRow = {
   module: string;
@@ -177,11 +177,11 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
         <Card>
           <CardHeader title="Study" description="Created as active so you can enroll someone immediately." />
           <CardBody className="space-y-4">
-            <label className="block text-sm font-medium text-slate-900">
+            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
               Name
               <input className={cn(input, "mt-1")} value={name} onChange={(e) => setName(e.target.value)} placeholder="PD-FOLLOW: post-visit motor checks" required />
             </label>
-            <label className="block text-sm font-medium text-slate-900">
+            <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
               Condition
               <select className={cn(input, "mt-1")} value={condition} onChange={(e) => setConditionAndDefaults(e.target.value as Condition)}>
                 {conditionOptions.map((o) => (
@@ -191,7 +191,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                 ))}
               </select>
             </label>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Conditions you type in Generate module appear here after you approve the module.
             </p>
           </CardBody>
@@ -214,7 +214,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                   }
                 }}
               >
-                <Plus className="h-3.5 w-3.5" /> Add
+                <Plus /> Add
               </Button>
             }
           />
@@ -230,7 +230,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
               </p>
             )}
             {evals.map((ev, i) => (
-              <div key={`${ev.module}-${i}`} className="space-y-3 rounded-md bg-slate-50 p-3">
+              <div key={`${ev.module}-${i}`} className="space-y-3 rounded-md bg-slate-50 p-3 dark:bg-slate-900">
                 <div className="flex flex-wrap items-center gap-2">
                   <select
                     className={cn(input, "max-w-xs")}
@@ -254,11 +254,11 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                     ))}
                   </select>
                   <Button type="button" size="sm" variant="ghost" disabled={evals.length === 1} onClick={() => setEvals((xs) => xs.filter((_, j) => j !== i))}>
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 />
                   </Button>
                 </div>
                 {createdModules.find((m) => m.id === ev.module)?.measurements?.length ? (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Measurements from module:{" "}
                     {createdModules
                       .find((m) => m.id === ev.module)!
@@ -267,12 +267,12 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                   </p>
                 ) : null}
 
-                <div className="rounded-md border border-slate-200 bg-white p-3 space-y-3">
+                <div className="rounded-md border border-slate-200 bg-white p-3 space-y-3 dark:border-slate-700 dark:bg-slate-900/60">
                   <div>
-                    <div className="text-sm font-medium text-slate-900">Capture instructions</div>
-                    <p className="mb-2 text-xs text-slate-500">Shown to the participant before recording. Edit freely for this study.</p>
+                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100">Capture instructions</div>
+                    <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">Shown to the participant before recording. Edit freely for this study.</p>
                     <textarea
-                      className="min-h-[72px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                      className={cn(fieldClass, "min-h-[72px] w-full py-2")}
                       value={ev.instructions}
                       onChange={(e) => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, instructions: e.target.value } : x)))}
                     />
@@ -280,8 +280,8 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                   <div>
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <div className="text-sm font-medium text-slate-900">Numbered capture steps</div>
-                        <p className="text-xs text-slate-500">The checklist on the check-in page (for example how to prop the phone and hold the pen).</p>
+                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">Numbered capture steps</div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">The checklist on the check-in page (for example how to prop the phone and hold the pen).</p>
                       </div>
                       <Button
                         type="button"
@@ -293,13 +293,13 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                           )
                         }
                       >
-                        <RotateCcw className="h-3.5 w-3.5" /> Reset steps
+                        <RotateCcw /> Reset steps
                       </Button>
                     </div>
                     <div className="space-y-2">
                       {ev.guide_steps.map((step, si) => (
                         <div key={si} className="flex gap-2">
-                          <span className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600">
+                          <span className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                             {si + 1}
                           </span>
                           <input
@@ -324,7 +324,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                               setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, guide_steps: x.guide_steps.filter((_, k) => k !== si) } : x)))
                             }
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 />
                           </Button>
                         </div>
                       ))}
@@ -335,17 +335,17 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                         disabled={ev.guide_steps.length >= 12}
                         onClick={() => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, guide_steps: [...x.guide_steps, ""] } : x)))}
                       >
-                        <Plus className="h-3.5 w-3.5" /> Add step
+                        <Plus /> Add step
                       </Button>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-md border border-slate-200 bg-white p-3">
+                <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/60">
                   <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <div className="text-sm font-medium text-slate-900">Post-capture clinical form</div>
-                      <p className="text-xs text-slate-500">
+                      <div className="text-sm font-medium text-slate-900 dark:text-slate-100">Post-capture clinical form</div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         Default:{" "}
                         {
                           clinicalFormForCondition(
@@ -375,12 +375,12 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                       </p>
                     </div>
                     <Button type="button" size="sm" variant="ghost" onClick={() => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, report_questions: clinicalQuestionsForModule(x.module) } : x)))}>
-                      <RotateCcw className="h-3.5 w-3.5" /> Reset to clinical default
+                      <RotateCcw /> Reset to clinical default
                     </Button>
                   </div>
                   <div className="space-y-2">
                     {ev.report_questions.map((q, qi) => (
-                      <div key={`${q.key}-${qi}`} className="grid gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-[1fr_auto]">
+                      <div key={`${q.key}-${qi}`} className="grid gap-2 rounded-md bg-slate-50 p-2 sm:grid-cols-[1fr_auto] dark:bg-slate-900">
                         <input
                           className={input}
                           value={q.prompt}
@@ -426,7 +426,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                             variant="ghost"
                             onClick={() => setEvals((xs) => xs.map((x, j) => (j === i ? { ...x, report_questions: x.report_questions.filter((_, k) => k !== qi) } : x)))}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 />
                           </Button>
                         </div>
                         {q.type === "choice" && (
@@ -480,7 +480,7 @@ export function StudyForm({ createdModules = [] }: { createdModules?: CreatedMod
                         )
                       }
                     >
-                      <Plus className="h-3.5 w-3.5" /> Add question
+                      <Plus /> Add question
                     </Button>
                   </div>
                 </div>

@@ -46,7 +46,7 @@ export default async function ModelsPage() {
             <Card key={m.id}>
               <CardHeader title={m.label} description={<span className="font-mono">{m.id}@{m.version}</span>} />
               <CardBody className="space-y-4">
-                <p className="text-sm text-slate-600">{m.summary}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{m.summary}</p>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
                     <SectionLabel>Measurements</SectionLabel>
@@ -87,7 +87,7 @@ export default async function ModelsPage() {
               <Card key={m.id}>
                 <CardHeader title={m.label} description={<span className="font-mono">{m.id}@{m.version}</span>} />
                 <CardBody className="space-y-4">
-                  <p className="text-sm text-slate-600">{m.description || "Approved Droid + Daytona candidate."}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{m.description || "Approved Droid + Daytona candidate."}</p>
                   <p className="text-xs text-slate-500">
                     Condition: {m.condition} · Approved {new Date(m.approved_at).toLocaleString()}
                   </p>

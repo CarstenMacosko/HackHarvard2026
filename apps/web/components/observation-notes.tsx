@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Button, SectionLabel } from "./ui";
+import { Button, cn, fieldClass, SectionLabel } from "./ui";
 
 interface Note {
   id: string;
@@ -33,10 +33,10 @@ export function ObservationNotes({ observationId }: { observationId: string }) {
     <div>
       <SectionLabel>Clinician notes</SectionLabel>
       <ul className="mb-3 space-y-2">
-        {notes.length === 0 && <li className="text-xs text-slate-500">No notes yet — record observations about the video or measurements.</li>}
+        {notes.length === 0 && <li className="text-xs text-slate-500 dark:text-slate-400">No notes yet — record observations about the video or measurements.</li>}
         {notes.map((n) => (
-          <li key={n.id} className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <div className="text-xs text-slate-500">
+          <li key={n.id} className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
               {n.author} · {new Date(n.created_at).toLocaleString()}
             </div>
             <p className="mt-1 whitespace-pre-wrap">{n.body}</p>
@@ -44,12 +44,12 @@ export function ObservationNotes({ observationId }: { observationId: string }) {
         ))}
       </ul>
       <textarea
-        className="min-h-[80px] w-full rounded-md border border-slate-300 p-2 text-sm"
+        className={cn(fieldClass, "min-h-[80px] w-full py-2")}
         placeholder="Write a note about this capture…"
         value={body}
         onChange={(e) => setBody(e.target.value)}
       />
-      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p>}
       <Button
         className="mt-2"
         size="sm"

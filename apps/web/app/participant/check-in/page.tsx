@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ButtonLink, Card, CardBody, EmptyState, PageHeader } from "@/components/ui";
+import { ButtonLink, Card, CardBody, cardClass, cn, EmptyState, PageHeader } from "@/components/ui";
 import { cvServiceUrl } from "@/lib/cv-service";
 import { relTime } from "@/lib/format";
 import { participantHome } from "@/lib/queries";
@@ -56,11 +56,11 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
             <Link
               key={task.id}
               href={`/participant/check-in?task=${encodeURIComponent(task.id)}`}
-              className="rounded-xl border border-slate-200 bg-white p-5 transition-colors hover:border-brand-400 hover:bg-brand-50/40"
+              className={cn(cardClass, "p-5 transition-shadow hover:shadow-card-hover hover:ring-brand-300 dark:hover:ring-brand-500/50")}
             >
-              <div className="text-sm font-semibold text-slate-900">{task.label}</div>
-              <p className="mt-1 line-clamp-3 text-sm text-slate-600">{task.instructions}</p>
-              <div className="mt-3 text-xs text-slate-500">
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{task.label}</div>
+              <p className="mt-1 line-clamp-3 text-sm text-slate-600 dark:text-slate-400">{task.instructions}</p>
+              <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                 {dueNow && scheduled ? `Due ${relTime(scheduled.due_at)}` : scheduled ? `Opens ${relTime(scheduled.due_at)}` : "Available anytime"}
                 {" · "}
                 <span className="font-mono">{task.module}</span>
@@ -93,12 +93,12 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
       {home.availableTasks.length > 1 && (
         <Card className="mb-4">
           <CardBody className="flex flex-wrap gap-2 text-sm">
-            <span className="text-slate-500">Switch test:</span>
+            <span className="text-slate-500 dark:text-slate-400">Switch test:</span>
             {home.availableTasks.map(({ task: t }) => (
               <Link
                 key={t.id}
                 href={`/participant/check-in?task=${encodeURIComponent(t.id)}`}
-                className={t.id === task.id ? "font-medium text-brand-700" : "text-slate-600 hover:text-brand-700"}
+                className={t.id === task.id ? "font-medium text-brand-700 dark:text-brand-300" : "text-slate-600 hover:text-brand-700 dark:text-slate-400 dark:hover:text-brand-300"}
               >
                 {t.label}
               </Link>

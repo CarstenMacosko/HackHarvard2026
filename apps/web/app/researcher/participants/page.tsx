@@ -1,5 +1,5 @@
 import { ParticipantTable } from "@/components/participant-table";
-import { Card, PageHeader, buttonClass } from "@/components/ui";
+import { Card, PageHeader, buttonClass, cn, fieldClass } from "@/components/ui";
 import { listParticipants, listStudies } from "@/lib/queries";
 
 export const metadata = { title: "Participants" };
@@ -9,12 +9,12 @@ const STATUSES = ["active", "invited", "paused", "withdrawn", "completed"];
 export default async function ParticipantsPage({ searchParams }: { searchParams: Promise<{ study?: string; status?: string; q?: string }> }) {
   const f = await searchParams;
   const [rows, studies] = await Promise.all([listParticipants({ studyId: f.study || undefined, status: f.status || undefined, q: f.q }), listStudies()]);
-  const select = "h-9 rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-700";
+  const select = cn(fieldClass, "h-9");
   return (
     <>
       <PageHeader title="Participants" description="Everyone enrolled or invited across your studies. Filter, then open a participant to see their timeline and capture history." />
       <form className="mb-4 flex flex-wrap items-center gap-2" method="get">
-        <input name="q" defaultValue={f.q} placeholder="Search name, ID or invite code" className="h-9 w-64 rounded-md border border-slate-300 bg-white px-3 text-sm" />
+        <input name="q" defaultValue={f.q} placeholder="Search name, ID or invite code" className={cn(fieldClass, "h-9 w-64")} />
         <select name="study" defaultValue={f.study ?? ""} className={select}>
           <option value="">All studies</option>
           {studies.map((s) => (

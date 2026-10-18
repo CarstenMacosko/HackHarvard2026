@@ -29,12 +29,12 @@ export default async function AuditPage() {
             <tbody>
               {rows.map((a) => (
                 <Tr key={a.id}>
-                  <Td className="whitespace-nowrap text-slate-600">{dateTime(a.created_at)}</Td>
+                  <Td className="whitespace-nowrap text-slate-600 dark:text-slate-400">{dateTime(a.created_at)}</Td>
                   <Td className="text-slate-700">{a.actor}</Td>
                   <Td>
                     <Badge tone={TONE(a.action)}>{label(a.action)}</Badge>
                   </Td>
-                  <Td className="font-mono text-xs text-slate-600">
+                  <Td className="font-mono text-xs text-slate-600 dark:text-slate-400">
                     {a.entity}/{a.entity_id}
                   </Td>
                   <Td className="max-w-md truncate font-mono text-xs text-slate-500">{a.detail ? JSON.stringify(a.detail) : ""}</Td>

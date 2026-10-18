@@ -14,12 +14,12 @@ function Row({ state, title, detail, hint }: { state: State; title: string; deta
   const color = state === "ok" ? "text-emerald-600" : state === "error" ? "text-rose-600" : "text-slate-400";
   return (
     <div className="flex gap-3 border-b border-slate-100 px-5 py-4 last:border-0">
-      <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${color}`} strokeWidth={1.75} />
+      <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${color}`} />
       <div className="min-w-0">
-        <div className="text-sm font-medium text-slate-900">
+        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
           {title} <span className="ml-1 text-xs font-normal text-slate-500">{state === "ok" ? "connected" : state === "error" ? "error" : "not configured"}</span>
         </div>
-        <div className="mt-0.5 text-sm text-slate-600">{detail}</div>
+        <div className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{detail}</div>
         {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
       </div>
     </div>
@@ -83,8 +83,8 @@ export default async function SettingsPage() {
               <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
                 {health.tables.map((t) => (
                   <div key={t.name} className="flex justify-between gap-2">
-                    <dt className={t.error ? "font-mono text-xs text-rose-600" : "font-mono text-xs text-slate-600"}>{t.name}</dt>
-                    <dd className="tabular text-slate-900">{t.rows ?? "!"}</dd>
+                    <dt className={t.error ? "font-mono text-xs text-rose-600 dark:text-rose-400" : "font-mono text-xs text-slate-600 dark:text-slate-400"}>{t.name}</dt>
+                    <dd className="tabular text-slate-900 dark:text-slate-100">{t.rows ?? "!"}</dd>
                   </div>
                 ))}
               </dl>
@@ -96,13 +96,13 @@ export default async function SettingsPage() {
         </Card>
         <Card>
           <CardHeader title="How analysis is routed" />
-          <CardBody className="space-y-3 text-sm text-slate-600">
+          <CardBody className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
             <p>
-              <span className="font-medium text-slate-900">Web uploads.</span> The participant&apos;s browser runs the module first (instant quality feedback, nothing uploaded until it passes). If the CV service is
+              <span className="font-medium text-slate-900 dark:text-slate-100">Web uploads.</span> The participant&apos;s browser runs the module first (instant quality feedback, nothing uploaded until it passes). If the CV service is
               configured, the server re-runs the reference module on the stored media and its result is the one recorded. Otherwise the on-device result is recorded, marked as such.
             </p>
             <p>
-              <span className="font-medium text-slate-900">Generated modules.</span> Approve a Droid + Daytona candidate under Generate module to write a sandboxed <code className="font-mono text-xs">gen_*</code> analyzer for participant captures.
+              <span className="font-medium text-slate-900 dark:text-slate-100">Generated modules.</span> Approve a Droid + Daytona candidate under Generate module to write a sandboxed <code className="font-mono text-xs">gen_*</code> analyzer for participant captures.
             </p>
           </CardBody>
         </Card>

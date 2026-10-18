@@ -4,7 +4,7 @@ import type { ValidationStatus, WorkflowDraft } from "@vf/shared";
 import { Sparkles } from "lucide-react";
 import { useState, useTransition } from "react";
 import { DroidGenerate } from "@/components/droid";
-import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, EmptyState, SectionLabel, ValidationBadge } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, cn, EmptyState, fieldClass, SectionLabel, ValidationBadge } from "@/components/ui";
 
 const EXAMPLES = [
   "Plaque psoriasis: track redness, scaling and affected area on elbows and knees weekly for 6 months after the trial ends.",
@@ -51,16 +51,16 @@ export function Builder() {
       <Card className="h-fit">
         <CardHeader title="What should the study track?" />
         <CardBody className="space-y-3">
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6} className="w-full rounded-md border border-slate-300 p-3 text-sm" aria-label="Condition description" />
+          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6} className={cn(fieldClass, "w-full py-2.5")} aria-label="Condition description" />
           <div className="flex flex-wrap gap-1.5">
             {EXAMPLES.map((e) => (
-              <button key={e} onClick={() => setPrompt(e)} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600 hover:bg-slate-200">
+              <button key={e} onClick={() => setPrompt(e)} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700">
                 {e.split(":")[0]}
               </button>
             ))}
           </div>
           <Button onClick={generate} disabled={pending} className="w-full">
-            <Sparkles className="h-4 w-4" /> {pending ? "Drafting…" : "Draft workflow"}
+            <Sparkles /> {pending ? "Drafting…" : "Draft workflow"}
           </Button>
           {error && <p className="text-sm text-rose-600">{error}</p>}
           <p className="text-xs text-slate-500">
@@ -80,8 +80,8 @@ export function Builder() {
             <Card>
               <CardHeader title={draft.condition} />
               <CardBody>
-                <p className="text-sm text-slate-600">{draft.summary}</p>
-                <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">
+                <p className="text-sm text-slate-600 dark:text-slate-400">{draft.summary}</p>
+                <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-400">
                   {counts &&
                     Object.entries(counts).map(([k, n]) => (
                       <span key={k} className="flex items-center gap-1.5">
@@ -97,7 +97,7 @@ export function Builder() {
                 <CardBody className="space-y-4">
                   <div>
                     <SectionLabel>Message to participants</SectionLabel>
-                    <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">{t.instructions}</p>
+                    <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">{t.instructions}</p>
                   </div>
                   <div className="grid gap-6 md:grid-cols-2">
                     <div>
@@ -130,7 +130,7 @@ export function Builder() {
                           <div className="mt-4">
                             <SectionLabel>Patient report</SectionLabel>
                           </div>
-                          <ul className="list-disc pl-5 text-sm text-slate-600">
+                          <ul className="list-disc pl-5 text-sm text-slate-600 dark:text-slate-400">
                             {t.report_questions.map((q) => (
                               <li key={q.key}>{q.prompt}</li>
                             ))}
@@ -145,7 +145,7 @@ export function Builder() {
             <Card>
               <CardHeader title="Validation plan" />
               <CardBody>
-                <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-600">
+                <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-400">
                   {draft.validation_plan.map((s) => (
                     <li key={s}>{s}</li>
                   ))}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Button, Card, CardBody, CardHeader } from "@/components/ui";
+import { Button, Card, CardBody, CardHeader, cn, fieldClass } from "@/components/ui";
 import { assignParticipantTasks } from "./actions";
 
 export function AssignTasks({
@@ -31,7 +31,7 @@ export function AssignTasks({
         {tasks.map((t) => {
           const on = enabled.includes(t.id);
           return (
-            <div key={t.id} className="rounded-md border border-slate-200 p-3">
+            <div key={t.id} className="rounded-md border border-slate-200 p-3 dark:border-slate-700">
               <label className="flex items-start gap-3">
                 <input
                   type="checkbox"
@@ -42,11 +42,11 @@ export function AssignTasks({
                   }}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-slate-900">{t.label}</div>
+                  <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{t.label}</div>
                   <div className="font-mono text-xs text-slate-400">{t.module}</div>
                   {on && (
                     <textarea
-                      className="mt-2 min-h-[72px] w-full rounded-md border border-slate-300 p-2 text-sm"
+                      className={cn(fieldClass, "mt-2 min-h-[72px] w-full py-2")}
                       placeholder={t.instructions}
                       value={instructions[t.id] ?? ""}
                       onChange={(e) => setInstructions((m) => ({ ...m, [t.id]: e.target.value }))}
