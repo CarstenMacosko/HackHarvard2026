@@ -2,12 +2,12 @@
 
 import type { ModuleResult } from "@vf/cv";
 import type { QualityCheck, RewardEvent, TaskConfig } from "@vf/shared";
-import { AlertTriangle, Camera, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
+import { Camera, CircleCheck, Loader2, RotateCcw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Dropzone } from "@/components/dropzone";
 import { LiveCapture, liveCaptureSupported, type LiveCaptureModule } from "@/components/live-capture";
-import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, ProgressBar, SectionLabel, cn } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, Input, ProgressBar, SectionLabel, cn } from "@/components/ui";
 import { guideStepsForModule } from "@vf/shared";
 import { analyzePhotoFile, analyzeVideoFile, isOnDeviceVideoModule, type VideoModuleId } from "@/lib/cv-client/analyze";
 import { planVideoUpload, type UploadPlan } from "@/lib/cv-client/upload";
@@ -220,7 +220,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
     return (
       <Card className="mx-auto max-w-2xl">
         <CardBody className="flex flex-col items-center py-10 text-center">
-          <CheckCircle2 className="h-12 w-12 text-emerald-600" strokeWidth={1.5} />
+          <CircleCheck className="h-12 w-12 stroke-[1.5] text-emerald-600" />
           <h2 className="mt-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
             {sent.filter((x) => x.ok).length > 1 ? `Thank you, ${sent.filter((x) => x.ok).length} ${task.media_type}s sent` : "Thank you, that\u2019s a usable check-in"}
           </h2>
@@ -238,7 +238,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
           )}
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Button onClick={another}>
-              <RotateCcw className="h-3.5 w-3.5" /> Submit another {task.media_type}
+              <RotateCcw /> Submit another {task.media_type}
             </Button>
             <ButtonLink href="/participant" variant="secondary">
               Back to home
@@ -282,7 +282,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
 
       <div className="order-1 space-y-6 xl:order-2">
         <Card>
-          <CardHeader title={queue.length || sent.length ? `1 · Add your capture (${sent.length + 1} of ${sent.length + 1 + queue.length})` : "1 · Add your capture"} actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw className="h-3.5 w-3.5" /> Start over</Button> : undefined} />
+          <CardHeader title={queue.length || sent.length ? `1 · Add your capture (${sent.length + 1} of ${sent.length + 1 + queue.length})` : "1 · Add your capture"} actions={file && phase !== "analyzing" ? <Button size="sm" variant="ghost" onClick={reset}><RotateCcw /> Start over</Button> : undefined} />
           <CardBody>
             {!file && live ? (
               <LiveCapture module={task.module as LiveCaptureModule} onCapture={(f, trim) => void onFile(f, trim)} onCancel={() => setLive(false)} />
@@ -299,7 +299,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                 />
                 {canLive && (
                   <Button size="sm" variant="secondary" onClick={() => setLive(true)}>
-                    <Camera className="h-3.5 w-3.5" /> Record with live guidance
+                    <Camera /> Record with live guidance
                   </Button>
                 )}
               </div>
@@ -334,7 +334,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                     <ul className="space-y-1.5 text-sm">
                       {result.quality.checks.map((c) => (
                         <li key={c.name} className="flex items-center gap-2">
-                          {c.passed ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
+                          {c.passed ? <CircleCheck className="h-4 w-4 shrink-0 text-emerald-600" /> : <TriangleAlert className="h-4 w-4 shrink-0 text-amber-600" />}
                           <span className={c.passed ? "text-slate-700 dark:text-slate-200" : "font-medium text-slate-900 dark:text-slate-100"}>{CHECK_LABEL[c.name] ?? c.name}</span>
                           {!c.passed && c.advisory && <span className="text-xs text-amber-700 dark:text-amber-400">(accepted)</span>}
                         </li>
@@ -363,7 +363,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                 </ul>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <Button size="sm" onClick={reset}>
-                    <RotateCcw className="h-3.5 w-3.5" /> Try again
+                    <RotateCcw /> Try again
                   </Button>
                   {queue.length > 0 && (
                     <Button size="sm" variant="secondary" onClick={next}>
@@ -399,7 +399,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                         onClick={() => setAnswers({ ...answers, [q.key]: o })}
                         className={cn(
                           "h-9 rounded-md px-4 text-sm font-medium ring-1 ring-inset",
-                          answers[q.key] === o ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-600 dark:hover:bg-slate-800",
+                          answers[q.key] === o ? "bg-slate-900 text-white ring-slate-900 dark:bg-white dark:text-slate-900 dark:ring-white" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-600 dark:hover:bg-slate-800",
                         )}
                       >
                         {o}
@@ -416,7 +416,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                         onClick={() => setAnswers({ ...answers, [q.key]: n })}
                         className={cn(
                           "tabular h-9 w-9 rounded-md text-sm font-medium ring-1 ring-inset",
-                          answers[q.key] === n ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-600 dark:hover:bg-slate-800",
+                          answers[q.key] === n ? "bg-slate-900 text-white ring-slate-900 dark:bg-white dark:text-slate-900 dark:ring-white" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-600 dark:hover:bg-slate-800",
                         )}
                       >
                         {n}
@@ -425,13 +425,13 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
                   </div>
                 )}
                 {q.type === "text" && (
-                  <input className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" value={String(answers[q.key] ?? "")} onChange={(e) => setAnswers({ ...answers, [q.key]: e.target.value })} />
+                  <Input value={String(answers[q.key] ?? "")} onChange={(e) => setAnswers({ ...answers, [q.key]: e.target.value })} />
                 )}
               </fieldset>
             ))}
             <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
               <Button size="lg" onClick={submit} disabled={phase !== "ready"}>
-                {phase === "submitting" && <Loader2 className="h-4 w-4 animate-spin" />}
+                {phase === "submitting" && <Loader2 className="animate-spin" />}
                 Send check-in
               </Button>
               {!dueNow && <span className="text-xs text-slate-500 dark:text-slate-400">No check-in is due — this will still be saved as an extra capture.</span>}

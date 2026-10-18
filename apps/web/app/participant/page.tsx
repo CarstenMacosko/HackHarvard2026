@@ -36,9 +36,9 @@ export default async function ParticipantHome() {
                   <li key={task.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        <CalendarClock className="h-4 w-4 text-brand-600" strokeWidth={1.75} />
+                        <CalendarClock className="h-4 w-4 text-slate-400" />
                         {task.label}
-                        {dueNow && <Badge tone="amber">due</Badge>}
+                        {dueNow && <Badge tone="amber">Due</Badge>}
                       </div>
                       <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">{task.instructions}</p>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -48,7 +48,7 @@ export default async function ParticipantHome() {
                       </div>
                     </div>
                     <ButtonLink href={`/participant/check-in?task=${encodeURIComponent(task.id)}`} size="md" variant={dueNow ? "primary" : "secondary"}>
-                      {dueNow ? "Start" : "Open"} <ArrowRight className="h-4 w-4" />
+                      {dueNow ? "Start" : "Open"} <ArrowRight />
                     </ButtonLink>
                   </li>
                 ))}
@@ -89,14 +89,14 @@ export default async function ParticipantHome() {
                         </div>
                         {s.accepted ? (
                           review === "pending" ? (
-                            <Badge tone="amber">with your care team</Badge>
+                            <Badge tone="amber">With your care team</Badge>
                           ) : review === "rejected" ? (
                             <Badge tone="red">couldn&apos;t be used</Badge>
                           ) : (
-                            <Badge tone="green">reviewed</Badge>
+                            <Badge tone="green">Reviewed</Badge>
                           )
                         ) : (
-                          <Badge>retake</Badge>
+                          <Badge>Retake</Badge>
                         )}
                       </li>
                     );
@@ -114,7 +114,7 @@ export default async function ParticipantHome() {
                 { icon: ShieldCheck, color: "text-emerald-600", value: pct(p.completion_rate), label: "completed" },
               ].map((s) => (
                 <div key={s.label} className="flex flex-col items-center px-2 py-4 text-center">
-                  <s.icon className={`h-4 w-4 ${s.color}`} strokeWidth={1.75} />
+                  <s.icon className={`h-4 w-4 ${s.color}`} />
                   <div className="tabular mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{s.value}</div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">{s.label}</div>
                 </div>

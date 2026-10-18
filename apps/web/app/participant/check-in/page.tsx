@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ButtonLink, Card, CardBody, EmptyState, PageHeader } from "@/components/ui";
+import { ButtonLink, Card, CardBody, cardClass, cn, EmptyState, PageHeader } from "@/components/ui";
 import { cvServiceUrl } from "@/lib/cv-service";
 import { relTime } from "@/lib/format";
 import { participantHome } from "@/lib/queries";
@@ -56,7 +56,7 @@ export default async function CheckInPage({ searchParams }: { searchParams: Prom
             <Link
               key={task.id}
               href={`/participant/check-in?task=${encodeURIComponent(task.id)}`}
-              className="rounded-xl border border-slate-200 bg-white p-5 transition-colors hover:border-brand-400 hover:bg-brand-50/40 dark:border-slate-700 dark:bg-slate-900/60 dark:hover:border-brand-500 dark:hover:bg-brand-900/30"
+              className={cn(cardClass, "p-5 transition-shadow hover:shadow-card-hover hover:ring-brand-300 dark:hover:ring-brand-500/50")}
             >
               <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{task.label}</div>
               <p className="mt-1 line-clamp-3 text-sm text-slate-600 dark:text-slate-400">{task.instructions}</p>
