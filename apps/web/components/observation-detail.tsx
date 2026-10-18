@@ -3,7 +3,7 @@
 import type { Observation } from "@vf/shared";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
 import { ObservationNotes } from "./observation-notes";
-import { Badge, KeyValues, REVIEW_TONE, SectionLabel, ValidationBadge } from "./ui";
+import { Badge, KeyValues, SectionLabel, ValidationBadge } from "./ui";
 import { VideoReplay } from "./video-replay";
 
 const isHandVideoModule = (module: string) =>
@@ -18,21 +18,17 @@ export function ObservationDetail({ o, compact = false }: { o: Observation; comp
   return (
     <div className="space-y-5 text-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={REVIEW_TONE[o.review_status]}>{o.review_status}</Badge>
         <span className="text-slate-600">{dateTime(o.captured_at)}</span>
         <span className="text-slate-400">· {o.task_label}</span>
       </div>
 
       {o.media_url ? (
         isVideo ? (
-          <VideoReplay src={o.media_url} trimStartS={trimStart} />
+          <VideoReplay src={o.media_url} trimStartS={trimStart} module={o.module} measurements={o.measurements} />
         ) : (
           <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-slate-900">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={o.media_url} alt={`${o.task_label}, ${dateTime(o.captured_at)}`} className="h-full w-full object-contain" />
-            {o.context.media_kind === "poster" && (
-              <span className="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white">Still frame (video analysed on-device)</span>
-            )}
           </div>
         )
       ) : (

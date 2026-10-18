@@ -3,37 +3,32 @@
 import { landmarksToPixels } from "@vf/cv";
 import type { HandLandmarker } from "@mediapipe/tasks-vision";
 import { Loader2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/components/ui";
-import { loadHandLandmarker } from "@/lib/cv-client/mediapipe";
+import { loadImageHandLandmarker } from "@/lib/cv-client/mediapipe";
+import {
+  formatTrackerValue,
+  resolveReplayTracker,
+  sampleTracker,
+  type ReplayMeasurement,
+  type ResolvedTracker,
+} from "@/lib/cv-client/replay-trackers";
 
 export type ReplayOverlayMode = "raw" | "landmarks" | "landmarks_graphs";
+export type { ReplayMeasurement };
 
-const INDEX_MCP = 5;
-const INDEX_PIP = 6;
-const INDEX_DIP = 7;
-/** Landmark sample stride — 100 ms is enough for overlay + PIP graph without long seek loops. */
+/** Landmark sample stride — 100 ms is enough for overlay + graphs without long seek loops. */
 const SAMPLE_EVERY_MS = 100;
 
 type FrameSample = {
   t: number;
   pts: number[][] | null;
-  pipAngle: number | null;
+  value: number | null;
 };
 
-function pipAngleDeg(pts: number[][] | null): number | null {
-  if (!pts || pts.length < 8) return null;
-  const a = pts[INDEX_MCP];
-  const b = pts[INDEX_PIP];
-  const c = pts[INDEX_DIP];
-  const ux = a[0] - b[0];
-  const uy = a[1] - b[1];
-  const vx = c[0] - b[0];
-  const vy = c[1] - b[1];
-  const den = Math.hypot(ux, uy) * Math.hypot(vx, vy);
-  if (den < 1e-6) return null;
-  const cos = Math.max(-1, Math.min(1, (ux * vx + uy * vy) / den));
-  return (Math.acos(cos) * 180) / Math.PI;
+/** @deprecated Prefer resolveReplayTracker — kept for call sites that imported the old helper. */
+export function graphSpecForMeasurements(measurements: ReplayMeasurement[], module = "") {
+  return resolveReplayTracker(measurements, module);
 }
 
 function nearestSample(samples: FrameSample[], t: number): FrameSample | null {
@@ -80,22 +75,31 @@ function drawSkeleton(
   }
 }
 
-const MODES: { id: ReplayOverlayMode; label: string }[] = [
-  { id: "raw", label: "Raw video" },
-  { id: "landmarks", label: "Hand landmarks" },
-  { id: "landmarks_graphs", label: "Landmarks + graphs" },
-];
-
-/** Researcher video replay: raw / landmarks / landmarks + time-synced PIP-angle graph. */
+/** Researcher video replay: raw / landmarks / landmarks + measurement-specific graph. */
 export function VideoReplay({
   src,
   trimStartS = 0,
+  measurements = [],
+  module = "",
   className,
 }: {
   src: string;
   trimStartS?: number;
+  /** Observation measurements — drives which graph (if any) is shown. */
+  measurements?: ReplayMeasurement[];
+  module?: string;
   className?: string;
 }) {
+  const tracker = useMemo(() => resolveReplayTracker(measurements, module), [measurements, module]);
+  const modes = useMemo(() => {
+    const base: { id: ReplayOverlayMode; label: string }[] = [
+      { id: "raw", label: "Raw video" },
+      { id: "landmarks", label: "Hand landmarks" },
+    ];
+    if (tracker) base.push({ id: "landmarks_graphs", label: "Landmarks + graphs" });
+    return base;
+  }, [tracker]);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const graphRef = useRef<HTMLCanvasElement>(null);
@@ -106,25 +110,27 @@ export function VideoReplay({
   const [t, setT] = useState(0);
   const connectionsRef = useRef<Array<{ start: number; end: number }>>([]);
 
-  // Reset landmark cache when the media URL changes.
+  useEffect(() => {
+    if (mode === "landmarks_graphs" && !tracker) setMode("landmarks");
+  }, [mode, tracker]);
+
   useEffect(() => {
     setSamples(null);
     setError(null);
-  }, [src]);
+  }, [src, tracker?.id]);
 
-  // Extract landmark track once when an overlay mode is selected (browser MediaPipe — fastest path).
-  // Fetch → blob URL so WebGL/MediaPipe never sees a cross-origin / tainted video element.
   useEffect(() => {
-    if (mode === "raw" || samples) return;
+    if (mode === "raw" || samples || !tracker) return;
     let cancelled = false;
     let revoke: (() => void) | undefined;
+    const active = tracker;
     (async () => {
       setBusy(true);
       setError(null);
       try {
         const HL = await import("@mediapipe/tasks-vision");
         connectionsRef.current = [...HL.HandLandmarker.HAND_CONNECTIONS];
-        const landmarker = await loadHandLandmarker();
+        const landmarker = await loadImageHandLandmarker();
         const video = document.createElement("video");
         video.muted = true;
         video.playsInline = true;
@@ -142,7 +148,7 @@ export function VideoReplay({
         const W = video.videoWidth;
         const H = video.videoHeight;
         const out: FrameSample[] = [];
-        let lastTs = 0;
+        let prevPalm: number[] | null = null;
         for (let time = 0; time < duration; time += SAMPLE_EVERY_MS / 1000) {
           if (cancelled) return;
           video.currentTime = time;
@@ -153,17 +159,23 @@ export function VideoReplay({
             };
             video.addEventListener("seeked", onSeek);
           });
-          const ts = Math.max(lastTs + 1, Math.round(time * 1000));
-          lastTs = ts;
-          const res = (landmarker as HandLandmarker).detectForVideo(video, ts);
+          const res = (landmarker as HandLandmarker).detect(video);
           const pts = res.landmarks.length ? landmarksToPixels(res.landmarks[0], W, H) : null;
-          out.push({ t: time, pts, pipAngle: pipAngleDeg(pts) });
+          const { value, palm } = sampleTracker(active, pts, prevPalm);
+          prevPalm = palm;
+          out.push({ t: time, pts, value });
         }
         if (!cancelled) setSamples(out);
       } catch (e) {
         if (!cancelled) {
           const msg = e instanceof Error ? e.message : "Landmark overlay failed.";
-          setError(msg.includes("cross-origin") || msg.includes("texImage2D") ? "Could not read this video for landmarks (CORS). Try re-uploading the capture." : msg);
+          setError(
+            msg.includes("cross-origin") || msg.includes("texImage2D")
+              ? "Could not read this video for landmarks (CORS). Try re-uploading the capture."
+              : msg.includes("timestamp")
+                ? "Landmark tracker hit a timestamp glitch — refresh the page and open landmarks again."
+                : msg,
+          );
         }
       } finally {
         if (!cancelled) setBusy(false);
@@ -173,9 +185,8 @@ export function VideoReplay({
       cancelled = true;
       revoke?.();
     };
-  }, [mode, samples, src]);
+  }, [mode, samples, src, tracker]);
 
-  // Draw overlay + graph synced to playback.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -195,24 +206,26 @@ export function VideoReplay({
         const ctx = canvas.getContext("2d");
         if (ctx) drawSkeleton(ctx, sample?.pts ?? null, connectionsRef.current, canvas.width, canvas.height);
       }
-      if (mode === "landmarks_graphs" && graphRef.current && samples?.length) {
-        drawGraph(graphRef.current, samples, now);
+      if (mode === "landmarks_graphs" && graphRef.current && samples?.length && tracker) {
+        drawGraph(graphRef.current, samples, now, tracker);
       }
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [mode, samples]);
+  }, [mode, samples, tracker]);
 
   const startAt = typeof trimStartS === "number" && trimStartS > 0 ? `${src}#t=${trimStartS}` : src;
+  const live = nearestSample(samples ?? [], t);
 
   return (
     <div className={cn("space-y-2", className)}>
       <div className="flex flex-wrap gap-1.5">
-        {MODES.map((m) => (
+        {modes.map((m) => (
           <button
             key={m.id}
             type="button"
             onClick={() => setMode(m.id)}
+            aria-pressed={mode === m.id}
             className={cn(
               "rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset transition",
               mode === m.id ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
@@ -223,7 +236,6 @@ export function VideoReplay({
         ))}
       </div>
       <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-slate-900">
-        {/* Display player stays same-origin / no crossOrigin — WebGL sampling uses a separate blob URL. */}
         <video ref={videoRef} src={startAt} controls playsInline className="h-full w-full object-contain" />
         {mode !== "raw" && <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />}
         {busy && (
@@ -233,13 +245,16 @@ export function VideoReplay({
         )}
         {error && <div className="absolute bottom-2 left-2 right-2 rounded bg-rose-600/90 px-2 py-1 text-xs text-white">{error}</div>}
       </div>
-      {mode === "landmarks_graphs" && (
+      {mode === "landmarks_graphs" && tracker && (
         <div className="rounded-md border border-slate-200 bg-white p-2">
           <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Index PIP angle (°)</span>
+            <span>
+              {tracker.label}
+              {tracker.unit ? ` (${tracker.unit})` : ""}
+            </span>
             <span className="tabular">
               t = {t.toFixed(2)} s
-              {nearestSample(samples ?? [], t)?.pipAngle != null && <> · {nearestSample(samples ?? [], t)!.pipAngle!.toFixed(1)}°</>}
+              {live?.value != null && <> · {formatTrackerValue(tracker, live.value)}</>}
             </span>
           </div>
           <canvas ref={graphRef} width={720} height={160} className="h-40 w-full" />
@@ -249,7 +264,6 @@ export function VideoReplay({
   );
 }
 
-/** Load media into a same-origin blob URL so MediaPipe WebGL can sample frames safely. */
 async function blobUrlForMedia(src: string): Promise<{ url: string; revoke: () => void }> {
   const res = await fetch(src, { credentials: "same-origin", cache: "no-store" });
   if (!res.ok) throw new Error(`Could not fetch video (${res.status}).`);
@@ -271,12 +285,12 @@ function niceTicks(min: number, max: number, targetCount: number): number[] {
   return ticks;
 }
 
-function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: number) {
+function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: number, tracker: ResolvedTracker) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const w = canvas.width;
   const h = canvas.height;
-  const pad = { left: 44, right: 12, top: 12, bottom: 28 };
+  const pad = { left: 48, right: 12, top: 12, bottom: 28 };
   const plotW = w - pad.left - pad.right;
   const plotH = h - pad.top - pad.bottom;
 
@@ -284,22 +298,31 @@ function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: 
   ctx.fillStyle = "#f8fafc";
   ctx.fillRect(0, 0, w, h);
 
-  const angles = samples.map((s) => s.pipAngle).filter((a): a is number => a != null);
-  if (!angles.length) {
+  const values = samples.map((s) => s.value).filter((a): a is number => a != null);
+  if (!values.length) {
     ctx.fillStyle = "#94a3b8";
     ctx.font = "12px ui-sans-serif, system-ui, sans-serif";
-    ctx.fillText("No index landmarks in this clip", pad.left, h / 2);
+    ctx.fillText("No hand landmarks in this clip", pad.left, h / 2);
     return;
   }
 
-  // Fixed clinical range with a little headroom so a straight finger (~180°) sits near the top.
-  const minA = Math.min(90, Math.floor(Math.min(...angles) / 10) * 10);
-  const maxA = Math.max(180, Math.ceil(Math.max(...angles) / 10) * 10);
+  let minV = Math.min(...values);
+  let maxV = Math.max(...values);
+  if (tracker.axis === "angle") {
+    minV = Math.min(minV, tracker.guide != null ? tracker.guide - 20 : minV, 60);
+    maxV = Math.max(maxV, tracker.guide != null ? tracker.guide + 20 : maxV, 180);
+  } else if (tracker.axis === "fraction") {
+    minV = 0;
+    maxV = 1;
+  } else {
+    const padY = Math.max((maxV - minV) * 0.1, 0.01);
+    minV = Math.max(0, minV - padY);
+    maxV = maxV + padY;
+  }
   const maxT = Math.max(samples[samples.length - 1]?.t || 1, 0.1);
   const xOf = (t: number) => pad.left + (t / maxT) * plotW;
-  const yOf = (a: number) => pad.top + plotH - ((a - minA) / (maxA - minA || 1)) * plotH;
+  const yOf = (a: number) => pad.top + plotH - ((a - minV) / (maxV - minV || 1)) * plotH;
 
-  // Plot frame
   ctx.strokeStyle = "#e2e8f0";
   ctx.lineWidth = 1;
   ctx.strokeRect(pad.left + 0.5, pad.top + 0.5, plotW, plotH);
@@ -308,11 +331,11 @@ function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: 
   ctx.fillStyle = "#64748b";
   ctx.textBaseline = "middle";
 
-  // Y axis: degrees
-  for (const tick of niceTicks(minA, maxA, 5)) {
+  for (const tick of niceTicks(minV, maxV, 5)) {
     const y = yOf(tick);
-    ctx.strokeStyle = tick === 160 ? "#94a3b8" : "#e2e8f0";
-    ctx.setLineDash(tick === 160 ? [4, 3] : []);
+    const isGuide = tracker.guide != null && Math.abs(tick - tracker.guide) < 1e-6;
+    ctx.strokeStyle = isGuide ? "#94a3b8" : "#e2e8f0";
+    ctx.setLineDash(isGuide ? [4, 3] : []);
     ctx.beginPath();
     ctx.moveTo(pad.left, y);
     ctx.lineTo(pad.left + plotW, y);
@@ -320,10 +343,17 @@ function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: 
     ctx.setLineDash([]);
     ctx.textAlign = "right";
     ctx.fillStyle = "#64748b";
-    ctx.fillText(`${tick}°`, pad.left - 6, y);
+    const label =
+      tracker.axis === "angle"
+        ? `${Math.round(tick)}°`
+        : tracker.axis === "fraction"
+          ? tick.toFixed(0)
+          : tick < 1
+            ? tick.toFixed(2)
+            : tick.toFixed(1);
+    ctx.fillText(label, pad.left - 6, y);
   }
 
-  // X axis: time (s)
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   for (const tick of niceTicks(0, maxT, 6)) {
@@ -337,37 +367,36 @@ function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: 
     ctx.fillText(`${tick % 1 === 0 ? tick.toFixed(0) : tick.toFixed(1)}s`, x, pad.top + plotH + 6);
   }
 
-  // Axis titles
   ctx.fillStyle = "#94a3b8";
   ctx.textAlign = "center";
   ctx.fillText("time", pad.left + plotW / 2, h - 10);
   ctx.save();
-  ctx.translate(11, pad.top + plotH / 2);
+  ctx.translate(12, pad.top + plotH / 2);
   ctx.rotate(-Math.PI / 2);
-  ctx.fillText("PIP °", 0, 0);
+  ctx.fillText(tracker.unit || "value", 0, 0);
   ctx.restore();
 
-  // Straightness threshold callout
-  if (160 >= minA && 160 <= maxA) {
+  if (tracker.guide != null && tracker.guide >= minV && tracker.guide <= maxV) {
     ctx.fillStyle = "#64748b";
     ctx.textAlign = "left";
     ctx.textBaseline = "bottom";
     ctx.font = "9px ui-sans-serif, system-ui, sans-serif";
-    ctx.fillText("straight ≥ 160°", pad.left + 4, yOf(160) - 2);
+    const guideLabel =
+      tracker.axis === "angle" ? `guide ${tracker.guide}°` : tracker.axis === "fraction" ? "threshold" : `guide ${tracker.guide}`;
+    ctx.fillText(guideLabel, pad.left + 4, yOf(tracker.guide) - 2);
   }
 
-  // Series
   ctx.strokeStyle = "#2a78d6";
   ctx.lineWidth = 2;
   ctx.beginPath();
   let started = false;
   for (const s of samples) {
-    if (s.pipAngle == null) {
+    if (s.value == null) {
       started = false;
       continue;
     }
     const x = xOf(s.t);
-    const y = yOf(s.pipAngle);
+    const y = yOf(s.value);
     if (!started) {
       ctx.moveTo(x, y);
       started = true;
@@ -375,7 +404,6 @@ function drawGraph(canvas: HTMLCanvasElement, samples: FrameSample[], playhead: 
   }
   ctx.stroke();
 
-  // Playhead
   const px = xOf(Math.min(Math.max(playhead, 0), maxT));
   ctx.strokeStyle = "#eb6834";
   ctx.lineWidth = 1.5;
