@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 /**
- * Start `npm run dev` with an empty in-memory demo slate for this process only.
- *
- * Does NOT delete `.data/demo-state.json` or `gen_*.py`. The next plain
- * `npm run dev` reloads the previously saved data.
+ * Start Next with an empty product slate for this process only.
+ * Writes `.data/VF_DEMO_FRESH` so the app ignores saved demo/Supabase rows.
+ * Does not delete `.data/demo-state.json` — plain `npm run dev` restores it.
  */
 import { spawn } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const marker = path.join(root, ".data", "VF_DEMO_FRESH");
 
-console.log("[dev:refresh] starting with empty session data (saved .data/demo-state.json is left alone)");
-console.log("[dev:refresh] stop this process and run `npm run dev` to reload your previous saved data");
+mkdirSync(path.dirname(marker), { recursive: true });
+writeFileSync(marker, `${new Date().toISOString()}\n`, "utf8");
 
-const child = spawn("npm", ["run", "dev"], {
+console.log("[dev:refresh] empty session (Created Modules, studies, participants start blank)");
+console.log("[dev:refresh] saved data in .data/demo-state.json is untouched — use `npm run dev` later to reload it");
+
+const child = spawn("npm", ["run", "dev", "-w", "apps/web"], {
   cwd: root,
   stdio: "inherit",
   shell: process.platform === "win32",

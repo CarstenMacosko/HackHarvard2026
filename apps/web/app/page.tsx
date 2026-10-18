@@ -36,9 +36,6 @@ export default function Home() {
             <p className="mt-2 text-sm text-slate-600">Sign up with an invite code, pick your assigned test, and record with live CV guidance.</p>
           </Link>
         </div>
-        <p className="mt-4 text-center text-sm text-slate-500">
-          Each portal requires its own sign-in — there is no one-click switch between researcher and participant.
-        </p>
         <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f) => (
             <div key={f.title}>
