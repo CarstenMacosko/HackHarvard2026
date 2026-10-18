@@ -1,10 +1,10 @@
 "use client";
 
-import { Bot, Boxes, CheckCircle2, FlaskConical, Loader2, MessageSquare, Play, Plus, Server, Sparkles, Trash2, XCircle } from "lucide-react";
+import { Bot, CircleCheck, CircleX, Loader2, MessageSquare, Plus, Server, ShieldCheck, Trash2, WandSparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { Badge, Button, Card, CardBody, CardHeader, cn } from "@/components/ui";
+import { Badge, Button, Card, CardBody, CardHeader, cn, fieldClass } from "@/components/ui";
 import type { DaytonaExperiment, GenerationProgress, GenerationStep } from "@/lib/generation-types";
 
 const STEPS: { id: GenerationStep; label: string }[] = [
@@ -103,7 +103,7 @@ function Pipeline({ progress }: { progress: GenerationProgress }) {
               failed && i <= Math.max(idx, 0) && "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:ring-rose-400/30",
             )}
           >
-            {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : active ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-3.5 w-3.5 rounded-full bg-current opacity-20" />}
+            {done ? <CircleCheck className="h-3.5 w-3.5" /> : active ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="h-3.5 w-3.5 rounded-full bg-current opacity-20" />}
             {s.label}
           </li>
         );
@@ -130,7 +130,7 @@ export function ModuleGenerator() {
   const [pending, start] = useTransition();
   const [assessing, startAssess] = useTransition();
   const [reviewing, startReview] = useTransition();
-  const input = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100";
+  const input = cn(fieldClass, "h-10 w-full");
 
   function invalidatePlan() {
     setPlanAccepted(false);
@@ -341,7 +341,7 @@ export function ModuleGenerator() {
           <label className="block text-sm font-medium text-slate-900 dark:text-slate-100">
             Assessment description
             <textarea
-              className="mt-1 min-h-[100px] w-full rounded-md border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              className={cn(fieldClass, "mt-1 min-h-[100px] w-full py-2.5")}
               value={description}
               onChange={(e) => {
                 invalidatePlan();
@@ -417,7 +417,7 @@ export function ModuleGenerator() {
                       setMeasurements((xs) => xs.filter((_, j) => j !== i));
                     }}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 />
                   </Button>
                 </div>
               ))}
@@ -437,14 +437,14 @@ export function ModuleGenerator() {
               />
               <input className={cn(input, "w-28")} value={customUnit} onChange={(e) => setCustomUnit(e.target.value)} placeholder="unit" />
               <Button type="button" size="sm" variant="secondary" onClick={addCustom}>
-                <Plus className="h-3.5 w-3.5" /> Add
+                <Plus /> Add
               </Button>
             </div>
           </div>
 
           <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2 dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-slate-100">
-              <MessageSquare className="h-4 w-4" /> Design loop
+              <MessageSquare className="h-4 w-4 text-slate-400" /> Design loop
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">Ask Droid whether the plan is possible. Reply to its advice, revise measurements, re-assess, then accept.</p>
             {thread.length > 0 && (
@@ -458,14 +458,14 @@ export function ModuleGenerator() {
               </ul>
             )}
             <textarea
-              className="min-h-[64px] w-full rounded-md border border-slate-300 bg-white p-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              className={cn(fieldClass, "min-h-[64px] w-full py-2")}
               placeholder="Reply to Droid / add context (camera angle, what “straight” means, …)"
               value={designNote}
               onChange={(e) => setDesignNote(e.target.value)}
             />
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="secondary" disabled={assessing || !!jobId} onClick={askDroid}>
-                {assessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                {assessing ? <Loader2 className="animate-spin" /> : <Bot />}
                 {assessing ? "Assessing…" : thread.length ? "Re-assess with Droid" : "Ask Droid"}
               </Button>
               {assess?.revised_measurements?.length && assess.verdict !== "feasible" && (
@@ -475,12 +475,12 @@ export function ModuleGenerator() {
               )}
               {assess && !planAccepted && assess.can_accept && (
                 <Button type="button" onClick={() => acceptPlan(false)}>
-                  <CheckCircle2 className="h-4 w-4" /> Accept plan
+                  <CircleCheck /> Accept plan
                 </Button>
               )}
               {assess && !planAccepted && !assess.can_accept && (
                 <Button type="button" variant="secondary" onClick={() => acceptPlan(true)} title="Demo override — generate even if Droid wants revisions">
-                  <CheckCircle2 className="h-4 w-4" /> Accept plan anyways
+                  <CircleCheck /> Accept plan anyways
                 </Button>
               )}
             </div>
@@ -495,7 +495,7 @@ export function ModuleGenerator() {
           </div>
 
           <Button className="w-full" disabled={pending || !!jobId || !planAccepted} onClick={startJob}>
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {pending ? <Loader2 className="animate-spin" /> : <WandSparkles />}
             {pending ? "Starting…" : planAccepted ? "Generate with Droid + Daytona" : "Accept a plan to generate"}
           </Button>
           {jobId && (
@@ -511,7 +511,7 @@ export function ModuleGenerator() {
         {!progress ? (
           <Card>
             <CardBody className="flex flex-col items-center gap-3 py-16 text-center text-sm text-slate-500 dark:text-slate-400">
-              <Sparkles className="h-8 w-8 text-slate-300" />
+              <WandSparkles className="h-8 w-8 stroke-[1.5] text-slate-300 dark:text-slate-600" />
               <p>Design loop first: propose measurements → Droid advice → accept plan → then the Daytona grid appears here.</p>
             </CardBody>
           </Card>
@@ -528,7 +528,6 @@ export function ModuleGenerator() {
                   <div className="flex flex-wrap gap-1.5">
                     {progress.components_reused.map((c) => (
                       <Badge key={c} tone="slate">
-                        <Boxes className="mr-1 inline h-3 w-3" />
                         {c}
                       </Badge>
                     ))}
@@ -571,7 +570,7 @@ export function ModuleGenerator() {
 
             <div className="grid gap-6 xl:grid-cols-2">
               <Card>
-                <CardHeader title="Live log" actions={<Bot className="h-4 w-4 text-slate-400" />} />
+                <CardHeader title="Live log" />
                 <CardBody>
                   <ul className="max-h-64 space-y-2 overflow-auto font-mono text-[11px]">
                     {progress.logs.map((l, i) => (
@@ -596,14 +595,14 @@ export function ModuleGenerator() {
                   )}
                   {progress.step === "ready" && (
                     <Button onClick={review} disabled={reviewing}>
-                      {reviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
+                      {reviewing ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
                       Approve &amp; activate module
                     </Button>
                   )}
                   {progress.step === "approved" && (
                     <div className="space-y-2 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
                       <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" /> Approved <span className="font-mono">{progress.module_id}</span>
+                        <CircleCheck className="h-4 w-4" /> Approved <span className="font-mono">{progress.module_id}</span>
                       </div>
                       <p className="text-xs text-emerald-700 dark:text-emerald-400">
                         Live under{" "}
@@ -623,7 +622,7 @@ export function ModuleGenerator() {
                   )}
                   {progress.step === "failed" && (
                     <div className="flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400">
-                      <XCircle className="h-4 w-4" /> Generation failed — check the log.
+                      <CircleX className="h-4 w-4" /> Generation failed — check the log.
                     </div>
                   )}
                 </CardBody>

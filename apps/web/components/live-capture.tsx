@@ -2,7 +2,7 @@
 
 import { TappingCoach, TimedCaptureCoach, landmarksToPixels, laplacianVariance, mean, toGray, type CoachState, type GuidanceLevel } from "@vf/cv";
 import type { HandLandmarker } from "@mediapipe/tasks-vision";
-import { AlertTriangle, CheckCircle2, Loader2, SwitchCamera, X } from "lucide-react";
+import { CircleCheck, Loader2, SwitchCamera, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button, ProgressBar, cn } from "@/components/ui";
 import { handCrop } from "@/lib/cv-client/analyze";
@@ -312,7 +312,7 @@ export function LiveCapture({
               g.level === "good" ? "bg-emerald-600/90 text-white" : g.level === "warn" ? "bg-amber-400/95 text-amber-950" : "bg-rose-600/90 text-white",
             )}
           >
-            {g.level === "good" ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : <AlertTriangle className="h-5 w-5 shrink-0" />}
+            {g.level === "good" ? <CircleCheck className="h-5 w-5 shrink-0" /> : <TriangleAlert className="h-5 w-5 shrink-0" />}
             {phase === "ready" && g.level !== "bad" ? ui.readyHint : g.message}
           </div>
         )}
@@ -362,10 +362,10 @@ export function LiveCapture({
 
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={() => setFacing(facing === "user" ? "environment" : "user")} disabled={status === "finishing" || recording}>
-          <SwitchCamera className="h-3.5 w-3.5" /> Switch camera
+          <SwitchCamera /> Switch camera
         </Button>
         <Button size="sm" variant="ghost" onClick={onCancel} disabled={status === "finishing"}>
-          <X className="h-3.5 w-3.5" /> Upload a video instead
+          <X /> Upload a video instead
         </Button>
         <span className="ml-auto text-xs text-slate-500">
           {tapTriggered ? "Recording keeps the part after tapping starts." : "Recording starts once your hand is framed."}

@@ -73,7 +73,7 @@ export function DroidGenerate({ condition, task, measurement, description }: { c
   return (
     <div className="mt-1">
       <Button variant="secondary" size="sm" onClick={send} disabled={state === "sending"}>
-        {state === "sending" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />} Generate with Droid
+        {state === "sending" ? <Loader2 className="animate-spin" /> : <Bot />} Generate with Droid
       </Button>
       {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
     </div>
@@ -182,8 +182,8 @@ export function DroidJobs({ initialJobs }: { initialJobs?: DroidJobsRow[] }) {
               return (
                 <Tr key={j.id}>
                   <Td>
-                    <Link href="/researcher/generate" className="inline-flex items-center gap-1 font-medium text-slate-900 hover:underline dark:text-slate-100">
-                      {title} <ExternalLink className="h-3 w-3 text-slate-400" />
+                    <Link href="/researcher/generate" className="inline-flex items-center gap-1 font-medium text-slate-900 hover:text-brand-700 dark:text-slate-100 dark:hover:text-brand-300">
+                      {title} <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                     </Link>
                     <span className="text-slate-400"> · {j.request?.condition ?? "—"}</span>
                     <div className="font-mono text-xs text-slate-400">{j.id}</div>
