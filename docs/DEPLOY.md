@@ -12,11 +12,23 @@ This takes about 5 minutes and gives the team a shareable URL for both the resea
    - **Root Directory:** click *Edit* and choose **`apps/web`**.
    - **Framework Preset:** Next.js (detected automatically).
    - Leave Build/Install commands alone. `apps/web/vercel.json` already installs from the repo root (`cd ../.. && npm ci`) so the shared workspace package resolves.
-   - **Environment Variables:** none required. Optional:
-     - `ANTHROPIC_API_KEY`: the workflow builder drafts with Claude instead of the offline template.
-     - `CV_CALLBACK_SECRET`: shared secret the messaging agent sends to `/api/cv-callback`.
-     - `FACTORY_API_KEY` + `DAYTONA_API_KEY` (optional): live Droid + Daytona module generation on Vercel ([`MODULE_GENERATION.md`](MODULE_GENERATION.md)). Without them, generation still runs in demo mode and writes to the database.
+   - **Environment Variables** — for a production demo that keeps data and re-analyses captures, set at least:
+
+     | Variable | Required for | Notes |
+     |---|---|---|
+     | `NEXT_PUBLIC_SUPABASE_URL` | Durable data + media | From Supabase → Project Settings → API |
+     | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser uploads to Storage | Same page |
+     | `SUPABASE_SERVICE_ROLE_KEY` | Server writes | **Secret** — never expose client-side |
+     | `CV_SERVICE_URL` | Server-side CV re-analysis | Public URL after `modal deploy modal_app.py` in `services/cv` |
+     | `FACTORY_API_KEY` | Live Droid drafts on `/researcher/generate` | Factory |
+     | `DAYTONA_API_KEY` | Live Daytona landmark-track checks | Daytona; optional `DAYTONA_API_URL` |
+     | `CV_CALLBACK_SECRET` | Optional agent callbacks | Same value if you run `services/agent` |
+     | `ANTHROPIC_API_KEY` | Optional | Offline template is used without it |
+
+     Without Supabase, each Vercel instance keeps its own in-memory copy (not suitable for a shared demo). Without `CV_SERVICE_URL`, captures stay on-device only. Without Factory/Daytona keys, Generate module runs in template mode.
 4. Click **Deploy**.
+
+**Function timeouts:** `apps/web/vercel.json` sets `maxDuration` 300s for Droid/Daytona routes and 60s for submissions. That needs a Vercel plan that allows those limits (Hobby caps lower). Researcher → **System status** shows whether Supabase, the CV service, and Factory/Daytona keys are connected.
 
 ### Which branch gets deployed
 
@@ -41,8 +53,8 @@ Replace `<app>` with your deployment URL (e.g. `visual-followup.vercel.app`).
 | Landing page | `https://<app>/` |
 | Researcher portal | `https://<app>/researcher` (studies → participant timeline, **Review queue**, **Workflow builder**) |
 | Participant portal | `https://<app>/participant` (best on a phone) |
-| Participant sign-up | `https://<app>/participant/join`, with demo invite codes `PD-006J` (Parkinson's) and `AD-106J` (eczema) |
-| View as a demo patient | `https://<app>/participant/view-as?id=p_001` (Parkinson's, video) or `?id=p_101` (eczema, photo) |
+| Participant sign-up | `https://<app>/auth/sign-up` (invite code required) or `/participant/join` |
+| Researcher sign-in | `https://<app>/auth/sign-in?role=researcher` |
 
 ## What works with no services configured
 
@@ -71,9 +83,28 @@ SUPABASE_SERVICE_ROLE_KEY
 
 Never commit the `service_role` key or paste it anywhere public: it bypasses row-level security.
 
-## The other services (later)
+## CV service + Daytona (production)
+
+### CV service (Modal)
+
+From `services/cv`:
+
+```bash
+modal deploy modal_app.py
+```
+
+Copy the HTTPS URL Modal prints and set **`CV_SERVICE_URL`** on Vercel (and in local `.env.local`). Redeploy the web app. On **System status**, the CV row should show connected modules (`finger_tapping`, `hand_tremor`, `writing_posture`, `eczema_photo`, …). Participant uploads then re-run through that service after on-device quality feedback.
+
+### Factory Droid + Daytona
+
+1. Set **`FACTORY_API_KEY`** and **`DAYTONA_API_KEY`** on Vercel (same keys as local `.env.local`).
+2. Redeploy. Open `/researcher/generate` — the pipeline should report live mode (not template).
+3. Jobs write progress to Supabase `droid_jobs` (requires Supabase). Long runs need the 300s function limit above.
+
+Smoke locally (optional): `npx tsx apps/web/scripts/smoke-daytona.ts`.
+
+### Messaging agent (optional)
 
 | Service | Host | After deploying, set |
 |---|---|---|
-| CV (`services/cv`) | `modal deploy modal_app.py`, or the Dockerfile on Railway | `CV_SERVICE_URL` on the agent |
-| Messaging agent (`services/agent`) | Railway (start command `npm start`, root `services/agent`) | `WEB_URL=https://<app>`, `AGENT_CHANNEL=photon`, Photon keys, `CV_CALLBACK_SECRET` (same value as on Vercel) |
+| Messaging agent (`services/agent`) | Railway (`npm start`, root `services/agent`) | `WEB_URL=https://<app>`, `CV_CALLBACK_SECRET` (same as Vercel), Supabase keys |

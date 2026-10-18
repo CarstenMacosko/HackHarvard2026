@@ -2,6 +2,7 @@ import { CircleCheck, CircleDashed, CircleX } from "lucide-react";
 import { Card, CardBody, CardHeader, PageHeader } from "@/components/ui";
 import { backend } from "@/lib/backend";
 import { cvHealth } from "@/lib/cv-service";
+import { liveIntegrationStatus } from "@/lib/live-keys";
 
 export const metadata = { title: "System status" };
 export const dynamic = "force-dynamic";
@@ -28,8 +29,8 @@ function Row({ state, title, detail, hint }: { state: State; title: string; deta
 export default async function SettingsPage() {
   const db = backend();
   const supabase = db.mode === "supabase";
+  const live = liveIntegrationStatus();
   const [cv, health] = await Promise.all([cvHealth(), supabase ? db.health().catch((e: Error) => ({ ok: false, tables: [], bucket: { ok: false, detail: e.message } })) : null]);
-  const env = (k: string) => Boolean(process.env[k]?.trim());
   return (
     <>
       <PageHeader title="System status" description="Which services this deployment is connected to. Everything degrades gracefully, so the app works end to end with none of them." />
@@ -62,7 +63,19 @@ export default async function SettingsPage() {
                   ? `${cv.url}: ${cv.error}`
                   : "Uploads are analysed on-device only. The browser runs the same modules (parity-tested against the Python service)."
             }
-            hint={!cv.ok && "Deploy services/cv (modal deploy modal_app.py) and set CV_SERVICE_URL to re-run every upload on the server."}
+            hint={!cv.ok && "Deploy services/cv (modal deploy modal_app.py) and set CV_SERVICE_URL on Vercel / .env.local to re-run every upload on the server."}
+          />
+          <Row
+            state={live.droid ? "ok" : "off"}
+            title="Factory Droid"
+            detail={live.droid ? `Live drafting via ${live.droid_exec}` : "FACTORY_API_KEY not set — Generate module uses the offline template."}
+            hint={!live.droid && "Set FACTORY_API_KEY for live Droid drafts on /researcher/generate (and on Vercel for deploy)."}
+          />
+          <Row
+            state={live.daytona ? "ok" : "off"}
+            title="Daytona"
+            detail={live.daytona ? "Live landmark-track experiment sandboxes enabled." : "DAYTONA_API_KEY not set — experiments run in local Python workers only."}
+            hint={!live.daytona && "Set DAYTONA_API_KEY (optional DAYTONA_API_URL) for cloud Daytona checks on deploy."}
           />
           {health && (
             <CardBody className="border-t border-slate-100">

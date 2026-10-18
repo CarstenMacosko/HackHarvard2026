@@ -1,4 +1,3 @@
-import { Download } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdherenceChart } from "@/components/charts";
@@ -8,6 +7,7 @@ import { ButtonLink, Card, CardBody, CardHeader, KeyValues, PageHeader, SectionL
 import { CHECK_LABEL, conditionLabel, pct } from "@/lib/format";
 import { studyDetail } from "@/lib/queries";
 import { DeleteStudyButton } from "./delete-study-button";
+import { ExportCsvModal } from "@/components/export-csv-modal";
 import { InviteButton } from "./invite-button";
 
 const TABS = ["overview", "participants", "protocol", "data"] as const;
@@ -128,22 +128,17 @@ export default async function StudyPage({ params, searchParams }: { params: Prom
       {tab === "data" && (
         <div className="grid gap-6 xl:grid-cols-3">
           <Card className="xl:col-span-2">
-            <CardHeader title="Export observations" description="Long format: one row per measurement, with uncertainty, validation status, reviewer, model version and patient report." />
-            <CardBody className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <a href={`/api/export?study=${id}&format=csv`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-600 px-3.5 text-sm font-medium text-white hover:bg-brand-700">
-                  <Download className="h-4 w-4" /> Reviewed results (CSV)
-                </a>
-                <a href={`/api/export?study=${id}&format=json`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-white px-3.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
-                  <Download className="h-4 w-4" /> Reviewed results (JSON)
-                </a>
-                <a href={`/api/export?study=${id}&format=csv&include=all`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-white px-3.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
-                  <Download className="h-4 w-4" /> Everything, incl. unreviewed (CSV)
-                </a>
-              </div>
-              <p className="text-sm text-slate-500">
-                Only accepted or corrected observations enter the analysis export by default; rejected results never do. Each row keeps the model version and the analysis runtime, so results can
-                be re-analysed if a model changes.
+            <CardHeader
+              title="Export submissions"
+              description="Researcher-only CSV. One row per measurement, linked by IDs (no display names or media URLs). Clinical answers stay in patient_report JSON."
+              actions={<ExportCsvModal studyId={id} />}
+            />
+            <CardBody className="space-y-3 text-sm text-slate-600">
+              <p>
+                Use <span className="font-medium text-slate-900">Export CSV</span> to choose which review statuses to include (accepted, corrected, pending, rejected). Defaults to reviewed results only.
+              </p>
+              <p className="text-xs text-slate-500">
+                Columns include study/participant/observation/submission IDs, module, measurements, quality failures, review fields, model version, attempt/source, note IDs, and notes JSON.
               </p>
             </CardBody>
           </Card>

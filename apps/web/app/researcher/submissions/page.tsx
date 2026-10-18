@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExportCsvModal } from "@/components/export-csv-modal";
 import { Badge, Card, EmptyState, PageHeader, Table, Tabs, Td, Th, THead, Tr } from "@/components/ui";
 import { CHECK_LABEL, dateTime } from "@/lib/format";
 import { listStudies, submissionsInbox } from "@/lib/queries";
@@ -12,11 +13,19 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
     const p = new URLSearchParams(Object.entries({ study: f.study, result: f.result, ...patch }).filter(([, v]) => v) as [string, string][]);
     return `/researcher/submissions${p.size ? `?${p}` : ""}`;
   };
+  const studyOptions = studies.map((s) => ({ id: s.id, name: s.name }));
   return (
     <>
       <PageHeader
         title="Submissions"
         description="Every capture attempt, usable or not. Unusable attempts show what the quality gate caught and the instructions the participant received."
+        actions={
+          f.study ? (
+            <ExportCsvModal studyId={f.study} variant="secondary" />
+          ) : (
+            <ExportCsvModal studies={studyOptions} variant="secondary" />
+          )
+        }
       />
       <Tabs
         items={[
