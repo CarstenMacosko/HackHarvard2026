@@ -109,8 +109,7 @@ export function CheckIn({ task, dueNow, serverAnalysis }: { task: TaskConfig; du
         up = { photo: a.upload };
       } else {
         if (!isMediaKind(f, "video")) throw new Error("Please choose a video.");
-        const measurementNames = task.measurements.map((m) => m.name);
-        if (!isOnDeviceVideoModule(task.module, measurementNames)) {
+        if (!isOnDeviceVideoModule(task.module)) {
           throw new Error(`This check-in uses module ${task.module}, which is not available on-device.`);
         }
         const a = await analyzeVideoFile(f, task.module as VideoModuleId, task.quality_criteria, (fraction, stage) => setProgress({ fraction, stage }), trimStartS);

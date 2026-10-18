@@ -22,7 +22,7 @@ import { allocVideoTimestamps, loadHandLandmarker, loadImageEmbedder } from "./m
 export type VideoModuleId = "finger_tapping" | "hand_tremor" | "writing_posture" | (string & {});
 
 /** True when the browser can fully measure this module (not quality-only). */
-export function isOnDeviceVideoModule(module: string, _measurementNames: string[] = []): boolean {
+export function isOnDeviceVideoModule(module: string): boolean {
   // Every approved gen_* module uses the on-device hand-landmark pipeline; custom
   // measurement names are mapped from writing-posture features at check-in time.
   return (
