@@ -1,15 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { currentResearcher } from "@/lib/auth";
 import { ConflictError, backend } from "@/lib/backend";
 import { researcherName } from "@/lib/session";
+import { requireOwnedStudy } from "@/lib/study-access";
 
 export async function createInvite(studyId: string): Promise<string> {
-  if (!(await currentResearcher())) throw new Error("UNAUTHORIZED_RESEARCHER");
+  const study = await requireOwnedStudy(studyId);
   const db = backend();
-  const study = (await db.studies()).find((s) => s.id === studyId);
-  if (!study) throw new Error("unknown study");
   const existing = await db.participants({ studyId });
   const prefix = study.condition === "parkinsons" ? "PD" : study.condition === "eczema" ? "AD" : "ST";
   const id = `p_${studyId.slice(-2)}_${Date.now().toString(36)}`;
@@ -46,20 +44,20 @@ export async function createInvite(studyId: string): Promise<string> {
 
 /** Wipe a study and all tied rows. Created modules (droid jobs) are left alone. */
 export async function deleteStudyAction(studyId: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  try {
-    await researcherName();
-  } catch {
-    return { ok: false, error: "Sign in as a researcher to delete a study." };
-  }
   const id = studyId.trim();
   if (!id) return { ok: false, error: "Missing study id." };
-  const db = backend();
-  const study = (await db.studies()).find((s) => s.id === id);
-  if (!study) return { ok: false, error: "Study not found." };
+  let study;
+  try {
+    study = await requireOwnedStudy(id);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === "UNAUTHORIZED_RESEARCHER") return { ok: false, error: "Sign in as a researcher to delete a study." };
+    return { ok: false, error: "Study not found." };
+  }
   try {
     const by = await researcherName();
-    await db.deleteStudy(id);
-    await db.insertAudit({
+    await backend().deleteStudy(id);
+    await backend().insertAudit({
       actor: by,
       action: "study.deleted",
       entity: "study",

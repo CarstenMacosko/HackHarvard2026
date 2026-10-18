@@ -12,6 +12,7 @@ import {
   type ReportQuestion,
   type TaskConfig,
 } from "@vf/shared";
+import { currentResearcher } from "@/lib/auth";
 import { backend } from "@/lib/backend";
 import { taskConfigForModule } from "@/lib/created-modules";
 import { researcherName } from "@/lib/session";
@@ -31,11 +32,8 @@ export interface CreateStudyInput {
 }
 
 export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  try {
-    await researcherName();
-  } catch {
-    return { ok: false, error: "Sign in as a researcher to create a study." };
-  }
+  const owner = await currentResearcher();
+  if (!owner) return { ok: false, error: "Sign in as a researcher to create a study." };
   const name = input.name.trim();
   if (name.length < 3) return { ok: false, error: "Give the study a name." };
   if (!input.evals.length) return { ok: false, error: "Choose at least one required evaluation." };
@@ -101,7 +99,14 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
     consent: DEFAULT_CONSENT,
     reminders,
   });
-  const study: Study = { id, name, condition: input.condition, status: "active", protocol };
+  const study: Study = {
+    id,
+    name,
+    condition: input.condition,
+    status: "active",
+    protocol,
+    owner_portal_user_id: owner.id,
+  };
   const db = backend();
   await db.insertStudy(study);
   await db.insertAudit({ actor: by, action: "study.created", entity: "study", entity_id: id, detail: { evals: tasks.map((t) => t.id) } });

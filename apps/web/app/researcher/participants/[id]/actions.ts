@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { backend } from "@/lib/backend";
 import { ensureSchedule } from "@/lib/schedule";
 import { researcherName } from "@/lib/session";
+import { requireOwnedStudy } from "@/lib/study-access";
 
 export async function assignParticipantTasks(input: {
   participantId: string;
@@ -14,8 +15,12 @@ export async function assignParticipantTasks(input: {
   const db = backend();
   const [p] = await db.participants({ id: input.participantId });
   if (!p) return { ok: false, error: "Participant not found." };
-  const study = (await db.studies()).find((s) => s.id === p.study_id);
-  if (!study) return { ok: false, error: "Study not found." };
+  let study;
+  try {
+    study = await requireOwnedStudy(p.study_id);
+  } catch {
+    return { ok: false, error: "Study not found." };
+  }
   const valid = new Set(study.protocol.tasks.map((t) => t.id));
   const enabled = input.enabledTaskIds.filter((id) => valid.has(id));
   if (!enabled.length) return { ok: false, error: "No valid protocol tasks selected." };

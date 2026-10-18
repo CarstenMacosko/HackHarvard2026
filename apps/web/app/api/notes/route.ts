@@ -3,15 +3,26 @@ import { z } from "zod";
 import { currentResearcher } from "@/lib/auth";
 import { backend } from "@/lib/backend";
 import { researcherName } from "@/lib/session";
+import { researcherOwnsStudy } from "@/lib/study-access";
 
 const Body = z.object({
   observation_id: z.string().min(1),
   body: z.string().trim().min(1).max(4000),
 });
 
+async function observationInOwnedStudy(observationId: string): Promise<boolean> {
+  const [obs] = await backend().observations({ id: observationId });
+  return Boolean(obs && (await researcherOwnsStudy(obs.study_id)));
+}
+
 export async function GET(req: Request) {
+  const researcher = await currentResearcher();
+  if (!researcher) return NextResponse.json({ error: "Sign in as a researcher." }, { status: 401 });
   const observationId = new URL(req.url).searchParams.get("observation_id");
   if (!observationId) return NextResponse.json({ error: "observation_id required" }, { status: 400 });
+  if (!(await observationInOwnedStudy(observationId))) {
+    return NextResponse.json({ error: "Observation not found" }, { status: 404 });
+  }
   const notes = await backend().observationNotes(observationId);
   return NextResponse.json({ notes });
 }
@@ -21,6 +32,9 @@ export async function POST(req: Request) {
   if (!researcher) return NextResponse.json({ error: "Sign in as a researcher to add notes." }, { status: 401 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+  if (!(await observationInOwnedStudy(parsed.data.observation_id))) {
+    return NextResponse.json({ error: "Observation not found" }, { status: 404 });
+  }
   const note = {
     id: `note_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     observation_id: parsed.data.observation_id,

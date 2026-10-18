@@ -10,6 +10,8 @@ export interface Study {
   condition: Condition;
   status: "draft" | "active" | "closed";
   protocol: Protocol;
+  /** portal_users.id of the researcher who created the study; null = legacy / unowned */
+  owner_portal_user_id?: string | null;
 }
 
 export interface Participant {

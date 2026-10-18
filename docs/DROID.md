@@ -9,8 +9,10 @@ See **[MODULE_GENERATION.md](MODULE_GENERATION.md)** for the live demo, API, and
 | Environment | How Droid runs |
 |---|---|
 | Local dev (CLI present) | `@factory/droid-sdk/node` `run()` + `@factory/cli` binary |
-| Vercel / no CLI | Factory **managed computer** (e2b): `createComputer` → `relayClientUrl` → daemon session |
+| Vercel / no CLI | Factory **managed computer** (e2b) via HTTP Sessions API (`POST /api/v0/sessions` + messages poll) |
 | No `FACTORY_API_KEY` | Safe hand-movement Python template (Daytona can still tune params) |
+
+The WebSocket relay rejects API keys (`relay_unauthorized`); Vercel therefore uses Factory’s Sessions REST API with `FACTORY_API_KEY`, which does work. Ensure a managed computer exists (auto-created as `vf-streamcare-draft` on first generate).
 
 Managed-computer knobs (optional): `FACTORY_COMPUTER_NAME` (default `vf-streamcare-draft`), `FACTORY_COMPUTER_REMOTE_USER` (default `ubuntu`).
 

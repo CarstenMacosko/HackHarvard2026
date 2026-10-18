@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentResearcher } from "@/lib/auth";
 import { backend } from "@/lib/backend";
+import { researcherOwnsStudy } from "@/lib/study-access";
 import type { ObservationNote, Submission } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +31,7 @@ export async function GET(req: Request) {
   }
 
   const db = backend();
-  const studies = await db.studies();
-  const studyRow = studies.find((s) => s.id === study);
-  if (!study || !studyRow) return new Response("unknown study", { status: 400 });
+  if (!study || !(await researcherOwnsStudy(study))) return new Response("unknown study", { status: 400 });
 
   const [allObs, submissions] = await Promise.all([db.observations({ studyId: study }), db.submissions({ studyId: study })]);
   const obs = allObs.filter((o) => statuses.includes(o.review_status as ReviewStatus));

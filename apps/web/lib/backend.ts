@@ -320,14 +320,27 @@ function supabaseBackend(db: SupabaseClient): Backend {
   return {
     mode: "supabase",
     async studies() {
-      const rows = await all<Omit<Study, "protocol"> & { protocols: { version: number; config: unknown }[] }>(() =>
-        db.from("studies").select("id, name, condition, status, protocols(version, config)").order("created_at").order("id"),
+      const rows = await all<
+        Omit<Study, "protocol"> & { owner_portal_user_id?: string | null; protocols: { version: number; config: unknown }[] }
+      >(() =>
+        db
+          .from("studies")
+          .select("id, name, condition, status, owner_portal_user_id, protocols(version, config)")
+          .order("created_at")
+          .order("id"),
       );
       return rows
         .filter((s) => s.protocols.length)
         .map((s) => {
           const latest = [...s.protocols].sort((a, b) => b.version - a.version)[0];
-          return { id: s.id, name: s.name, condition: s.condition, status: s.status, protocol: Protocol.parse(latest.config) };
+          return {
+            id: s.id,
+            name: s.name,
+            condition: s.condition,
+            status: s.status,
+            owner_portal_user_id: s.owner_portal_user_id ?? null,
+            protocol: Protocol.parse(latest.config),
+          };
         });
     },
     async participants(f = {}) {
@@ -453,7 +466,15 @@ function supabaseBackend(db: SupabaseClient): Backend {
       must(await db.from("participants").update(patch).eq("id", id));
     },
     async insertStudy(s) {
-      must(await db.from("studies").insert({ id: s.id, name: s.name, condition: s.condition, status: s.status }));
+      must(
+        await db.from("studies").insert({
+          id: s.id,
+          name: s.name,
+          condition: s.condition,
+          status: s.status,
+          owner_portal_user_id: s.owner_portal_user_id ?? null,
+        }),
+      );
       const res = await db.from("protocols").insert({ study_id: s.id, version: s.protocol.version, config: s.protocol });
       if (res.error) {
         await db.from("studies").delete().eq("id", s.id); // no study without a protocol

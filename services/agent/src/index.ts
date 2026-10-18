@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type Observation } from "@vf/shared";
 import { DevAdapter } from "./adapters/dev";
-import { PhotonAdapter } from "./adapters/photon";
 import type { ChannelAdapter, InboundMessage } from "./adapters/types";
 import { handle, type ConvEvent, type Effect } from "./conversation";
 import { analyze } from "./cvClient";
@@ -14,10 +13,7 @@ const WEB_URL = process.env.WEB_URL ?? "http://localhost:3000";
 const supabase = supabaseFromEnv();
 export const store: Store = supabase ? new SupabaseStore(supabase) : new MemoryStore();
 
-const channel: ChannelAdapter =
-  process.env.AGENT_CHANNEL === "photon"
-    ? new PhotonAdapter({ apiKey: process.env.PHOTON_API_KEY ?? "", phoneNumber: process.env.PHOTON_PHONE_NUMBER ?? "" })
-    : new DevAdapter();
+const channel: ChannelAdapter = new DevAdapter();
 
 /** Feed one event through the state machine, send replies, run effects (which may feed more events). */
 export async function dispatch(p: ParticipantRecord, event: ConvEvent): Promise<void> {

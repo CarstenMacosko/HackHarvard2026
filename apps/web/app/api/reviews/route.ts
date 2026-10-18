@@ -3,6 +3,7 @@ import { z } from "zod";
 import { currentResearcher } from "@/lib/auth";
 import { backend } from "@/lib/backend";
 import { researcherName } from "@/lib/session";
+import { researcherOwnsStudy } from "@/lib/study-access";
 
 const Body = z.object({
   id: z.string(),
@@ -22,7 +23,9 @@ export async function POST(req: Request) {
 
   const db = backend();
   const [obs] = await db.observations({ id });
-  if (!obs) return NextResponse.json({ error: "Observation not found" }, { status: 404 });
+  if (!obs || !(await researcherOwnsStudy(obs.study_id))) {
+    return NextResponse.json({ error: "Observation not found" }, { status: 404 });
+  }
 
   const actor = await researcherName();
   const measurements =

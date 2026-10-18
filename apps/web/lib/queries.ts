@@ -1,8 +1,10 @@
 import "server-only";
 import { badgesEarned, balance, computeStreak, lifetimePoints, tierFor, type Observation, isOpen, type RewardEvent } from "@vf/shared";
 import { PRETRAINED } from "@vf/shared/pretrained";
+import { currentResearcher } from "./auth";
 import { backend } from "./backend";
 import { ensureSchedule } from "./schedule";
+import { ownedStudyIds } from "./study-access";
 import type { Participant, ParticipantSummary, ScheduledTask, Study, StudySummary, Submission } from "./types";
 
 /** Read models for pages. All derived numbers are computed here from raw rows. */
@@ -70,9 +72,13 @@ export async function navCounts() {
   };
 }
 
+/** Researcher-facing study list — only studies created by the signed-in researcher. */
 export async function listStudies(): Promise<StudySummary[]> {
   const db = backend();
-  const [studies, participants, obs, tasks] = await Promise.all([db.studies(), db.participants(), db.observations(), db.scheduledTasks()]);
+  const user = await currentResearcher();
+  if (!user) return [];
+  const [allStudies, participants, obs, tasks] = await Promise.all([db.studies(), db.participants(), db.observations(), db.scheduledTasks()]);
+  const studies = allStudies.filter((s) => s.owner_portal_user_id === user.id);
   return studies.map((s) => {
     const ps = participants.filter((p) => p.study_id === s.id);
     const ids = new Set(ps.map((p) => p.id));
@@ -94,7 +100,8 @@ export async function getStudy(id: string): Promise<Study | undefined> {
 
 export async function overview() {
   const db = backend();
-  const [studies, participants, obs, tasks, subs, rewards] = await Promise.all([
+  const owned = await ownedStudyIds();
+  const [studies, allParticipants, allObs, allTasks, allSubs, rewards] = await Promise.all([
     listStudies(),
     db.participants(),
     db.observations(),
@@ -102,6 +109,11 @@ export async function overview() {
     db.submissions(),
     db.rewardEvents(),
   ]);
+  const participants = allParticipants.filter((p) => owned.has(p.study_id));
+  const pids = new Set(participants.map((p) => p.id));
+  const obs = allObs.filter((o) => owned.has(o.study_id));
+  const tasks = allTasks.filter((t) => pids.has(t.participant_id));
+  const subs = allSubs.filter((s) => owned.has(s.study_id));
   const now = Date.now();
   const last30 = (iso: string) => now - new Date(iso).getTime() < 30 * DAY;
   const recentObs = obs.filter((o) => last30(o.captured_at));
@@ -142,10 +154,24 @@ export async function overview() {
 
 export async function listParticipants(f: { studyId?: string; status?: string; q?: string } = {}) {
   const db = backend();
-  const [studies, ps, obs, rewards, tasks] = await Promise.all([db.studies(), db.participants({ studyId: f.studyId }), db.observations(), db.rewardEvents(), db.scheduledTasks()]);
+  const owned = await ownedStudyIds();
+  if (f.studyId && !owned.has(f.studyId)) return [];
+  const [allStudies, ps, obs, rewards, tasks] = await Promise.all([
+    db.studies(),
+    db.participants({ studyId: f.studyId }),
+    db.observations(),
+    db.rewardEvents(),
+    db.scheduledTasks(),
+  ]);
+  const studies = allStudies.filter((s) => owned.has(s.id));
   const q = f.q?.trim().toLowerCase();
   return ps
-    .filter((p) => (!f.status || p.status === f.status) && (!q || p.display_name.toLowerCase().includes(q) || p.id.includes(q) || p.invite_code.toLowerCase().includes(q)))
+    .filter(
+      (p) =>
+        owned.has(p.study_id) &&
+        (!f.status || p.status === f.status) &&
+        (!q || p.display_name.toLowerCase().includes(q) || p.id.includes(q) || p.invite_code.toLowerCase().includes(q)),
+    )
     .map((p) => {
       const study = studies.find((s) => s.id === p.study_id);
       return { ...summarize(p, study, tasks, obs, rewards), study_name: study?.name ?? p.study_id };
@@ -154,8 +180,9 @@ export async function listParticipants(f: { studyId?: string; status?: string; q
 
 export async function studyDetail(id: string) {
   const db = backend();
+  const user = await currentResearcher();
   const study = await getStudy(id);
-  if (!study) return undefined;
+  if (!user || !study || study.owner_portal_user_id !== user.id) return undefined;
   const [participants, subs, models, obs] = await Promise.all([listParticipants({ studyId: id }), db.submissions({ studyId: id }), db.models(), db.observations({ studyId: id })]);
   const tasks = await db.scheduledTasks(participants.map((p) => p.id));
   const modules = new Set(study.protocol.tasks.map((t) => t.module));
@@ -178,9 +205,22 @@ export async function getParticipantDetail(id: string) {
   return { participant: summarize(p, study, tasks, obs, rewards), study, observations: obs, tasks, submissions: subs, rewards };
 }
 
+/** Researcher portal: participant detail only when the study is owned by the signed-in researcher. */
+export async function researcherParticipantDetail(id: string) {
+  const detail = await getParticipantDetail(id);
+  if (!detail?.study) return undefined;
+  const user = await currentResearcher();
+  if (!user || detail.study.owner_portal_user_id !== user.id) return undefined;
+  return detail;
+}
+
 export async function reviewQueue(studyId?: string) {
   const db = backend();
-  const [obs, participants, studies] = await Promise.all([db.observations({ status: "pending", studyId }), db.participants(), db.studies()]);
+  const owned = await ownedStudyIds();
+  if (studyId && !owned.has(studyId)) return [];
+  const [allObs, participants, allStudies] = await Promise.all([db.observations({ status: "pending", studyId }), db.participants(), db.studies()]);
+  const studies = allStudies.filter((s) => owned.has(s.id));
+  const obs = allObs.filter((o) => owned.has(o.study_id));
   const names = new Map(participants.map((p) => [p.id, p.display_name]));
   const studyNames = new Map(studies.map((s) => [s.id, s.name.split(":")[0]]));
   return obs.map((o) => ({ ...o, participant_name: names.get(o.participant_id) ?? o.participant_id, study_name: studyNames.get(o.study_id) ?? o.study_id }));
@@ -188,7 +228,11 @@ export async function reviewQueue(studyId?: string) {
 
 export async function submissionsInbox(f: { studyId?: string; result?: string } = {}) {
   const db = backend();
-  const [subs, participants, studies] = await Promise.all([db.submissions({ studyId: f.studyId }), db.participants(), db.studies()]);
+  const owned = await ownedStudyIds();
+  if (f.studyId && !owned.has(f.studyId)) return { rows: [], funnel: submissionFunnel([]) };
+  const [allSubs, participants, allStudies] = await Promise.all([db.submissions({ studyId: f.studyId }), db.participants(), db.studies()]);
+  const studies = allStudies.filter((s) => owned.has(s.id));
+  const subs = allSubs.filter((s) => owned.has(s.study_id));
   const names = new Map(participants.map((p) => [p.id, p.display_name]));
   const taskLabels = new Map(studies.flatMap((s) => s.protocol.tasks.map((t) => [t.id, t.label] as const)));
   const rows = [...subs]

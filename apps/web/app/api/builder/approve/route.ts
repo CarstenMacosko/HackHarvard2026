@@ -23,6 +23,8 @@ export async function POST(req: Request) {
   if (!d) return NextResponse.json({ error: "Draft not found" }, { status: 404 });
   if (d.status === "approved" && d.study_id) return NextResponse.json({ study_id: d.study_id, already: true });
 
+  const owner = await currentResearcher();
+  if (!owner) return NextResponse.json({ error: "Sign in as a researcher." }, { status: 401 });
   const actor = await researcherName();
   const studyId = `study_${slug(d.condition)}_${Date.now().toString(36).slice(-4)}`;
   // same defaults as the New study form: the standard consent text and an upload reminder per task
@@ -35,7 +37,14 @@ export async function POST(req: Request) {
     consent: { ...DEFAULT_CONSENT, title: `${d.condition} remote check-ins` },
     reminders: d.draft.tasks.map((t) => captureReminderFor(t, PERIOD_DAYS[t.cadence] * 24)),
   };
-  await db.insertStudy({ id: studyId, name: `${d.condition}: draft protocol`, condition: d.condition, status: "draft", protocol });
+  await db.insertStudy({
+    id: studyId,
+    name: `${d.condition}: draft protocol`,
+    condition: d.condition,
+    status: "draft",
+    protocol,
+    owner_portal_user_id: owner.id,
+  });
   const at = new Date().toISOString();
   await db.updateDraft(d.id, { status: "approved", study_id: studyId, approved_by: actor, approved_at: at });
   await db.insertAudit({ actor, action: "protocol.approved", entity: "study", entity_id: studyId, detail: { draft_id: d.id, condition: d.condition, tasks: d.draft.tasks.length } });

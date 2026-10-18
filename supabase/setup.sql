@@ -19,10 +19,14 @@ create table studies (
   id text primary key,
   name text not null,
   condition text not null,                  -- 'parkinsons' | 'eczema' | ...
-  owner_id uuid references researchers (id),
+  owner_id uuid references researchers (id),  -- legacy Supabase Auth (unused by portal)
+  owner_portal_user_id text,                  -- portal_users.id of the researcher who created it
   status text not null default 'active' check (status in ('draft', 'active', 'closed')),
   created_at timestamptz not null default now()
 );
+create index if not exists studies_owner_portal_user_id_idx
+  on studies (owner_portal_user_id)
+  where owner_portal_user_id is not null;
 
 create table study_members (
   study_id text references studies (id) on delete cascade,

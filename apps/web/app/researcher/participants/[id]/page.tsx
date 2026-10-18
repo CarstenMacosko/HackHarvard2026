@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import { Timeline } from "@/components/timeline";
 import { Badge, Card, CardBody, CardHeader, PageHeader, STATUS_TONE, Stat, Table, Td, Th, THead, Tr } from "@/components/ui";
 import { CHECK_LABEL, dateTime, pct, relTime, shortDate } from "@/lib/format";
-import { getParticipantDetail } from "@/lib/queries";
+import { researcherParticipantDetail } from "@/lib/queries";
 import { AssignTasks } from "./assign-tasks";
 
 export default async function ParticipantPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const d = await getParticipantDetail(id);
+  const d = await researcherParticipantDetail(id);
   if (!d) notFound();
   const { participant: p, study, observations, tasks, submissions } = d;
   const past = tasks.filter((t) => !isOpen(t)).sort((a, b) => a.due_at.localeCompare(b.due_at));
