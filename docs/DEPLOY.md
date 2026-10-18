@@ -1,6 +1,25 @@
 # Deploying the web app to Vercel
 
-This takes about 5 minutes and gives the team a shareable URL for both the researcher and participant sides. No environment variables are needed: the app runs on built-in synthetic data until Supabase is configured.
+This takes about 5 minutes and gives the team a shareable URL for both the researcher and participant sides.
+
+## Critical: set Supabase env vars before a real demo
+
+Without Supabase, each Vercel serverless instance keeps its **own empty in-memory store**. That causes:
+
+- **Writes that disappear** (sign-up, enroll, reviews, captures)
+- **Redirect loops** on `/researcher` (old demo auto-login tried to recreate a user that the next instance cannot see)
+
+Set these on **Vercel → Project → Settings → Environment Variables** for **Production** and **Preview**, then **Redeploy**:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same page → `anon` / publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Same page → `service_role` secret (**not** the anon key) |
+
+Also run [`supabase/setup.sql`](../supabase/setup.sql) once in the Supabase SQL editor (includes `portal_users`).
+
+Smoke-check after deploy: open `https://<your-app>/api/health` — expect `"mode":"supabase"` and `"ok":true`.
 
 ## One-time setup
 

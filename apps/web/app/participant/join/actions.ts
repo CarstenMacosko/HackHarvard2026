@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { RESEARCHER_COOKIE } from "@/lib/auth";
 import { backend } from "@/lib/backend";
+import { sessionCookieOptions } from "@/lib/deploy";
 import { ensureSchedule } from "@/lib/schedule";
 import { PARTICIPANT_COOKIE } from "@/lib/session";
 
@@ -27,11 +28,18 @@ export async function enroll(input: { code: string; displayName: string; consent
   if (!p || p.status !== "invited") return { ok: false, error: "Invitation not found or already used." };
   const at = new Date().toISOString();
   const patch = { status: "active" as const, display_name: name, phone: null, preferred_time: null, enrolled_at: at, consented_at: at };
-  await db.updateParticipant(p.id, patch);
-  await ensureSchedule({ ...p, ...patch });
-  await db.insertAudit({ actor: p.id, action: "participant.enrolled", entity: "participant", entity_id: p.id, detail: { consent: true, consented_at: at } });
+  try {
+    await db.updateParticipant(p.id, patch);
+    await ensureSchedule({ ...p, ...patch });
+    await db.insertAudit({ actor: p.id, action: "participant.enrolled", entity: "participant", entity_id: p.id, detail: { consent: true, consented_at: at } });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    console.error("[join] enroll failed:", msg);
+    return { ok: false, error: `Could not enroll: ${msg}` };
+  }
   const jar = await cookies();
-  jar.delete(RESEARCHER_COOKIE);
-  jar.set(PARTICIPANT_COOKIE, p.id, { path: "/", httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 90 });
+  const opts = sessionCookieOptions();
+  jar.set(RESEARCHER_COOKIE, "", { ...opts, maxAge: 0 });
+  jar.set(PARTICIPANT_COOKIE, p.id, opts);
   return { ok: true };
 }

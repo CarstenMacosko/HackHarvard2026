@@ -579,30 +579,58 @@ function loadRootEnvOnce() {
   }
 }
 
+function jwtRole(key: string): string | null {
+  try {
+    const part = key.split(".")[1];
+    if (!part) return null;
+    const json = Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    return (JSON.parse(json) as { role?: string }).role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function supabaseEnv(): { url: string; key: string } | null {
   loadRootEnvOnce();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  return url && key ? { url, key } : null;
+  if (!url || !key) return null;
+  const role = jwtRole(key);
+  // New sb_secret_… keys are fine; JWTs must be service_role (anon key cannot write with RLS on).
+  if (role && role !== "service_role") {
+    console.error(
+      `[backend] SUPABASE_SERVICE_ROLE_KEY has JWT role="${role}" — expected "service_role". ` +
+        `Using the anon/publishable key here blocks all writes under RLS.`,
+    );
+    return null;
+  }
+  return { url, key };
 }
 
 let cached: Backend | undefined;
 export function backend(): Backend {
   if (cached) return cached;
   const env = supabaseEnv();
+  const hosted = Boolean(process.env.VERCEL) || process.env.NODE_ENV === "production";
+
   // Prefer Supabase whenever keys are present. VF_DEMO_FRESH only forces empty in-memory
   // when Supabase is not configured (so `dev:refresh` does not mute a live project).
   if (!env && demoFreshSession()) {
     cached = demoBackend;
-    if (process.env.NODE_ENV !== "production") {
-      console.info("[backend] mode=demo (VF_DEMO_FRESH — empty session; not writing .data/demo-state.json)");
-    }
+    console.info("[backend] mode=demo (VF_DEMO_FRESH — empty session; not writing .data/demo-state.json)");
     return cached;
   }
-  cached = env ? supabaseBackend(createClient(env.url, env.key, { auth: { persistSession: false } })) : demoBackend;
-  if (process.env.NODE_ENV !== "production") {
-    console.info(`[backend] mode=${cached.mode}${env ? ` url=${env.url}` : ""}`);
+
+  if (!env && hosted) {
+    console.error(
+      "[backend] mode=demo on a hosted deploy — writes will NOT persist and sessions will break. " +
+        "Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY " +
+        "in Vercel → Project → Settings → Environment Variables (Production + Preview), then redeploy.",
+    );
   }
+
+  cached = env ? supabaseBackend(createClient(env.url, env.key, { auth: { persistSession: false } })) : demoBackend;
+  console.info(`[backend] mode=${cached.mode}${env ? ` url=${env.url}` : ""}${hosted ? " hosted=1" : ""}`);
   return cached;
 }
 

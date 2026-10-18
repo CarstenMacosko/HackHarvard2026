@@ -74,7 +74,7 @@ npm run dev
 # → http://localhost:3000
 ```
 
-With empty Supabase vars, the app runs on **in-memory / demo data** (fine for local UI work; data does not survive serverless restarts).
+With empty Supabase vars, the app runs on **in-memory / demo data** (fine for local UI work only). **On Vercel you must set Supabase env vars** or writes will not persist and auth can break — see [`docs/DEPLOY.md`](docs/DEPLOY.md). After deploy, check `/api/health` (`"mode":"supabase"`).
 
 ### Useful scripts
 
