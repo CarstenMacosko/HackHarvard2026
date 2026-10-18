@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { CvModel as CvModelSchema, Protocol, isOpen, type Observation, type RewardEvent, type SchedulePlan } from "@vf/shared";
-import { demoState } from "./demo-data";
+import { demoState, persistDemoState } from "./demo-data";
 import type {
   AuditEntry,
   CaptureRecord,
@@ -57,6 +57,11 @@ export interface Backend {
   updateParticipant(id: string, patch: Partial<Participant>): Promise<void>;
   /** A study and its first protocol version (New study form, or an approved builder draft). */
   insertStudy(s: Study): Promise<void>;
+  /**
+   * Hard-delete a study and all tied product data (participants, captures, rewards, drafts for that study).
+   * Created modules / droid jobs are kept so generated CV modules stay usable.
+   */
+  deleteStudy(studyId: string): Promise<void>;
   insertDraft(d: DraftRecord): Promise<void>;
   updateDraft(id: string, patch: Partial<DraftRecord>): Promise<void>;
   insertDroidJob(j: DroidJob): Promise<void>;
@@ -157,74 +162,112 @@ const demoBackend: Backend = {
     }
     if (c.next_task) insertCheckIns([c.next_task]);
     s.audit.push({ ...c.audit, id: `aud_${Date.now().toString(36)}_${s.audit.length}`, created_at: now() });
+    persistDemoState();
     return { observation_inserted, scheduled_task_updated, rewards_inserted: fresh.length };
   },
   applySchedule: async (plan) => {
     for (const t of demoState().scheduledTasks) if (plan.missed.includes(t.id) && isOpen(t)) t.status = "missed";
     insertCheckIns(plan.create);
+    persistDemoState();
   },
   updateScheduledTask: async (id, patch) => {
     const t = demoState().scheduledTasks.find((x) => x.id === id);
     if (t) Object.assign(t, patch);
+    persistDemoState();
   },
   updateObservation: async (id, patch) => {
     const o = demoState().observations.find((x) => x.id === id);
     if (o) Object.assign(o, patch);
+    persistDemoState();
   },
   insertReview: async (r) => {
     demoState().reviews.push({ ...r, id: crypto.randomUUID(), created_at: now() });
+    persistDemoState();
   },
   insertRewardEvents: async (e) => {
     const s = demoState();
     s.rewardEvents.push(...e.filter((x) => !s.rewardEvents.some((y) => y.id === x.id)));
+    persistDemoState();
   },
   insertRedemption: async (r) => {
     demoState().redemptions.push(r);
+    persistDemoState();
   },
   insertParticipant: async (p) => {
     const s = demoState();
     if (s.participants.some((x) => x.id === p.id || sameCode(x.invite_code, p.invite_code))) throw new ConflictError("That participant or invite code already exists.");
     s.participants.push(p);
+    persistDemoState();
   },
   insertScheduledTask: async (t) => {
     const s = demoState();
     if (!s.scheduledTasks.some((x) => x.participant_id === t.participant_id && x.task_id === t.task_id && x.due_at === t.due_at)) s.scheduledTasks.push(t);
+    persistDemoState();
   },
   updateParticipant: async (id, patch) => {
     const s = demoState();
     if (patch.phone && s.participants.some((x) => x.id !== id && x.phone === patch.phone)) throw new ConflictError("That phone number is already enrolled.");
     const p = s.participants.find((x) => x.id === id);
     if (p) Object.assign(p, patch);
+    persistDemoState();
   },
   insertStudy: async (study) => {
     const s = demoState();
     if (s.studies.some((x) => x.id === study.id)) throw new ConflictError("That study already exists.");
     s.studies.push(study);
+    persistDemoState();
+  },
+  deleteStudy: async (studyId) => {
+    const s = demoState();
+    const pids = new Set(s.participants.filter((p) => p.study_id === studyId).map((p) => p.id));
+    const oids = new Set(s.observations.filter((o) => o.study_id === studyId || pids.has(o.participant_id)).map((o) => o.id));
+    s.studies = s.studies.filter((x) => x.id !== studyId);
+    s.participants = s.participants.filter((p) => p.study_id !== studyId);
+    s.observations = s.observations.filter((o) => !oids.has(o.id));
+    s.submissions = s.submissions.filter((x) => x.study_id !== studyId && !pids.has(x.participant_id));
+    s.scheduledTasks = s.scheduledTasks.filter((t) => !pids.has(t.participant_id));
+    s.rewardEvents = s.rewardEvents.filter((e) => !pids.has(e.participant_id));
+    s.redemptions = s.redemptions.filter((r) => !pids.has(r.participant_id));
+    s.reviews = s.reviews.filter((r) => !oids.has(r.observation_id));
+    s.observationNotes = s.observationNotes.filter((n) => !oids.has(n.observation_id));
+    s.messages = s.messages.filter((m) => !m.participant_id || !pids.has(m.participant_id));
+    s.drafts = s.drafts.filter((d) => d.study_id !== studyId);
+    s.models = s.models.filter((m) => m.study_id !== studyId);
+    // Keep droid_jobs / created modules — reusable after study delete.
+    s.audit = s.audit.filter((a) => a.entity_id !== studyId && !(a.entity === "study" && a.entity_id === studyId));
+    persistDemoState();
   },
   insertDraft: async (d) => {
     demoState().drafts.push(d);
+    persistDemoState();
   },
   updateDraft: async (id, patch) => {
     const d = demoState().drafts.find((x) => x.id === id);
     if (d) Object.assign(d, patch);
+    persistDemoState();
   },
   insertDroidJob: async (j) => {
     demoState().droidJobs.push(j);
+    persistDemoState();
   },
   updateDroidJob: async (id, patch) => {
     const j = demoState().droidJobs.find((x) => x.id === id);
     if (j) Object.assign(j, patch, { updated_at: now() });
+    persistDemoState();
   },
   insertModel: async (m) => {
     demoState().models.push(m);
+    persistDemoState();
   },
   updateModel: async (id, patch) => {
     const m = demoState().models.find((x) => x.id === id);
     if (m) Object.assign(m, patch);
+    persistDemoState();
   },
   insertAudit: async (a) => {
     const s = demoState();
     s.audit.push({ ...a, id: `aud_${Date.now().toString(36)}_${s.audit.length}`, created_at: now() });
+    persistDemoState();
   },
   portalUsers: async (f = {}) =>
     demoState().portalUsers.filter(
@@ -234,13 +277,15 @@ const demoBackend: Backend = {
     const s = demoState();
     if (s.portalUsers.some((x) => x.email.toLowerCase() === u.email.toLowerCase())) throw new ConflictError("Email already registered.");
     s.portalUsers.push(u);
+    persistDemoState();
   },
   observationNotes: async (observationId) =>
     demoState().observationNotes.filter((n) => n.observation_id === observationId).sort(byTime),
   insertObservationNote: async (n) => {
     demoState().observationNotes.push(n);
+    persistDemoState();
   },
-  health: async () => ({ ok: true, tables: [], bucket: { ok: true, detail: "in-memory (demo mode)" } }),
+  health: async () => ({ ok: true, tables: [], bucket: { ok: true, detail: "persisted demo (.data/demo-state.json)" } }),
 };
 
 function insertCheckIns(rows: CaptureRecord["next_task"][]) {
@@ -413,6 +458,32 @@ function supabaseBackend(db: SupabaseClient): Backend {
       if (res.error) {
         await db.from("studies").delete().eq("id", s.id); // no study without a protocol
         must(res);
+      }
+    },
+    async deleteStudy(studyId) {
+      // Cascades remove participants, protocols, observations, submissions, etc.
+      // Leave droid_jobs (created modules) intact. Clear study-scoped drafts/models explicitly.
+      await db.from("workflow_drafts").delete().eq("study_id", studyId);
+      await db.from("cv_models").delete().eq("study_id", studyId);
+      must(await db.from("studies").delete().eq("id", studyId));
+      try {
+        const sb = db;
+        const prefix = `studies/${studyId.replace(/[^\w-]/g, "_")}/`;
+        const listed = await sb.storage.from(MEDIA_BUCKET).list(prefix.slice(0, -1));
+        // Best-effort: remove top-level participant folders under this study.
+        const { data: roots } = await sb.storage.from(MEDIA_BUCKET).list(`studies/${studyId.replace(/[^\w-]/g, "_")}`);
+        if (roots?.length) {
+          for (const entry of roots) {
+            const base = `studies/${studyId.replace(/[^\w-]/g, "_")}/${entry.name}`;
+            const { data: files } = await sb.storage.from(MEDIA_BUCKET).list(base, { limit: 1000 });
+            if (files?.length) {
+              await sb.storage.from(MEDIA_BUCKET).remove(files.map((f) => `${base}/${f.name}`));
+            }
+          }
+        }
+        void listed;
+      } catch {
+        /* media cleanup is best-effort for the demo */
       }
     },
     async insertDraft(d) {

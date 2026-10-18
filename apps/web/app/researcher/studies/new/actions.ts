@@ -5,7 +5,6 @@ import {
   DEFAULT_CONSENT,
   DEFAULT_REWARDS,
   Protocol,
-  TASK_LIBRARY,
   captureReminderFor,
   clinicalQuestionsForModule,
   type Cadence,
@@ -14,6 +13,7 @@ import {
   type TaskConfig,
 } from "@vf/shared";
 import { backend } from "@/lib/backend";
+import { taskConfigForModule } from "@/lib/created-modules";
 import { researcherName } from "@/lib/session";
 import type { Condition, Study } from "@/lib/types";
 
@@ -39,8 +39,16 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
 
   const tasks: TaskConfig[] = [];
   for (const ev of input.evals) {
-    const base = TASK_LIBRARY[ev.module];
-    if (!base) return { ok: false, error: `Unknown evaluation ${ev.module}` };
+    const base = await taskConfigForModule(ev.module, ev.cadence);
+    if (!base) {
+      return {
+        ok: false,
+        error:
+          ev.module.startsWith("gen_") || input.condition === "focal_hand_dystonia"
+            ? `Unknown evaluation ${ev.module}. Approve a generated module under Generate module first.`
+            : `Unknown evaluation ${ev.module}`,
+      };
+    }
     const questions = (ev.report_questions?.length ? ev.report_questions : clinicalQuestionsForModule(ev.module)).map((q, i) => ({
       key: q.key.trim() || `q_${i}`,
       prompt: q.prompt.trim(),
@@ -48,7 +56,7 @@ export async function createStudy(input: CreateStudyInput): Promise<{ ok: true; 
       options: q.type === "choice" ? (q.options?.length ? q.options : ["Yes", "No"]) : undefined,
     }));
     if (questions.some((q) => !q.prompt)) return { ok: false, error: "Every clinical-form question needs a prompt." };
-    tasks.push({ ...structuredClone(base), cadence: ev.cadence, report_questions: questions });
+    tasks.push({ ...base, cadence: ev.cadence, report_questions: questions });
   }
 
   const reminders: ReminderConfig[] = input.reminders

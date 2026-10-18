@@ -43,3 +43,35 @@ export async function createInvite(studyId: string): Promise<string> {
   revalidatePath(`/researcher/studies/${studyId}`);
   return code;
 }
+
+/** Wipe a study and all tied rows. Created modules (droid jobs) are left alone. */
+export async function deleteStudyAction(studyId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await researcherName();
+  } catch {
+    return { ok: false, error: "Sign in as a researcher to delete a study." };
+  }
+  const id = studyId.trim();
+  if (!id) return { ok: false, error: "Missing study id." };
+  const db = backend();
+  const study = (await db.studies()).find((s) => s.id === id);
+  if (!study) return { ok: false, error: "Study not found." };
+  try {
+    const by = await researcherName();
+    await db.deleteStudy(id);
+    await db.insertAudit({
+      actor: by,
+      action: "study.deleted",
+      entity: "study",
+      entity_id: id,
+      detail: { name: study.name },
+    });
+    revalidatePath("/researcher/studies");
+    revalidatePath(`/researcher/studies/${id}`);
+    revalidatePath("/researcher/participants");
+    revalidatePath("/researcher/review");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
